@@ -11,12 +11,11 @@ import { Input } from "@/components/ui/input";
 
 type AccountFormsProps = {
   auid: string;
-  accessToken: string;
 };
 
 const initialState: AuthActionState = {};
 
-export function AccountForms({ auid, accessToken }: AccountFormsProps) {
+export function AccountForms({ auid }: AccountFormsProps) {
   const [usernameState, addUsername, addingUsername] = useActionState(
     addUsernameAction,
     initialState,
@@ -32,7 +31,6 @@ export function AccountForms({ auid, accessToken }: AccountFormsProps) {
         <h2 className="text-lg font-semibold text-black">Add username</h2>
         <form action={addUsername} className="mt-4 space-y-4">
           <input type="hidden" name="auid" value={auid} />
-          <input type="hidden" name="accessToken" value={accessToken} />
           <Input name="username" label="Username" placeholder="new.username" required />
           {usernameState.error ? (
             <p className="text-sm text-neutral-700">{usernameState.error}</p>
@@ -49,11 +47,10 @@ export function AccountForms({ auid, accessToken }: AccountFormsProps) {
       <section className="rounded-2xl border border-black/5 bg-white/70 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
         <h2 className="text-lg font-semibold text-black">Change password</h2>
         <p className="mt-2 text-sm text-neutral-500">
-          Requires a token ID from your backend token system.
+          Uses your current signed-in session to authorize the update.
         </p>
         <form action={changePassword} className="mt-4 space-y-4">
           <input type="hidden" name="auid" value={auid} />
-          <Input name="tokenId" label="Token ID" placeholder="Token identifier" required />
           <Input
             name="newPassword"
             label="New password"

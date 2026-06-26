@@ -37,7 +37,7 @@ mutation CreateUser(
 
 mutation ChangePassword(
   $auid: ID!
-  $tokenId: String!
+  $tokenId: String
   $newPassword: String!
 ) {
   changePassword(auid: $auid, tokenId: $tokenId, newPassword: $newPassword)

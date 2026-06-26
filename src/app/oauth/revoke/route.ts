@@ -1,5 +1,6 @@
 import { oauthError, revokeWithBackend } from "@/lib/oauth/adapter";
 import { parseRequestBody, revokeRequestSchema } from "@/lib/oauth/schemas";
+import { unwrapRefreshToken } from "@/lib/oauth/refresh-token";
 
 export async function POST(request: Request) {
   const body = await parseRequestBody(request);
@@ -12,8 +13,17 @@ export async function POST(request: Request) {
     );
   }
 
+  let token = parsed.data.token;
+
   try {
-    await revokeWithBackend(parsed.data.token);
+    const unwrapped = await unwrapRefreshToken(token);
+    token = unwrapped.backendRefreshToken;
+  } catch {
+    // Token may already be a raw backend refresh token.
+  }
+
+  try {
+    await revokeWithBackend(token);
   } catch {
     // RFC 7009: revocation endpoint returns 200 even if token is unknown
   }

@@ -5,12 +5,12 @@ import {
   validateRedirectUri,
   validateScopes,
 } from "@/lib/oauth/clients";
-import { generateOpaqueCode } from "@/lib/oauth/pkce";
-import { authorizeQuerySchema } from "@/lib/oauth/schemas";
 import {
   AUTH_CODE_TTL_MS,
-  getAuthorizationCodeStore,
-} from "@/lib/oauth/store";
+  saveAuthorizationCode,
+} from "@/lib/oauth/auth-code-store";
+import { generateOpaqueCode } from "@/lib/oauth/pkce";
+import { authorizeQuerySchema } from "@/lib/oauth/schemas";
 import { SESSION_COOKIE, getSession } from "@/lib/session";
 
 function oauthRedirectError(
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   }
 
   const query = parsed.data;
-  const client = getOAuthClient(query.client_id);
+  const client = await getOAuthClient(query.client_id);
 
   if (!client) {
     return NextResponse.json(
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 
   const code = await generateOpaqueCode();
-  getAuthorizationCodeStore().save({
+  await saveAuthorizationCode({
     code,
     clientId: client.clientId,
     redirectUri: query.redirect_uri,
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     credentials: session.credentials,
     codeChallenge: query.code_challenge,
     codeChallengeMethod: "S256",
-    expiresAt: Date.now() + AUTH_CODE_TTL_MS,
+    expiresAt: new Date(Date.now() + AUTH_CODE_TTL_MS),
   });
 
   const redirectUrl = new URL(query.redirect_uri);

@@ -2,13 +2,14 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getAuthSdk } from "@/lib/auth-graphql";
+import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import { loginWithBackend } from "@/lib/oauth/adapter";
 import {
   getOAuthClient,
   normalizeScopes,
   validateScopes,
 } from "@/lib/oauth/clients";
+import { scopesToBackendPermissions } from "@/lib/oauth/permissions";
 import {
   authorizeQuerySchema,
   buildAuthorizeReturnUrl,
@@ -16,6 +17,7 @@ import {
 import {
   SESSION_COOKIE,
   clearSessionCookieOptions,
+  getSession,
   serializeSession,
   sessionCookieOptions,
   type IdPSession,
@@ -25,6 +27,11 @@ export type AuthActionState = {
   error?: string;
   success?: string;
 };
+
+async function getActionSession(): Promise<IdPSession | null> {
+  const cookieStore = await cookies();
+  return getSession(cookieStore.get(SESSION_COOKIE)?.value);
+}
 
 function parseOAuthParams(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
@@ -57,7 +64,7 @@ export async function loginAction(
   let scopes = ["openid"];
 
   if (oauthParams) {
-    const client = getOAuthClient(oauthParams.client_id);
+    const client = await getOAuthClient(oauthParams.client_id);
     if (!client) {
       return { error: "Unknown OAuth client." };
     }
@@ -77,7 +84,12 @@ export async function loginAction(
 
   let credentials;
   try {
-    credentials = await loginWithBackend(auid, password, scopes);
+    const backendPermissions = scopesToBackendPermissions(scopes);
+    credentials = await loginWithBackend(
+      auid,
+      password,
+      backendPermissions ?? [],
+    );
   } catch (error) {
     return {
       error:
@@ -112,7 +124,7 @@ export async function consentAction(formData: FormData) {
     redirect("/login");
   }
 
-  const client = getOAuthClient(oauthParams.client_id);
+  const client = await getOAuthClient(oauthParams.client_id);
   if (!client) {
     redirect("/login");
   }
@@ -179,12 +191,19 @@ export async function registerAction(
     const result = await sdk.CreateUser({ username, password });
     auid = result.createUser.auid;
   } catch (error) {
-    return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Unable to create account. Try again.",
-    };
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unable to create account. Try again.";
+
+    if (message.includes('"path":["createUser"]')) {
+      return {
+        error:
+          "Unable to create account. This username may already be taken.",
+      };
+    }
+
+    return { error: message };
   }
 
   redirect(`/login?registered=${encodeURIComponent(auid)}`);
@@ -200,13 +219,16 @@ export async function changePasswordAction(
   _prevState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const auid = String(formData.get("auid") ?? "").trim();
-  const tokenId = String(formData.get("tokenId") ?? "").trim();
+  const session = await getActionSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+
   const newPassword = String(formData.get("newPassword") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!auid || !tokenId || !newPassword) {
-    return { error: "All password fields are required." };
+  if (!newPassword) {
+    return { error: "New password is required." };
   }
 
   if (newPassword !== confirmPassword) {
@@ -214,8 +236,8 @@ export async function changePasswordAction(
   }
 
   try {
-    const sdk = getAuthSdk();
-    await sdk.ChangePassword({ auid, tokenId, newPassword });
+    const sdk = getAuthSdkForSession(session);
+    await sdk.ChangePassword({ auid: session.auid, newPassword });
     return { success: "Password updated successfully." };
   } catch (error) {
     return {
@@ -231,17 +253,20 @@ export async function addUsernameAction(
   _prevState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const auid = String(formData.get("auid") ?? "").trim();
-  const username = String(formData.get("username") ?? "").trim();
-  const accessToken = String(formData.get("accessToken") ?? "");
+  const session = await getActionSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
 
-  if (!auid || !username || !accessToken) {
-    return { error: "Missing required fields." };
+  const username = String(formData.get("username") ?? "").trim();
+
+  if (!username) {
+    return { error: "Username is required." };
   }
 
   try {
-    const sdk = getAuthSdk(accessToken);
-    await sdk.AddUsername({ auid, username });
+    const sdk = getAuthSdkForSession(session);
+    await sdk.AddUsername({ auid: session.auid, username });
     return { success: "Username added." };
   } catch (error) {
     return {

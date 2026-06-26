@@ -31,6 +31,12 @@ export default async function CallbackPage({
               Authorization code
             </p>
             <p className="mt-2 break-all font-mono text-xs text-black">{code}</p>
+            <p className="mt-4 text-xs leading-relaxed text-neutral-500">
+              Exchange this code at <code>/oauth/token</code>. The response includes
+              an IdP JWT as <code>access_token</code> (also accepted by AXUS GraphQL
+              APIs), an opaque <code>axus_access_token</code> for the same APIs,
+              and optionally <code>id_token</code> and <code>refresh_token</code>.
+            </p>
           </div>
         ) : null}
         <Link

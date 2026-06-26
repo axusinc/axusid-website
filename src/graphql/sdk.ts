@@ -59,12 +59,14 @@ export type Mutation = {
 
 export type MutationAddUsernameArgs = {
   auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
 
 export type MutationChangeDefaultUsernameArgs = {
   auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
@@ -72,13 +74,14 @@ export type MutationChangeDefaultUsernameArgs = {
 export type MutationChangePasswordArgs = {
   auid: Scalars['ID']['input'];
   newPassword: Scalars['String']['input'];
-  tokenId: Scalars['String']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type MutationChangeVariationDescriptionArgs = {
   auid: Scalars['ID']['input'];
   description?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -86,6 +89,7 @@ export type MutationChangeVariationDescriptionArgs = {
 export type MutationChangeVariationFirstNameArgs = {
   auid: Scalars['ID']['input'];
   firstName?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -93,6 +97,7 @@ export type MutationChangeVariationFirstNameArgs = {
 export type MutationChangeVariationIconArgs = {
   auid: Scalars['ID']['input'];
   icon?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -100,6 +105,7 @@ export type MutationChangeVariationIconArgs = {
 export type MutationChangeVariationLastNameArgs = {
   auid: Scalars['ID']['input'];
   lastName?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -107,6 +113,7 @@ export type MutationChangeVariationLastNameArgs = {
 export type MutationChangeVariationLocationIdArgs = {
   auid: Scalars['ID']['input'];
   locationId?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -114,6 +121,7 @@ export type MutationChangeVariationLocationIdArgs = {
 export type MutationChangeVariationStatusArgs = {
   auid: Scalars['ID']['input'];
   status?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -134,6 +142,7 @@ export type MutationCreateVariationArgs = {
   lastName?: InputMaybe<Scalars['String']['input']>;
   locationId?: InputMaybe<Scalars['String']['input']>;
   status?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -158,6 +167,7 @@ export type MutationRefreshCredentialsArgs = {
 
 export type MutationRemoveUsernameArgs = {
   auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
@@ -169,6 +179,7 @@ export type MutationRevokeCredentialsArgs = {
 
 export type MutationSetDefaultVariationArgs = {
   auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -267,7 +278,7 @@ export type CreateUserMutation = { createUser: { auid: string, id: string } };
 
 export type ChangePasswordMutationVariables = Exact<{
   auid: string | number;
-  tokenId: string;
+  tokenId?: string | null | undefined;
   newPassword: string;
 }>;
 
@@ -421,7 +432,7 @@ export const CreateUserDocument = gql`
 }
     `;
 export const ChangePasswordDocument = gql`
-    mutation ChangePassword($auid: ID!, $tokenId: String!, $newPassword: String!) {
+    mutation ChangePassword($auid: ID!, $tokenId: String, $newPassword: String!) {
   changePassword(auid: $auid, tokenId: $tokenId, newPassword: $newPassword)
 }
     `;

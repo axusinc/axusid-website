@@ -1,12 +1,12 @@
-import {
-  credentialsToTokenResponse,
-  oauthError,
-  refreshWithBackend,
-} from "@/lib/oauth/adapter";
+import { oauthError } from "@/lib/oauth/adapter";
+import { consumeAuthorizationCode } from "@/lib/oauth/auth-code-store";
 import { getOAuthClient } from "@/lib/oauth/clients";
 import { verifyPkceChallenge } from "@/lib/oauth/pkce";
 import { parseRequestBody, tokenRequestSchema } from "@/lib/oauth/schemas";
-import { getAuthorizationCodeStore } from "@/lib/oauth/store";
+import {
+  issueTokenResponse,
+  refreshTokenResponse,
+} from "@/lib/oauth/token-response";
 
 export async function POST(request: Request) {
   const body = await parseRequestBody(request);
@@ -23,8 +23,8 @@ export async function POST(request: Request) {
 
   if (payload.grant_type === "refresh_token") {
     try {
-      const credentials = await refreshWithBackend(payload.refresh_token);
-      return Response.json(credentialsToTokenResponse(credentials), {
+      const tokenResponse = await refreshTokenResponse(payload.refresh_token);
+      return Response.json(tokenResponse, {
         headers: {
           "Cache-Control": "no-store",
           Pragma: "no-cache",
@@ -39,14 +39,18 @@ export async function POST(request: Request) {
     }
   }
 
-  const client = getOAuthClient(payload.client_id);
+  const client = await getOAuthClient(payload.client_id);
   if (!client) {
     return oauthError("invalid_client", "Unknown client_id", 401);
   }
 
-  const record = getAuthorizationCodeStore().consume(payload.code);
+  const record = await consumeAuthorizationCode(payload.code);
   if (!record) {
-    return oauthError("invalid_grant", "Authorization code is invalid or expired", 400);
+    return oauthError(
+      "invalid_grant",
+      "Authorization code is invalid or expired",
+      400,
+    );
   }
 
   if (record.clientId !== payload.client_id) {
@@ -66,13 +70,25 @@ export async function POST(request: Request) {
     return oauthError("invalid_grant", "PKCE verification failed", 400);
   }
 
-  return Response.json(
-    credentialsToTokenResponse(record.credentials, record.scopes.join(" ")),
-    {
+  try {
+    const tokenResponse = await issueTokenResponse({
+      auid: record.auid,
+      clientId: record.clientId,
+      scopes: record.scopes,
+      credentials: record.credentials,
+    });
+
+    return Response.json(tokenResponse, {
       headers: {
         "Cache-Control": "no-store",
         Pragma: "no-cache",
       },
-    },
-  );
+    });
+  } catch (error) {
+    return oauthError(
+      "server_error",
+      error instanceof Error ? error.message : "Token issuance failed",
+      500,
+    );
+  }
 }

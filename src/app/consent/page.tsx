@@ -27,7 +27,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   }
 
   const query = parsed.data;
-  const client = getOAuthClient(query.client_id);
+  const client = await getOAuthClient(query.client_id);
   if (!client) {
     redirect("/login");
   }

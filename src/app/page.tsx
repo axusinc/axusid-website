@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { getIssuer } from "@/lib/oauth/clients";
+import { getIssuer } from "@/lib/oauth/constants";
 
 export default function HomePage() {
   const issuer = getIssuer();
@@ -61,6 +61,11 @@ export default function HomePage() {
                 </dd>
               </div>
             </dl>
+            <div className="mt-6">
+              <Link href="/developer/oauth/clients">
+                <Button variant="outline">Register your app</Button>
+              </Link>
+            </div>
           </article>
         </section>
       </main>

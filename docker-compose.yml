@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: axusid
+      POSTGRES_PASSWORD: axusid
+      POSTGRES_DB: axusid
+    volumes:
+      - axusid_pg_data:/var/lib/postgresql/data
+
+volumes:
+  axusid_pg_data:

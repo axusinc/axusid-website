@@ -4,8 +4,9 @@ import { cookies } from "next/headers";
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
-import { getAuthSdk } from "@/lib/auth-graphql";
+import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { SESSION_COOKIE, getSession } from "@/lib/session";
+import { fetchUserProfileWithVariations } from "@/lib/user-profile";
 import { AccountForms } from "./account-forms";
 
 export default async function AccountPage() {
@@ -16,11 +17,11 @@ export default async function AccountPage() {
     redirect("/login");
   }
 
-  const sdk = getAuthSdk(session.credentials.accessToken);
-  const [{ user }, { variations }] = await Promise.all([
-    sdk.User({ auid: session.auid }),
-    sdk.Variations({ auid: session.auid }),
-  ]);
+  const sdk = getAuthSdkForSession(session);
+  const { user, variations } = await fetchUserProfileWithVariations(
+    sdk,
+    session.auid,
+  );
 
   return (
     <div className="relative min-h-full overflow-hidden bg-white">
@@ -63,7 +64,7 @@ export default async function AccountPage() {
                 Default username
               </dt>
               <dd className="mt-1 text-sm text-black">
-                {user?.usernames.defaultUsername}
+                {user?.usernames?.defaultUsername}
               </dd>
             </div>
             <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
@@ -71,7 +72,7 @@ export default async function AccountPage() {
                 Usernames
               </dt>
               <dd className="mt-2 flex flex-wrap gap-2">
-                {user?.usernames.usernames.map((username) => (
+                {user?.usernames?.usernames.map((username) => (
                   <span
                     key={username}
                     className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs text-neutral-700"
@@ -82,6 +83,12 @@ export default async function AccountPage() {
               </dd>
             </div>
           </dl>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="/developer/oauth/clients">
+              <Button variant="outline">Developer apps</Button>
+            </Link>
+          </div>
 
           <div className="mt-8">
             <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-neutral-400">
@@ -120,10 +127,7 @@ export default async function AccountPage() {
           </div>
         </section>
 
-        <AccountForms
-          auid={session.auid}
-          accessToken={session.credentials.accessToken}
-        />
+        <AccountForms auid={session.auid} />
       </main>
 
       <footer className="relative border-t border-black/5 px-6 py-6 text-center text-sm text-neutral-500">

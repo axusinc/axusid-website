@@ -1,12 +1,13 @@
 # AXUS ID
 
-Modern identity frontend and OAuth2 adapter for the AXUS auth GraphQL backend.
+Modern identity frontend and OpenID Connect provider for the AXUS auth GraphQL backend.
 
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS
 - GraphQL Code Generator typed SDK (`graphql-request`)
-- OAuth2 Authorization Code + PKCE (S256)
+- OpenID Connect + OAuth2 Authorization Code + PKCE (S256)
+- PostgreSQL + Drizzle ORM
 
 ## Setup
 
@@ -22,15 +23,29 @@ npm install
 cp .env.example .env.local
 ```
 
-3. Ensure the auth backend is running at `http://localhost:8081/graphql`.
+3. Start PostgreSQL and run migrations:
 
-4. Generate the GraphQL SDK (re-run after schema changes):
+```bash
+docker compose up -d
+npm run db:migrate
+npm run db:seed
+```
+
+4. Generate OAuth JWT keys and add them to `.env.local`:
+
+```bash
+node scripts/generate-oauth-keys.mjs
+```
+
+5. Ensure the auth backend is running at `http://localhost:8081/graphql`.
+
+6. Generate the GraphQL SDK (re-run after schema changes):
 
 ```bash
 npm run codegen
 ```
 
-5. Start the dev server:
+7. Start the dev server:
 
 ```bash
 npm run dev
@@ -44,26 +59,61 @@ AXUS ID runs at `http://localhost:3000`.
 |---|---|
 | `AUTH_GRAPHQL_ENDPOINT` | GraphQL endpoint (default: `http://localhost:8081/graphql`) |
 | `OAUTH_ISSUER` | Public issuer URL (default: `http://localhost:3000`) |
-| `SESSION_SECRET` | Secret for signing IdP session cookies |
+| `SESSION_SECRET` | Secret for signing IdP session cookies and encrypting stored credentials |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `OAUTH_JWT_PRIVATE_KEY` | PEM RS256 private key for IdP JWTs |
+| `OAUTH_JWT_PUBLIC_KEY` | PEM RS256 public key (published via JWKS) |
 
-## OAuth2 endpoints
+## OAuth / OIDC endpoints
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /.well-known/openid-configuration` | Discovery document |
+| `GET /.well-known/jwks.json` | JWKS for JWT verification |
 | `GET /authorize` | Authorization endpoint (Authorization Code + PKCE) |
 | `POST /oauth/token` | Token endpoint (`authorization_code`, `refresh_token`) |
+| `GET /oauth/userinfo` | UserInfo endpoint (Bearer IdP JWT) |
 | `POST /oauth/revoke` | Token revocation |
+
+### Token response
+
+Token exchange returns a dual-token response:
+
+```json
+{
+  "access_token": "<IdP-signed JWT>",
+  "id_token": "<IdP-signed JWT when openid scope>",
+  "axus_access_token": "<backend bearer for GraphQL>",
+  "refresh_token": "<IdP-wrapped opaque token when offline_access scope>",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "openid profile"
+}
+```
+
+- `access_token` — IdP JWT for OIDC libraries, `/oauth/userinfo`, and AXUS GraphQL API calls
+- `axus_access_token` — backend opaque token for AXUS GraphQL API calls
+- `id_token` — identity JWT when `openid` is granted
+- `refresh_token` — wrapped refresh token when `offline_access` is granted
 
 ### Dev client
 
-Registered by default in `src/lib/oauth/clients.ts`:
+Seeded by `npm run db:seed`:
 
 - `client_id`: `axusid-dev`
-- `redirect_uris`: `http://localhost:3000/callback`, `http://localhost:3001/callback`
+- `redirect_uris`: `http://localhost:3000/callback`, `http://localhost:3001/callback`, `http://127.0.0.1:3000/callback`
 - `scopes`: `openid`, `profile`, `email`, `offline_access`
 
+### Developer portal
+
+Any signed-in AXUS ID user can register OAuth clients at `/developer/oauth/clients`.
+
 ## GraphQL mapping
+
+Protected GraphQL operations require an `Authorization: Bearer …` header. The backend accepts either:
+
+- the opaque backend token (`axus_access_token` from `/oauth/token`), or
+- the IdP JWT access token (`access_token` from `/oauth/token`, with permissions in the `scope` claim)
 
 | OAuth2 concept | GraphQL operation |
 |---|---|
@@ -71,18 +121,20 @@ Registered by default in `src/lib/oauth/clients.ts`:
 | Token refresh | `refreshCredentials(refreshToken)` |
 | Token revoke | `revokeCredentials(refreshToken)` |
 | Registration | `createUser(username, password)` |
-| Password change | `changePassword(auid, tokenId, newPassword)` |
+| Password change | `changePassword(auid, newPassword)` with Bearer auth |
 
-`permissions` on `login` carries the requested OAuth scopes.
+OIDC scopes (`openid`, `profile`, `email`, `offline_access`) are **not** AXUS hierarchical permissions. They control consent, JWT claims, and refresh token issuance. Backend `permissions` on login are omitted for standard OIDC scopes.
+
+The `email` scope is accepted but no email claim is available until the backend exposes one.
 
 ## OAuth2 flow
 
 1. Client redirects the user to `/authorize` with PKCE params.
-2. User signs in at `/login` with **AUID + password** (no username lookup exists yet).
+2. User signs in at `/login` with **AUID + password**.
 3. User approves scopes at `/consent`.
-4. AXUS ID issues a short-lived authorization code and redirects back.
+4. AXUS ID stores a short-lived authorization code in PostgreSQL and redirects back.
 5. Client exchanges the code at `/oauth/token` with the PKCE verifier.
-6. Backend-issued `AuthCredentials` are returned as OAuth tokens.
+6. AXUS ID returns IdP JWTs plus `axus_access_token`.
 
 ### Example authorize URL
 
@@ -109,15 +161,19 @@ echo -n "VERIFIER" | openssl dgst -sha256 -binary | openssl base64 | tr '+/' '-_
 | `/login` | Sign in (AUID + password) |
 | `/consent` | OAuth scope approval |
 | `/account` | Profile, usernames, variations |
+| `/developer/oauth/clients` | Self-service OAuth client registration |
 | `/callback` | Dev OAuth redirect handler |
 
 ## Scripts
 
 ```bash
-npm run dev       # Start development server
-npm run build     # Production build
-npm run codegen   # Regenerate GraphQL SDK
-npm run lint      # ESLint
+npm run dev         # Start development server
+npm run build       # Production build
+npm run codegen     # Regenerate GraphQL SDK
+npm run db:generate # Generate Drizzle migrations
+npm run db:migrate  # Apply migrations
+npm run db:seed     # Seed axusid-dev client
+npm run lint        # ESLint
 ```
 
 ## Design
