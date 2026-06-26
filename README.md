@@ -23,13 +23,14 @@ npm install
 cp .env.example .env.local
 ```
 
-3. Start PostgreSQL and run migrations:
+3. Start PostgreSQL (migrations run automatically on server start):
 
 ```bash
 docker compose up -d
-npm run db:migrate
 npm run db:seed
 ```
+
+Migrations in `drizzle/` are applied when the Next.js server boots, similar to Flyway. To apply them manually instead, run `npm run db:migrate`. Set `DATABASE_AUTO_MIGRATE=false` to disable auto-migration.
 
 4. Generate OAuth JWT keys and add them to `.env.local`:
 
@@ -61,6 +62,7 @@ AXUS ID runs at `http://localhost:3000`.
 | `OAUTH_ISSUER` | Public issuer URL (default: `http://localhost:3000`) |
 | `SESSION_SECRET` | Secret for signing IdP session cookies and encrypting stored credentials |
 | `DATABASE_URL` | PostgreSQL connection string |
+| `DATABASE_AUTO_MIGRATE` | Set to `false` to skip applying `drizzle/` migrations on server start (default: enabled) |
 | `OAUTH_JWT_PRIVATE_KEY` | PEM RS256 private key for IdP JWTs |
 | `OAUTH_JWT_PUBLIC_KEY` | PEM RS256 public key (published via JWKS) |
 
