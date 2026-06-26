@@ -1,0 +1,167 @@
+query User($auid: ID!) {
+  user(auid: $auid) {
+    identity {
+      auid
+      id
+    }
+    usernames {
+      auid
+      usernames
+      defaultUsername
+    }
+    defaultVariation {
+      auid
+      variationId
+    }
+  }
+}
+
+query Usernames($auid: ID!) {
+  usernames(auid: $auid) {
+    auid
+    usernames
+    defaultUsername
+  }
+}
+
+query Variations($auid: ID!) {
+  variations(auid: $auid) {
+    id
+    auid
+    firstName
+    lastName
+    status
+    description
+    locationId
+    icon
+    createdAt
+  }
+}
+
+query DefaultVariation($auid: ID!) {
+  defaultVariation(auid: $auid) {
+    auid
+    variationId
+  }
+}
+
+mutation AddUsername($auid: ID!, $username: String!) {
+  addUsername(auid: $auid, username: $username) {
+    auid
+    usernames
+    defaultUsername
+  }
+}
+
+mutation RemoveUsername($auid: ID!, $username: String!) {
+  removeUsername(auid: $auid, username: $username) {
+    auid
+    usernames
+    defaultUsername
+  }
+}
+
+mutation ChangeDefaultUsername($auid: ID!, $username: String!) {
+  changeDefaultUsername(auid: $auid, username: $username) {
+    auid
+    usernames
+    defaultUsername
+  }
+}
+
+mutation CreateVariation(
+  $auid: ID!
+  $firstName: String
+  $lastName: String
+  $status: String
+  $description: String
+  $locationId: String
+  $icon: String
+) {
+  createVariation(
+    auid: $auid
+    firstName: $firstName
+    lastName: $lastName
+    status: $status
+    description: $description
+    locationId: $locationId
+    icon: $icon
+  ) {
+    id
+    auid
+    firstName
+    lastName
+    status
+    description
+    locationId
+    icon
+    createdAt
+  }
+}
+
+mutation ChangeVariationFirstName(
+  $auid: ID!
+  $variationId: ID!
+  $firstName: String
+) {
+  changeVariationFirstName(
+    auid: $auid
+    variationId: $variationId
+    firstName: $firstName
+  ) {
+    id
+    firstName
+  }
+}
+
+mutation ChangeVariationLastName(
+  $auid: ID!
+  $variationId: ID!
+  $lastName: String
+) {
+  changeVariationLastName(
+    auid: $auid
+    variationId: $variationId
+    lastName: $lastName
+  ) {
+    id
+    lastName
+  }
+}
+
+mutation ChangeVariationStatus(
+  $auid: ID!
+  $variationId: ID!
+  $status: String
+) {
+  changeVariationStatus(
+    auid: $auid
+    variationId: $variationId
+    status: $status
+  ) {
+    id
+    status
+  }
+}
+
+mutation ChangeVariationDescription(
+  $auid: ID!
+  $variationId: ID!
+  $description: String
+) {
+  changeVariationDescription(
+    auid: $auid
+    variationId: $variationId
+    description: $description
+  ) {
+    id
+    description
+  }
+}
+
+mutation SetDefaultVariation($auid: ID!, $variationId: ID!) {
+  setDefaultVariation(auid: $auid, variationId: $variationId) {
+    auid
+    variationId
+  }
+}

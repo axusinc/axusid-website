@@ -1,0 +1,44 @@
+mutation Login($auid: ID!, $password: String!, $permissions: [String!]) {
+  login(auid: $auid, password: $password, permissions: $permissions) {
+    accessToken
+    refreshToken
+    accessTokenExpiresAt
+  }
+}
+
+mutation RefreshCredentials($refreshToken: String!) {
+  refreshCredentials(refreshToken: $refreshToken) {
+    accessToken
+    refreshToken
+    accessTokenExpiresAt
+  }
+}
+
+mutation RevokeCredentials($refreshToken: String!) {
+  revokeCredentials(refreshToken: $refreshToken)
+}
+
+mutation CreateUser(
+  $contextAuid: ID
+  $tokenId: String
+  $username: String!
+  $password: String!
+) {
+  createUser(
+    contextAuid: $contextAuid
+    tokenId: $tokenId
+    username: $username
+    password: $password
+  ) {
+    auid
+    id
+  }
+}
+
+mutation ChangePassword(
+  $auid: ID!
+  $tokenId: String!
+  $newPassword: String!
+) {
+  changePassword(auid: $auid, tokenId: $tokenId, newPassword: $newPassword)
+}
