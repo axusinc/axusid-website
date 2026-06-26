@@ -7,6 +7,7 @@ import {
   type AuthActionState,
 } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
+import { FormError, FormSuccess } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 
 type AccountFormsProps = {
@@ -33,10 +34,10 @@ export function AccountForms({ auid }: AccountFormsProps) {
           <input type="hidden" name="auid" value={auid} />
           <Input name="username" label="Username" placeholder="new.username" required />
           {usernameState.error ? (
-            <p className="text-sm text-neutral-700">{usernameState.error}</p>
+            <FormError>{usernameState.error}</FormError>
           ) : null}
           {usernameState.success ? (
-            <p className="text-sm text-neutral-600">{usernameState.success}</p>
+            <FormSuccess>{usernameState.success}</FormSuccess>
           ) : null}
           <Button type="submit" className="w-full" disabled={addingUsername}>
             {addingUsername ? "Adding..." : "Add username"}
@@ -64,10 +65,10 @@ export function AccountForms({ auid }: AccountFormsProps) {
             required
           />
           {passwordState.error ? (
-            <p className="text-sm text-neutral-700">{passwordState.error}</p>
+            <FormError>{passwordState.error}</FormError>
           ) : null}
           {passwordState.success ? (
-            <p className="text-sm text-neutral-600">{passwordState.success}</p>
+            <FormSuccess>{passwordState.success}</FormSuccess>
           ) : null}
           <Button type="submit" variant="brand" className="w-full" disabled={changingPassword}>
             {changingPassword ? "Updating..." : "Update password"}

@@ -38,5 +38,5 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const registered =
     typeof params.registered === "string" ? params.registered : undefined;
 
-  return <LoginForm oauthParams={oauthParams} registeredAuid={registered} />;
+  return <LoginForm oauthParams={oauthParams} registeredUsername={registered} />;
 }

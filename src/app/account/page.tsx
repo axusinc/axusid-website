@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/ui/form-message";
 import { Logo } from "@/components/ui/logo";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
+import { formatGraphqlError } from "@/lib/graphql-errors";
 import { SESSION_COOKIE, getSession } from "@/lib/session";
 import { fetchUserProfileWithVariations } from "@/lib/user-profile";
 import { AccountForms } from "./account-forms";
@@ -18,10 +20,50 @@ export default async function AccountPage() {
   }
 
   const sdk = getAuthSdkForSession(session);
-  const { user, variations } = await fetchUserProfileWithVariations(
-    sdk,
-    session.auid,
-  );
+  let profile;
+  try {
+    profile = await fetchUserProfileWithVariations(sdk, session.auid);
+  } catch (error) {
+    return (
+      <div className="relative min-h-full overflow-hidden bg-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,0,0,0.04),transparent_55%),linear-gradient(180deg,#ffffff_0%,#f5f5f5_100%)]" />
+
+        <header className="relative border-b border-black/5 bg-white/70 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+            <div className="flex items-center gap-3">
+              <Logo size={36} />
+              <div>
+                <p className="text-sm font-medium text-black">Account</p>
+              </div>
+            </div>
+            <form action={logoutAction}>
+              <Button type="submit" variant="outline">
+                Sign out
+              </Button>
+            </form>
+          </div>
+        </header>
+
+        <main className="relative mx-auto max-w-5xl px-6 py-10">
+          <FormError>
+            {formatGraphqlError(
+              error,
+              "account",
+              "Unable to load your account. Try again.",
+            )}
+          </FormError>
+        </main>
+
+        <footer className="relative border-t border-black/5 px-6 py-6 text-center text-sm text-neutral-500">
+          <Link href="/" className="hover:text-black">
+            Back to AXUS ID
+          </Link>
+        </footer>
+      </div>
+    );
+  }
+
+  const { user, variations } = profile;
 
   return (
     <div className="relative min-h-full overflow-hidden bg-white">
@@ -31,7 +73,14 @@ export default async function AccountPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
             <Logo size={36} />
-            <p className="text-sm font-medium text-black">Account</p>
+            <div>
+              <p className="text-sm font-medium text-black">Account</p>
+              {user?.usernames?.defaultUsername ? (
+                <p className="text-xs text-neutral-500">
+                  @{user.usernames.defaultUsername}
+                </p>
+              ) : null}
+            </div>
           </div>
           <form action={logoutAction}>
             <Button type="submit" variant="outline">
@@ -53,23 +102,15 @@ export default async function AccountPage() {
           <dl className="mt-8 space-y-4">
             <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
               <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
-                AUID
+                Username
               </dt>
-              <dd className="mt-1 font-mono text-sm text-black">
-                {user?.identity.auid}
-              </dd>
-            </div>
-            <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
-              <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
-                Default username
-              </dt>
-              <dd className="mt-1 text-sm text-black">
+              <dd className="mt-1 text-sm font-medium text-black">
                 {user?.usernames?.defaultUsername}
               </dd>
             </div>
             <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
               <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
-                Usernames
+                All usernames
               </dt>
               <dd className="mt-2 flex flex-wrap gap-2">
                 {user?.usernames?.usernames.map((username) => (
@@ -78,8 +119,19 @@ export default async function AccountPage() {
                     className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs text-neutral-700"
                   >
                     {username}
+                    {username === user?.usernames?.defaultUsername ? (
+                      <span className="ml-1 text-neutral-400">default</span>
+                    ) : null}
                   </span>
                 ))}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
+              <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
+                AUID
+              </dt>
+              <dd className="mt-1 font-mono text-sm text-neutral-600">
+                {user?.identity.auid}
               </dd>
             </div>
           </dl>

@@ -4,23 +4,24 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { loginAction, type AuthActionState } from "@/app/actions/auth";
 
 type LoginFormProps = {
   oauthParams?: Record<string, string>;
-  registeredAuid?: string;
+  registeredUsername?: string;
 };
 
 const initialState: AuthActionState = {};
 
-export function LoginForm({ oauthParams, registeredAuid }: LoginFormProps) {
+export function LoginForm({ oauthParams, registeredUsername }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
     <AuthShell
       title="Sign in"
-      description="Authenticate with your AXUS ID to continue."
+      description="Sign in with your username and password."
       footer={
         <>
           New to AXUS ID?{" "}
@@ -30,10 +31,10 @@ export function LoginForm({ oauthParams, registeredAuid }: LoginFormProps) {
         </>
       }
     >
-      {registeredAuid ? (
+      {registeredUsername ? (
         <div className="mb-6 rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-600 backdrop-blur-sm">
-          Account created. Sign in with AUID{" "}
-          <span className="font-mono text-black">{registeredAuid}</span>.
+          Account created. Sign in with username{" "}
+          <span className="font-medium text-black">{registeredUsername}</span>.
         </div>
       ) : null}
 
@@ -45,10 +46,11 @@ export function LoginForm({ oauthParams, registeredAuid }: LoginFormProps) {
           : null}
 
         <Input
-          name="auid"
-          label="AUID"
-          placeholder="Your account identifier"
+          name="username"
+          label="Username"
+          placeholder="Your username"
           autoComplete="username"
+          defaultValue={registeredUsername}
           required
         />
         <Input
@@ -60,11 +62,7 @@ export function LoginForm({ oauthParams, registeredAuid }: LoginFormProps) {
           required
         />
 
-        {state.error ? (
-          <p className="rounded-xl border border-black/10 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <FormError>{state.error}</FormError> : null}
 
         <Button type="submit" variant="brand" className="w-full" disabled={pending}>
           {pending ? "Signing in..." : "Continue"}

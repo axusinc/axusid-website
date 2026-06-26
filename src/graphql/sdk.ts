@@ -186,6 +186,7 @@ export type MutationSetDefaultVariationArgs = {
 export type Query = {
   __typename?: 'Query';
   defaultVariation?: Maybe<DefaultVariation>;
+  ownerByUsername?: Maybe<Scalars['ID']['output']>;
   user?: Maybe<User>;
   usernames?: Maybe<Usernames>;
   variations: Array<Variation>;
@@ -194,6 +195,11 @@ export type Query = {
 
 export type QueryDefaultVariationArgs = {
   auid: Scalars['ID']['input'];
+};
+
+
+export type QueryOwnerByUsernameArgs = {
+  username: Scalars['String']['input'];
 };
 
 
@@ -284,6 +290,13 @@ export type ChangePasswordMutationVariables = Exact<{
 
 
 export type ChangePasswordMutation = { changePassword: boolean };
+
+export type OwnerByUsernameQueryVariables = Exact<{
+  username: string;
+}>;
+
+
+export type OwnerByUsernameQuery = { ownerByUsername: string | null };
 
 export type UserQueryVariables = Exact<{
   auid: string | number;
@@ -434,6 +447,11 @@ export const CreateUserDocument = gql`
 export const ChangePasswordDocument = gql`
     mutation ChangePassword($auid: ID!, $tokenId: String, $newPassword: String!) {
   changePassword(auid: $auid, tokenId: $tokenId, newPassword: $newPassword)
+}
+    `;
+export const OwnerByUsernameDocument = gql`
+    query OwnerByUsername($username: String!) {
+  ownerByUsername(username: $username)
 }
     `;
 export const UserDocument = gql`
@@ -611,6 +629,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     ChangePassword(variables: ChangePasswordMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangePasswordMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<ChangePasswordMutation>({ document: ChangePasswordDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangePassword', 'mutation', variables);
+    },
+    OwnerByUsername(variables: OwnerByUsernameQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<OwnerByUsernameQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<OwnerByUsernameQuery>({ document: OwnerByUsernameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'OwnerByUsername', 'query', variables);
     },
     User(variables: UserQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<UserQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<UserQuery>({ document: UserDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'User', 'query', variables);

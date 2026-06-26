@@ -8,6 +8,7 @@ import {
 } from "@/app/developer/oauth/actions";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
+import { FormError, FormSuccess } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { SUPPORTED_SCOPES, type OAuthClient } from "@/lib/oauth/constants";
 import { useActionState } from "react";
@@ -32,9 +33,7 @@ export function EditClientForm({ client, created }: EditClientFormProps) {
     >
       <div className="space-y-6">
         {created ? (
-          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            Client created successfully.
-          </p>
+          <FormSuccess>Client created successfully.</FormSuccess>
         ) : null}
 
         <div className="rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3">
@@ -87,16 +86,8 @@ export function EditClientForm({ client, created }: EditClientFormProps) {
             ))}
           </fieldset>
 
-          {state.error ? (
-            <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {state.error}
-            </p>
-          ) : null}
-          {state.success ? (
-            <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              {state.success}
-            </p>
-          ) : null}
+          {state.error ? <FormError>{state.error}</FormError> : null}
+          {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
 
           <Button type="submit" variant="brand" className="w-full" disabled={pending}>
             {pending ? "Saving..." : "Save changes"}

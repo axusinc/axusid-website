@@ -3,7 +3,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
+import { formatGraphqlError } from "@/lib/graphql-errors";
 import { loginWithBackend } from "@/lib/oauth/adapter";
+import { resolveLoginAuid } from "@/lib/resolve-login-identity";
 import {
   getOAuthClient,
   normalizeScopes,
@@ -53,11 +55,21 @@ export async function loginAction(
   _prevState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const auid = String(formData.get("auid") ?? "").trim();
+  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!auid || !password) {
-    return { error: "AUID and password are required." };
+  if (!username || !password) {
+    return { error: "Username and password are required." };
+  }
+
+  let auid: string;
+  try {
+    auid = await resolveLoginAuid(username);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Unknown username.",
+    };
   }
 
   const oauthParams = parseOAuthParams(formData);
@@ -92,8 +104,7 @@ export async function loginAction(
     );
   } catch (error) {
     return {
-      error:
-        error instanceof Error ? error.message : "Unable to sign in. Try again.",
+      error: formatGraphqlError(error, "login", "Unable to sign in. Try again."),
     };
   }
 
@@ -185,28 +196,20 @@ export async function registerAction(
     return { error: "Passwords do not match." };
   }
 
-  let auid: string;
   try {
     const sdk = getAuthSdk();
-    const result = await sdk.CreateUser({ username, password });
-    auid = result.createUser.auid;
+    await sdk.CreateUser({ username, password });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to create account. Try again.";
-
-    if (message.includes('"path":["createUser"]')) {
-      return {
-        error:
-          "Unable to create account. This username may already be taken.",
-      };
-    }
-
-    return { error: message };
+    return {
+      error: formatGraphqlError(
+        error,
+        undefined,
+        "Unable to create account. Try again.",
+      ),
+    };
   }
 
-  redirect(`/login?registered=${encodeURIComponent(auid)}`);
+  redirect(`/login?registered=${encodeURIComponent(username)}`);
 }
 
 export async function logoutAction() {
@@ -241,10 +244,11 @@ export async function changePasswordAction(
     return { success: "Password updated successfully." };
   } catch (error) {
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Unable to change password. Try again.",
+      error: formatGraphqlError(
+        error,
+        undefined,
+        "Unable to change password. Try again.",
+      ),
     };
   }
 }
@@ -270,8 +274,7 @@ export async function addUsernameAction(
     return { success: "Username added." };
   } catch (error) {
     return {
-      error:
-        error instanceof Error ? error.message : "Unable to add username.",
+      error: formatGraphqlError(error, undefined, "Unable to add username."),
     };
   }
 }

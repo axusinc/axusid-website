@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { registerAction, type AuthActionState } from "@/app/actions/auth";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 
 const initialState: AuthActionState = {};
@@ -56,11 +57,7 @@ export function RegisterForm() {
           required
         />
 
-        {state.error ? (
-          <p className="rounded-xl border border-black/10 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <FormError>{state.error}</FormError> : null}
 
         <Button type="submit" variant="brand" className="w-full" disabled={pending}>
           {pending ? "Creating account..." : "Create account"}

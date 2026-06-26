@@ -19,12 +19,17 @@ export function Input({ className, label, error, id, ...props }: InputProps) {
         id={inputId}
         className={cn(
           "flex h-11 w-full rounded-xl border border-black/10 bg-white/80 px-4 text-sm text-black placeholder:text-neutral-400 backdrop-blur-sm transition focus:border-black/30 focus:outline-none focus:ring-4 focus:ring-black/5",
-          error && "border-black/40 focus:border-black/50 focus:ring-black/10",
+          error &&
+            "border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-red-100",
           className,
         )}
         {...props}
       />
-      {error ? <p className="text-sm text-neutral-700">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-medium text-red-700">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

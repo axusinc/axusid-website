@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell";
+import { FormError } from "@/components/ui/form-message";
 
 export default async function CallbackPage({
   searchParams,
@@ -20,11 +21,7 @@ export default async function CallbackPage({
       }
     >
       <div className="space-y-4 text-sm text-neutral-600">
-        {error ? (
-          <p className="rounded-xl border border-black/10 bg-neutral-50 px-4 py-3 text-neutral-700">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FormError>{error}</FormError> : null}
         {code ? (
           <div className="rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3">
             <p className="text-xs uppercase tracking-[0.18em] text-neutral-400">

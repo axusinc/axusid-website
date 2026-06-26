@@ -7,6 +7,7 @@ import {
 } from "@/app/developer/oauth/actions";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { SUPPORTED_SCOPES } from "@/lib/oauth/constants";
 import { useActionState } from "react";
@@ -62,11 +63,7 @@ export function ClientForm() {
           ))}
         </fieldset>
 
-        {state.error ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {state.error}
-          </p>
-        ) : null}
+        {state.error ? <FormError>{state.error}</FormError> : null}
 
         <Button type="submit" variant="brand" className="w-full" disabled={pending}>
           {pending ? "Creating..." : "Create client"}

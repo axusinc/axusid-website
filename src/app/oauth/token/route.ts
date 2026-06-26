@@ -1,4 +1,5 @@
 import { oauthError } from "@/lib/oauth/adapter";
+import { formatGraphqlError } from "@/lib/graphql-errors";
 import { consumeAuthorizationCode } from "@/lib/oauth/auth-code-store";
 import { getOAuthClient } from "@/lib/oauth/clients";
 import { verifyPkceChallenge } from "@/lib/oauth/pkce";
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     } catch (error) {
       return oauthError(
         "invalid_grant",
-        error instanceof Error ? error.message : "Refresh failed",
+        formatGraphqlError(error, "oauth-refresh", "Refresh failed"),
         401,
       );
     }
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return oauthError(
       "server_error",
-      error instanceof Error ? error.message : "Token issuance failed",
+      formatGraphqlError(error, "oauth", "Token issuance failed"),
       500,
     );
   }

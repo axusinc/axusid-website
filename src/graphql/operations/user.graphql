@@ -1,3 +1,7 @@
+query OwnerByUsername($username: String!) {
+  ownerByUsername(username: $username)
+}
+
 query User($auid: ID!) {
   user(auid: $auid) {
     identity {

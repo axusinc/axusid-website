@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  SUPPORTED_SCOPES,
   validateRedirectUris,
   validateSupportedScopes,
+  type OAuthClient,
 } from "@/lib/oauth/constants";
 import {
   createClient,
@@ -50,10 +50,11 @@ export async function createClientAction(
     return { error: "App name is required." };
   }
 
+  let client: OAuthClient;
   try {
     const redirectUris = parseRedirectUris(formData);
     const allowedScopes = parseScopes(formData);
-    const client = await createClient({
+    client = await createClient({
       name,
       redirectUris,
       allowedScopes,
@@ -61,13 +62,14 @@ export async function createClientAction(
     });
 
     revalidatePath("/developer/oauth/clients");
-    redirect(`/developer/oauth/clients/${client.clientId}?created=1`);
   } catch (error) {
     return {
       error:
         error instanceof Error ? error.message : "Unable to create client.",
     };
   }
+
+  redirect(`/developer/oauth/clients/${client.clientId}?created=1`);
 }
 
 export async function updateClientAction(
