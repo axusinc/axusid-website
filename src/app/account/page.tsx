@@ -10,6 +10,7 @@ import { formatGraphqlError } from "@/lib/graphql-errors";
 import { SESSION_COOKIE, getSession } from "@/lib/session";
 import { fetchUserProfileWithVariations } from "@/lib/user-profile";
 import { AccountForms } from "./account-forms";
+import { VariationForms } from "./variation-forms";
 
 export default async function AccountPage() {
   const cookieStore = await cookies();
@@ -142,41 +143,10 @@ export default async function AccountPage() {
             </Link>
           </div>
 
-          <div className="mt-8">
-            <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-neutral-400">
-              Variations
-            </h2>
-            <div className="mt-4 space-y-3">
-              {variations.length === 0 ? (
-                <p className="text-sm text-neutral-500">No variations yet.</p>
-              ) : (
-                variations.map((variation) => (
-                  <article
-                    key={variation.id}
-                    className="rounded-xl border border-black/5 bg-white/80 px-4 py-3 backdrop-blur-sm"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-black">
-                          {[variation.firstName, variation.lastName]
-                            .filter(Boolean)
-                            .join(" ") || "Untitled variation"}
-                        </p>
-                        <p className="mt-1 text-xs text-neutral-500">
-                          {variation.status ?? "No status"}
-                        </p>
-                      </div>
-                      {user?.defaultVariation?.variationId === variation.id ? (
-                        <span className="rounded-full bg-black px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-white">
-                          Default
-                        </span>
-                      ) : null}
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
+          <VariationForms
+            variations={variations}
+            defaultVariationId={user?.defaultVariation?.variationId ?? null}
+          />
         </section>
 
         <AccountForms auid={session.auid} />
