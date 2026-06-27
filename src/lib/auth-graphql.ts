@@ -24,7 +24,7 @@ function credentialsExpiresInSeconds(credentials: AuthCredentials): number {
   const expiresAt = Date.parse(credentials.accessTokenExpiresAt);
   return Number.isFinite(expiresAt)
     ? Math.max(60, Math.floor((expiresAt - Date.now()) / 1000))
-    : 3600;
+    : 43200;
 }
 
 /** Backend opaque bearer from login/refresh. */

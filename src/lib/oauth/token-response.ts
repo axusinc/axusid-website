@@ -27,7 +27,7 @@ function credentialsExpiresIn(credentials: AuthCredentials): number {
   const expiresAt = Date.parse(credentials.accessTokenExpiresAt);
   return Number.isFinite(expiresAt)
     ? Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
-    : 3600;
+    : 43200;
 }
 
 export async function issueTokenResponse(params: {

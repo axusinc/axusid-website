@@ -16,7 +16,7 @@ export function credentialsToTokenResponse(
   const expiresAt = Date.parse(credentials.accessTokenExpiresAt);
   const expiresIn = Number.isFinite(expiresAt)
     ? Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
-    : 3600;
+    : 43200;
 
   return {
     access_token: credentials.accessToken,
