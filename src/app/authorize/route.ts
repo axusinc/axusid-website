@@ -10,8 +10,25 @@ import {
   saveAuthorizationCode,
 } from "@/lib/oauth/auth-code-store";
 import { generateOpaqueCode } from "@/lib/oauth/pkce";
-import { authorizeQuerySchema } from "@/lib/oauth/schemas";
-import { SESSION_COOKIE, getSession } from "@/lib/session";
+import {
+  PENDING_OAUTH_COOKIE,
+  clearPendingOAuthCookieOptions,
+  pendingOAuthCookieOptions,
+  resolvePendingOAuth,
+  serializePendingOAuth,
+} from "@/lib/pending-oauth";
+import {
+  type AuthorizeQuery,
+  authorizeQuerySchema,
+  buildLoginOAuthUrl,
+} from "@/lib/oauth/schemas";
+import {
+  SESSION_COOKIE,
+  serializeSession,
+  sessionCookieOptions,
+  type IdPSession,
+} from "@/lib/session";
+import { getValidSession } from "@/lib/session-access";
 
 function oauthRedirectError(
   redirectUri: string,
@@ -31,37 +48,122 @@ function oauthRedirectError(
   return NextResponse.redirect(url);
 }
 
-export async function GET(request: NextRequest) {
-  const params = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const parsed = authorizeQuerySchema.safeParse(params);
+function authorize400(
+  error: string,
+  errorDescription: string,
+  meta: Record<string, unknown> = {},
+): NextResponse {
+  console.error("authorize_400", {
+    error,
+    error_description: errorDescription,
+    ...meta,
+  });
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: "invalid_request",
-        error_description: parsed.error.issues[0]?.message ?? "Invalid request",
-      },
-      { status: 400 },
+  return NextResponse.json(
+    {
+      error,
+      error_description: errorDescription,
+    },
+    { status: 400 },
+  );
+}
+
+async function attachPendingOAuth(
+  response: NextResponse,
+  query: AuthorizeQuery,
+  session: IdPSession | null,
+): Promise<NextResponse> {
+  response.cookies.set(
+    PENDING_OAUTH_COOKIE,
+    await serializePendingOAuth(query),
+    pendingOAuthCookieOptions,
+  );
+
+  if (session) {
+    response.cookies.set(
+      SESSION_COOKIE,
+      await serializeSession({ ...session, pendingOAuth: query }),
+      sessionCookieOptions,
     );
   }
 
-  const query = parsed.data;
+  return response;
+}
+
+function clearPendingOAuth(response: NextResponse): NextResponse {
+  response.cookies.set(
+    PENDING_OAUTH_COOKIE,
+    "",
+    clearPendingOAuthCookieOptions,
+  );
+  return response;
+}
+
+async function clearPendingOAuthFromSession(
+  response: NextResponse,
+  session: IdPSession,
+): Promise<NextResponse> {
+  const { pendingOAuth: _pendingOAuth, ...rest } = session;
+  response.cookies.set(
+    SESSION_COOKIE,
+    await serializeSession(rest),
+    sessionCookieOptions,
+  );
+  return response;
+}
+
+export async function GET(request: NextRequest) {
+  const pendingCookie = request.cookies.get(PENDING_OAUTH_COOKIE)?.value;
+  const session = await getValidSession();
+  const resume = request.nextUrl.searchParams.get("resume") === "1";
+
+  let query: AuthorizeQuery;
+
+  if (resume) {
+    const pending = await resolvePendingOAuth(pendingCookie, session);
+    if (!pending) {
+      return authorize400(
+        "invalid_request",
+        "No pending authorization request",
+        { resume: true },
+      );
+    }
+    query = pending;
+  } else {
+    const params = Object.fromEntries(request.nextUrl.searchParams.entries());
+    const parsed = authorizeQuerySchema.safeParse(params);
+
+    if (!parsed.success) {
+      return authorize400(
+        "invalid_request",
+        parsed.error.issues[0]?.message ?? "Invalid request",
+        {
+          client_id: params.client_id,
+          redirect_uri: params.redirect_uri,
+        },
+      );
+    }
+
+    query = parsed.data;
+  }
+
   const client = await getOAuthClient(query.client_id);
 
   if (!client) {
-    return NextResponse.json(
-      { error: "invalid_client", error_description: "Unknown client_id" },
-      { status: 400 },
-    );
+    return authorize400("invalid_client", "Unknown client_id", {
+      client_id: query.client_id,
+      redirect_uri: query.redirect_uri,
+    });
   }
 
   if (!validateRedirectUri(client, query.redirect_uri)) {
-    return NextResponse.json(
+    return authorize400(
+      "invalid_request",
+      "redirect_uri is not registered for this client",
       {
-        error: "invalid_request",
-        error_description: "redirect_uri is not registered for this client",
+        client_id: query.client_id,
+        redirect_uri: query.redirect_uri,
       },
-      { status: 400 },
     );
   }
 
@@ -77,29 +179,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const session = await getSession(request.cookies.get(SESSION_COOKIE)?.value);
-
   if (!session) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("oauth", "1");
-    for (const [key, value] of Object.entries(query)) {
-      if (value) {
-        loginUrl.searchParams.set(key, value);
-      }
-    }
-    return NextResponse.redirect(loginUrl);
+    const loginUrl = new URL(buildLoginOAuthUrl(), request.url);
+    const response = NextResponse.redirect(loginUrl);
+    return attachPendingOAuth(response, query, null);
   }
 
   const hasConsented = session.consentedClients.includes(client.clientId);
 
   if (!hasConsented) {
     const consentUrl = new URL("/consent", request.url);
-    for (const [key, value] of Object.entries(query)) {
-      if (value) {
-        consentUrl.searchParams.set(key, value);
-      }
-    }
-    return NextResponse.redirect(consentUrl);
+    const response = NextResponse.redirect(consentUrl);
+    return attachPendingOAuth(response, query, session);
   }
 
   const code = await generateOpaqueCode();
@@ -121,5 +212,8 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("state", query.state);
   }
 
-  return NextResponse.redirect(redirectUrl);
+  let response = NextResponse.redirect(redirectUrl);
+  response = clearPendingOAuth(response);
+  response = await clearPendingOAuthFromSession(response, session);
+  return response;
 }

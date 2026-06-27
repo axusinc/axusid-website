@@ -64,6 +64,14 @@ export async function parseRequestBody(
   return parseFormBody(await request.text());
 }
 
+export function buildAuthorizeResumeUrl(): string {
+  return "/authorize?resume=1";
+}
+
+export function buildLoginOAuthUrl(): string {
+  return "/login?oauth=1";
+}
+
 export function buildAuthorizeReturnUrl(params: AuthorizeQuery): string {
   const search = new URLSearchParams({
     response_type: params.response_type,

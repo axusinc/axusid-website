@@ -1,20 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-message";
 import { Logo } from "@/components/ui/logo";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
-import { SESSION_COOKIE, getSession } from "@/lib/session";
+import { getValidSession } from "@/lib/session-access";
 import { fetchUserProfileWithVariations } from "@/lib/user-profile";
 import { AccountForms } from "./account-forms";
 import { VariationForms } from "./variation-forms";
 
 export default async function AccountPage() {
-  const cookieStore = await cookies();
-  const session = await getSession(cookieStore.get(SESSION_COOKIE)?.value);
+  const session = await getValidSession();
 
   if (!session) {
     redirect("/login");

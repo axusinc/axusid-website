@@ -7,14 +7,9 @@ import { Button } from "@/components/ui/button";
 type ConsentFormProps = {
   clientName: string;
   scopes: string[];
-  oauthParams: Record<string, string>;
 };
 
-export function ConsentForm({
-  clientName,
-  scopes,
-  oauthParams,
-}: ConsentFormProps) {
+export function ConsentForm({ clientName, scopes }: ConsentFormProps) {
   return (
     <AuthShell
       title="Authorize access"
@@ -41,18 +36,12 @@ export function ConsentForm({
         </div>
 
         <form action={consentAction} className="space-y-3">
-          {Object.entries(oauthParams).map(([key, value]) => (
-            <input key={key} type="hidden" name={key} value={value} />
-          ))}
           <Button type="submit" variant="brand" className="w-full">
             Allow access
           </Button>
         </form>
 
         <form action={denyConsentAction}>
-          {Object.entries(oauthParams).map(([key, value]) => (
-            <input key={key} type="hidden" name={key} value={value} />
-          ))}
           <Button type="submit" variant="outline" className="w-full">
             Deny
           </Button>

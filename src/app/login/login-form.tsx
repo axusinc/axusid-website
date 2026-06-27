@@ -9,19 +9,23 @@ import { Input } from "@/components/ui/input";
 import { loginAction, type AuthActionState } from "@/app/actions/auth";
 
 type LoginFormProps = {
-  oauthParams?: Record<string, string>;
+  isOAuthFlow?: boolean;
   registeredUsername?: string;
 };
 
 const initialState: AuthActionState = {};
 
-export function LoginForm({ oauthParams, registeredUsername }: LoginFormProps) {
+export function LoginForm({ isOAuthFlow, registeredUsername }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
     <AuthShell
       title="Sign in"
-      description="Sign in with your username and password."
+      description={
+        isOAuthFlow
+          ? "Sign in to continue authorizing the application."
+          : "Sign in with your username and password."
+      }
       footer={
         <>
           New to AXUS ID?{" "}
@@ -39,12 +43,6 @@ export function LoginForm({ oauthParams, registeredUsername }: LoginFormProps) {
       ) : null}
 
       <form action={formAction} className="space-y-4">
-        {oauthParams
-          ? Object.entries(oauthParams).map(([key, value]) => (
-              <input key={key} type="hidden" name={key} value={value} />
-            ))
-          : null}
-
         <Input
           name="username"
           label="Username"

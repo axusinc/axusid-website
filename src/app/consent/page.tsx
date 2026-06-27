@@ -6,58 +6,41 @@ import {
   normalizeScopes,
   validateScopes,
 } from "@/lib/oauth/clients";
-import { authorizeQuerySchema } from "@/lib/oauth/schemas";
-import { SESSION_COOKIE, getSession } from "@/lib/session";
+import {
+  PENDING_OAUTH_COOKIE,
+  resolvePendingOAuth,
+} from "@/lib/pending-oauth";
+import { buildLoginOAuthUrl } from "@/lib/oauth/schemas";
+import { getValidSession } from "@/lib/session-access";
 
-type ConsentPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function ConsentPage({ searchParams }: ConsentPageProps) {
-  const params = await searchParams;
-  const raw = Object.fromEntries(
-    Object.entries(params).flatMap(([key, value]) =>
-      typeof value === "string" ? [[key, value]] : [],
-    ),
-  );
-
-  const parsed = authorizeQuerySchema.safeParse(raw);
-  if (!parsed.success) {
-    redirect("/login");
-  }
-
-  const query = parsed.data;
-  const client = await getOAuthClient(query.client_id);
-  if (!client) {
-    redirect("/login");
-  }
-
+export default async function ConsentPage() {
   const cookieStore = await cookies();
-  const session = await getSession(cookieStore.get(SESSION_COOKIE)?.value);
+  const session = await getValidSession();
 
   if (!session) {
-    redirect("/login");
+    redirect(buildLoginOAuthUrl());
+  }
+
+  const pendingOAuth = await resolvePendingOAuth(
+    cookieStore.get(PENDING_OAUTH_COOKIE)?.value,
+    session,
+  );
+
+  if (!pendingOAuth) {
+    redirect(buildLoginOAuthUrl());
+  }
+
+  const client = await getOAuthClient(pendingOAuth.client_id);
+  if (!client) {
+    redirect(buildLoginOAuthUrl());
   }
 
   let scopes: string[];
   try {
-    scopes = validateScopes(client, normalizeScopes(query.scope));
+    scopes = validateScopes(client, normalizeScopes(pendingOAuth.scope));
   } catch {
-    redirect("/login");
+    redirect(buildLoginOAuthUrl());
   }
 
-  const oauthParams: Record<string, string> = {};
-  for (const [key, value] of Object.entries(query)) {
-    if (value) {
-      oauthParams[key] = value;
-    }
-  }
-
-  return (
-    <ConsentForm
-      clientName={client.name}
-      scopes={scopes}
-      oauthParams={oauthParams}
-    />
-  );
+  return <ConsentForm clientName={client.name} scopes={scopes} />;
 }

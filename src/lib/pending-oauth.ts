@@ -1,22 +1,13 @@
 import "server-only";
 
-import type { AuthCredentials } from "@/lib/auth-graphql";
 import type { AuthorizeQuery } from "@/lib/oauth/schemas";
+import { authorizeQuerySchema } from "@/lib/oauth/schemas";
 import { fromBase64Url, toBase64Url } from "@/lib/oauth/pkce";
+import type { IdPSession } from "@/lib/session";
 
-export const SESSION_COOKIE = "axusid_session";
+export const PENDING_OAUTH_COOKIE = "axusid_pending_oauth";
 
-export type IdPSession = {
-  auid: string;
-  credentials: AuthCredentials;
-  scopes: string[];
-  consentedClients: string[];
-  pendingOAuth?: AuthorizeQuery;
-};
-
-type SessionPayload = IdPSession & {
-  exp: number;
-};
+export const PENDING_OAUTH_TTL_MS = 15 * 60 * 1000;
 
 const encoder = new TextEncoder();
 
@@ -46,10 +37,16 @@ async function verify(value: string, signature: string): Promise<boolean> {
   return expected === signature;
 }
 
-async function encodeSession(session: IdPSession): Promise<string> {
-  const payload: SessionPayload = {
-    ...session,
-    exp: Date.now() + 24 * 60 * 60 * 1000,
+type PendingOAuthPayload = AuthorizeQuery & {
+  exp: number;
+};
+
+export async function serializePendingOAuth(
+  query: AuthorizeQuery,
+): Promise<string> {
+  const payload: PendingOAuthPayload = {
+    ...query,
+    exp: Date.now() + PENDING_OAUTH_TTL_MS,
   };
 
   const body = toBase64Url(encoder.encode(JSON.stringify(payload)));
@@ -57,8 +54,14 @@ async function encodeSession(session: IdPSession): Promise<string> {
   return `${body}.${signature}`;
 }
 
-async function decodeSession(token: string): Promise<IdPSession | null> {
-  const [body, signature] = token.split(".");
+export async function getPendingOAuth(
+  cookieValue?: string,
+): Promise<AuthorizeQuery | null> {
+  if (!cookieValue) {
+    return null;
+  }
+
+  const [body, signature] = cookieValue.split(".");
   if (!body || !signature) {
     return null;
   }
@@ -70,45 +73,42 @@ async function decodeSession(token: string): Promise<IdPSession | null> {
 
   try {
     const json = new TextDecoder().decode(fromBase64Url(body));
-    const payload = JSON.parse(json) as SessionPayload;
+    const payload = JSON.parse(json) as PendingOAuthPayload;
 
     if (payload.exp <= Date.now()) {
       return null;
     }
 
-    return {
-      auid: payload.auid,
-      credentials: payload.credentials,
-      scopes: payload.scopes,
-      consentedClients: payload.consentedClients ?? [],
-      pendingOAuth: payload.pendingOAuth,
-    };
+    const parsed = authorizeQuerySchema.safeParse(payload);
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
 }
 
-export async function getSession(cookieValue?: string): Promise<IdPSession | null> {
-  if (!cookieValue) {
-    return null;
+export async function resolvePendingOAuth(
+  cookieValue: string | undefined,
+  session: IdPSession | null,
+): Promise<AuthorizeQuery | null> {
+  if (session?.pendingOAuth) {
+    const parsed = authorizeQuerySchema.safeParse(session.pendingOAuth);
+    if (parsed.success) {
+      return parsed.data;
+    }
   }
 
-  return decodeSession(cookieValue);
+  return getPendingOAuth(cookieValue);
 }
 
-export async function serializeSession(session: IdPSession): Promise<string> {
-  return encodeSession(session);
-}
-
-export const sessionCookieOptions = {
+export const pendingOAuthCookieOptions = {
   path: "/",
   httpOnly: true,
   sameSite: "lax" as const,
   secure: process.env.NODE_ENV === "production",
-  maxAge: 60 * 60 * 24,
+  maxAge: PENDING_OAUTH_TTL_MS / 1000,
 };
 
-export const clearSessionCookieOptions = {
-  ...sessionCookieOptions,
+export const clearPendingOAuthCookieOptions = {
+  ...pendingOAuthCookieOptions,
   maxAge: 0,
 };

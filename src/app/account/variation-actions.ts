@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
-import { SESSION_COOKIE, getSession, type IdPSession } from "@/lib/session";
+import { getValidSession } from "@/lib/session-access";
+import type { IdPSession } from "@/lib/session";
 
 export type VariationActionState = {
   error?: string;
@@ -12,8 +12,7 @@ export type VariationActionState = {
 };
 
 async function getActionSession(): Promise<IdPSession | null> {
-  const cookieStore = await cookies();
-  return getSession(cookieStore.get(SESSION_COOKIE)?.value);
+  return getValidSession();
 }
 
 function optionalString(value: FormDataEntryValue | null): string | undefined {
