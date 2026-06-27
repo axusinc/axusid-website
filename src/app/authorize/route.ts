@@ -39,7 +39,7 @@ function oauthRedirectError(
     url.searchParams.set("state", state);
   }
 
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url, 303);
 }
 
 function authorize400(
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
 
   if (!session) {
     const loginUrl = new URL(buildLoginOAuthUrl(), request.url);
-    const response = NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl, 303);
     return attachPendingOAuth(response, query);
   }
 
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
 
   if (!hasConsented) {
     const consentUrl = new URL("/consent", request.url);
-    const response = NextResponse.redirect(consentUrl);
+    const response = NextResponse.redirect(consentUrl, 303);
     return attachPendingOAuth(response, query);
   }
 
@@ -184,6 +184,8 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("state", query.state);
   }
 
-  const response = NextResponse.redirect(redirectUrl);
+  const response = NextResponse.redirect(redirectUrl, 303);
   return clearPendingOAuth(response);
 }
+
+export { GET as POST };
