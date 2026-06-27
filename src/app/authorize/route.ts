@@ -13,8 +13,8 @@ import { generateOpaqueCode } from "@/lib/oauth/pkce";
 import {
   PENDING_OAUTH_COOKIE,
   clearPendingOAuthCookieOptions,
+  getPendingOAuth,
   pendingOAuthCookieOptions,
-  resolvePendingOAuth,
   serializePendingOAuth,
 } from "@/lib/pending-oauth";
 import {
@@ -22,12 +22,6 @@ import {
   authorizeQuerySchema,
   buildLoginOAuthUrl,
 } from "@/lib/oauth/schemas";
-import {
-  SESSION_COOKIE,
-  serializeSession,
-  sessionCookieOptions,
-  type IdPSession,
-} from "@/lib/session";
 import { getValidSession } from "@/lib/session-access";
 
 function oauthRedirectError(
@@ -71,21 +65,12 @@ function authorize400(
 async function attachPendingOAuth(
   response: NextResponse,
   query: AuthorizeQuery,
-  session: IdPSession | null,
 ): Promise<NextResponse> {
   response.cookies.set(
     PENDING_OAUTH_COOKIE,
     await serializePendingOAuth(query),
     pendingOAuthCookieOptions,
   );
-
-  if (session) {
-    response.cookies.set(
-      SESSION_COOKIE,
-      await serializeSession({ ...session, pendingOAuth: query }),
-      sessionCookieOptions,
-    );
-  }
 
   return response;
 }
@@ -99,19 +84,6 @@ function clearPendingOAuth(response: NextResponse): NextResponse {
   return response;
 }
 
-async function clearPendingOAuthFromSession(
-  response: NextResponse,
-  session: IdPSession,
-): Promise<NextResponse> {
-  const { pendingOAuth: _pendingOAuth, ...rest } = session;
-  response.cookies.set(
-    SESSION_COOKIE,
-    await serializeSession(rest),
-    sessionCookieOptions,
-  );
-  return response;
-}
-
 export async function GET(request: NextRequest) {
   const pendingCookie = request.cookies.get(PENDING_OAUTH_COOKIE)?.value;
   const session = await getValidSession();
@@ -120,7 +92,7 @@ export async function GET(request: NextRequest) {
   let query: AuthorizeQuery;
 
   if (resume) {
-    const pending = await resolvePendingOAuth(pendingCookie, session);
+    const pending = await getPendingOAuth(pendingCookie);
     if (!pending) {
       return authorize400(
         "invalid_request",
@@ -182,7 +154,7 @@ export async function GET(request: NextRequest) {
   if (!session) {
     const loginUrl = new URL(buildLoginOAuthUrl(), request.url);
     const response = NextResponse.redirect(loginUrl);
-    return attachPendingOAuth(response, query, null);
+    return attachPendingOAuth(response, query);
   }
 
   const hasConsented = session.consentedClients.includes(client.clientId);
@@ -190,7 +162,7 @@ export async function GET(request: NextRequest) {
   if (!hasConsented) {
     const consentUrl = new URL("/consent", request.url);
     const response = NextResponse.redirect(consentUrl);
-    return attachPendingOAuth(response, query, session);
+    return attachPendingOAuth(response, query);
   }
 
   const code = await generateOpaqueCode();
@@ -212,8 +184,6 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("state", query.state);
   }
 
-  let response = NextResponse.redirect(redirectUrl);
-  response = clearPendingOAuth(response);
-  response = await clearPendingOAuthFromSession(response, session);
-  return response;
+  const response = NextResponse.redirect(redirectUrl);
+  return clearPendingOAuth(response);
 }

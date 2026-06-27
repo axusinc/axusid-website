@@ -1,7 +1,6 @@
 import "server-only";
 
 import type { AuthCredentials } from "@/lib/auth-graphql";
-import type { AuthorizeQuery } from "@/lib/oauth/schemas";
 import { fromBase64Url, toBase64Url } from "@/lib/oauth/pkce";
 
 export const SESSION_COOKIE = "axusid_session";
@@ -11,7 +10,6 @@ export type IdPSession = {
   credentials: AuthCredentials;
   scopes: string[];
   consentedClients: string[];
-  pendingOAuth?: AuthorizeQuery;
 };
 
 type SessionPayload = IdPSession & {
@@ -81,7 +79,6 @@ async function decodeSession(token: string): Promise<IdPSession | null> {
       credentials: payload.credentials,
       scopes: payload.scopes,
       consentedClients: payload.consentedClients ?? [],
-      pendingOAuth: payload.pendingOAuth,
     };
   } catch {
     return null;

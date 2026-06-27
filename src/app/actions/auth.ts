@@ -16,7 +16,6 @@ import {
   PENDING_OAUTH_COOKIE,
   clearPendingOAuthCookieOptions,
   getPendingOAuth,
-  resolvePendingOAuth,
 } from "@/lib/pending-oauth";
 import {
   buildAuthorizeResumeUrl,
@@ -26,7 +25,6 @@ import { getValidSession } from "@/lib/session-access";
 import {
   SESSION_COOKIE,
   clearSessionCookieOptions,
-  getSession,
   serializeSession,
   sessionCookieOptions,
   type IdPSession,
@@ -43,11 +41,7 @@ async function getActionSession(): Promise<IdPSession | null> {
 
 async function getPendingOAuthFromRequest() {
   const cookieStore = await cookies();
-  const session = await getSession(cookieStore.get(SESSION_COOKIE)?.value);
-  return resolvePendingOAuth(
-    cookieStore.get(PENDING_OAUTH_COOKIE)?.value,
-    session,
-  );
+  return getPendingOAuth(cookieStore.get(PENDING_OAUTH_COOKIE)?.value);
 }
 
 export async function loginAction(
@@ -115,7 +109,6 @@ export async function loginAction(
     credentials,
     scopes,
     consentedClients: [],
-    pendingOAuth: pendingOAuth ?? undefined,
   };
 
   cookieStore.set(
@@ -152,7 +145,6 @@ export async function consentAction() {
   const updatedSession: IdPSession = {
     ...session,
     consentedClients: [...new Set([...session.consentedClients, client.clientId])],
-    pendingOAuth,
   };
 
   cookieStore.set(

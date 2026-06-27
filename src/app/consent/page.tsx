@@ -8,7 +8,7 @@ import {
 } from "@/lib/oauth/clients";
 import {
   PENDING_OAUTH_COOKIE,
-  resolvePendingOAuth,
+  getPendingOAuth,
 } from "@/lib/pending-oauth";
 import { buildLoginOAuthUrl } from "@/lib/oauth/schemas";
 import { getValidSession } from "@/lib/session-access";
@@ -21,9 +21,8 @@ export default async function ConsentPage() {
     redirect(buildLoginOAuthUrl());
   }
 
-  const pendingOAuth = await resolvePendingOAuth(
+  const pendingOAuth = await getPendingOAuth(
     cookieStore.get(PENDING_OAUTH_COOKIE)?.value,
-    session,
   );
 
   if (!pendingOAuth) {

@@ -3,7 +3,6 @@ import "server-only";
 import type { AuthorizeQuery } from "@/lib/oauth/schemas";
 import { authorizeQuerySchema } from "@/lib/oauth/schemas";
 import { fromBase64Url, toBase64Url } from "@/lib/oauth/pkce";
-import type { IdPSession } from "@/lib/session";
 
 export const PENDING_OAUTH_COOKIE = "axusid_pending_oauth";
 
@@ -84,20 +83,6 @@ export async function getPendingOAuth(
   } catch {
     return null;
   }
-}
-
-export async function resolvePendingOAuth(
-  cookieValue: string | undefined,
-  session: IdPSession | null,
-): Promise<AuthorizeQuery | null> {
-  if (session?.pendingOAuth) {
-    const parsed = authorizeQuerySchema.safeParse(session.pendingOAuth);
-    if (parsed.success) {
-      return parsed.data;
-    }
-  }
-
-  return getPendingOAuth(cookieValue);
 }
 
 export const pendingOAuthCookieOptions = {
