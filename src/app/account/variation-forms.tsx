@@ -9,15 +9,14 @@ import {
   CopyChip,
   DataBlock,
   DataRow,
-  fieldLabelClassName,
   glassSurfaceStrong,
+  inlineInputClassName,
+  inlineTextareaClassName,
+  InlineEditActions,
   PanelHeader,
   TextAction,
-  textareaClassName,
 } from "@/app/account/dashboard-ui";
-import { Button } from "@/components/ui/button";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
-import { Input } from "@/components/ui/input";
 
 type Variation = {
   id: string;
@@ -39,31 +38,6 @@ const initialState: VariationActionState = {};
 
 const empty = <span className="text-neutral-400">—</span>;
 
-function FieldActions({
-  onCancel,
-  isSubmitting,
-}: {
-  onCancel: () => void;
-  isSubmitting: boolean;
-}) {
-  return (
-    <div className="flex gap-3 pt-1">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={onCancel}
-        className="flex-1"
-        disabled={isSubmitting}
-      >
-        Cancel
-      </Button>
-      <Button type="submit" variant="brand" className="flex-1" disabled={isSubmitting}>
-        {isSubmitting ? "Saving..." : "Save"}
-      </Button>
-    </div>
-  );
-}
-
 function EditableNameField({
   variation,
   onDone,
@@ -71,6 +45,7 @@ function EditableNameField({
   variation: Variation;
   onDone: () => void;
 }) {
+  const formId = `edit-name-${variation.id}`;
   const [state, submitAction, isSubmitting] = useActionState(
     updateVariationFieldAction,
     initialState,
@@ -83,26 +58,40 @@ function EditableNameField({
   }, [state.success, onDone]);
 
   return (
-    <DataRow label="Name">
-      <form action={submitAction} className="space-y-4">
+    <DataRow
+      label="Name"
+      action={
+        <InlineEditActions
+          formId={formId}
+          onCancel={onDone}
+          isSubmitting={isSubmitting}
+        />
+      }
+    >
+      <form id={formId} action={submitAction}>
         <input type="hidden" name="variationId" value={variation.id} />
         <input type="hidden" name="field" value="name" />
-        <Input
-          name="firstName"
-          label="First name"
-          placeholder="Jane"
-          defaultValue={variation.firstName ?? ""}
-        />
-        <Input
-          name="lastName"
-          label="Last name"
-          placeholder="Doe"
-          defaultValue={variation.lastName ?? ""}
-        />
-        {state.error ? <FormError>{state.error}</FormError> : null}
-        {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
-        <FieldActions onCancel={onDone} isSubmitting={isSubmitting} />
+        <div className="grid w-full grid-cols-2 gap-2">
+          <input
+            name="firstName"
+            placeholder="First name"
+            defaultValue={variation.firstName ?? ""}
+            className={inlineInputClassName}
+            autoFocus
+          />
+          <input
+            name="lastName"
+            placeholder="Last name"
+            defaultValue={variation.lastName ?? ""}
+            className={inlineInputClassName}
+          />
+        </div>
       </form>
+      {state.error ? (
+        <p className="mt-2">
+          <FormError>{state.error}</FormError>
+        </p>
+      ) : null}
     </DataRow>
   );
 }
@@ -114,6 +103,7 @@ function EditableStatusField({
   variation: Variation;
   onDone: () => void;
 }) {
+  const formId = `edit-status-${variation.id}`;
   const [state, submitAction, isSubmitting] = useActionState(
     updateVariationFieldAction,
     initialState,
@@ -126,20 +116,32 @@ function EditableStatusField({
   }, [state.success, onDone]);
 
   return (
-    <DataBlock label="Status">
-      <form action={submitAction} className="space-y-4">
+    <DataBlock
+      label="Status"
+      action={
+        <InlineEditActions
+          formId={formId}
+          onCancel={onDone}
+          isSubmitting={isSubmitting}
+        />
+      }
+    >
+      <form id={formId} action={submitAction}>
         <input type="hidden" name="variationId" value={variation.id} />
         <input type="hidden" name="field" value="status" />
-        <Input
+        <input
           name="status"
-          label="Status"
           placeholder="What's on your mind?"
           defaultValue={variation.status ?? ""}
+          className={inlineInputClassName}
+          autoFocus
         />
-        {state.error ? <FormError>{state.error}</FormError> : null}
-        {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
-        <FieldActions onCancel={onDone} isSubmitting={isSubmitting} />
       </form>
+      {state.error ? (
+        <p className="mt-2">
+          <FormError>{state.error}</FormError>
+        </p>
+      ) : null}
     </DataBlock>
   );
 }
@@ -151,6 +153,7 @@ function EditableBioField({
   variation: Variation;
   onDone: () => void;
 }) {
+  const formId = `edit-bio-${variation.id}`;
   const [state, submitAction, isSubmitting] = useActionState(
     updateVariationFieldAction,
     initialState,
@@ -163,26 +166,32 @@ function EditableBioField({
   }, [state.success, onDone]);
 
   return (
-    <DataBlock label="Bio">
-      <form action={submitAction} className="space-y-4">
+    <DataBlock
+      label="Bio"
+      action={
+        <InlineEditActions
+          formId={formId}
+          onCancel={onDone}
+          isSubmitting={isSubmitting}
+        />
+      }
+    >
+      <form id={formId} action={submitAction}>
         <input type="hidden" name="variationId" value={variation.id} />
         <input type="hidden" name="field" value="description" />
-        <div className="space-y-2">
-          <label htmlFor="profile-description" className={fieldLabelClassName}>
-            Bio
-          </label>
-          <textarea
-            id="profile-description"
-            name="description"
-            placeholder="A few words about you..."
-            defaultValue={variation.description ?? ""}
-            className={textareaClassName}
-          />
-        </div>
-        {state.error ? <FormError>{state.error}</FormError> : null}
-        {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
-        <FieldActions onCancel={onDone} isSubmitting={isSubmitting} />
+        <textarea
+          name="description"
+          placeholder="A few words about you..."
+          defaultValue={variation.description ?? ""}
+          className={inlineTextareaClassName}
+          autoFocus
+        />
       </form>
+      {state.error ? (
+        <p className="mt-2">
+          <FormError>{state.error}</FormError>
+        </p>
+      ) : null}
     </DataBlock>
   );
 }

@@ -1,3 +1,4 @@
+import { roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 
 type InputProps = React.ComponentProps<"input"> & {
@@ -18,7 +19,8 @@ export function Input({ className, label, error, id, ...props }: InputProps) {
       <input
         id={inputId}
         className={cn(
-          "flex h-11 w-full rounded-xl border border-black/10 bg-white/80 px-4 text-sm text-black placeholder:text-neutral-400 backdrop-blur-sm transition focus:border-black/30 focus:outline-none focus:ring-4 focus:ring-black/5",
+          "flex h-11 w-full border border-black/10 bg-white/80 px-4 text-sm text-black placeholder:text-neutral-400 backdrop-blur-sm transition focus:border-black/30 focus:outline-none focus:ring-4 focus:ring-black/5",
+          roundedRect,
           error &&
             "border-red-400 bg-red-50/50 focus:border-red-500 focus:ring-red-100",
           className,

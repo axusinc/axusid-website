@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { roundedRect } from "@/lib/design";
 
 /* ── Layout ─────────────────────────────────────────────── */
 
@@ -31,10 +32,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
 /* ── Surfaces ───────────────────────────────────────────── */
 
 export const glassSurface =
-  "rounded-3xl border border-white/50 bg-white/25 backdrop-blur-2xl";
+  `${roundedRect} border border-white/50 bg-white/25 backdrop-blur-2xl`;
 
 export const glassSurfaceStrong =
-  "rounded-3xl border border-white/60 bg-white/45 backdrop-blur-3xl";
+  `${roundedRect} border border-white/60 bg-white/45 backdrop-blur-3xl`;
 
 /* ── Avatar ─────────────────────────────────────────────── */
 
@@ -171,7 +172,7 @@ type CopyChipProps = {
 
 export function CopyChip({ value, copied, onCopy }: CopyChipProps) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/50 bg-white/30 px-4 py-3 backdrop-blur-xl">
+    <div className={cn("flex items-center gap-3 border border-white/50 bg-white/30 px-4 py-3 backdrop-blur-xl", roundedRect)}>
       <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-neutral-600">
         {value}
       </code>
@@ -179,7 +180,8 @@ export function CopyChip({ value, copied, onCopy }: CopyChipProps) {
         type="button"
         onClick={onCopy}
         className={cn(
-          "shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
+          "shrink-0 px-2.5 py-1 text-[11px] font-medium transition-colors",
+          roundedRect,
           copied
             ? "bg-emerald-500/10 text-emerald-700"
             : "bg-black/[0.04] text-neutral-500 hover:bg-black/[0.07] hover:text-neutral-800",
@@ -202,9 +204,88 @@ export function StatusBadge({ children }: { children: React.ReactNode }) {
   );
 }
 
+/* ── Inline editing ─────────────────────────────────────── */
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+type InlineEditActionsProps = {
+  formId: string;
+  onCancel: () => void;
+  isSubmitting?: boolean;
+};
+
+export function InlineEditActions({
+  formId,
+  onCancel,
+  isSubmitting = false,
+}: InlineEditActionsProps) {
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={isSubmitting}
+        aria-label="Cancel"
+        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/[0.04] hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <XIcon className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="submit"
+        form={formId}
+        disabled={isSubmitting}
+        aria-label={isSubmitting ? "Saving" : "Save"}
+        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-emerald-600 transition-colors hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <CheckIcon className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+export const inlineInputClassName =
+  `w-full min-w-0 border border-white/60 bg-white/40 px-2.5 py-1.5 text-[13px] text-neutral-800 placeholder:text-neutral-400 backdrop-blur-xl transition focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black/[0.04] ${roundedRect}`;
+
+export const inlineTextareaClassName =
+  `flex min-h-20 w-full resize-none border border-white/60 bg-white/40 px-3 py-2 text-[13px] leading-relaxed text-neutral-900 placeholder:text-neutral-400 backdrop-blur-xl transition focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black/[0.04] ${roundedRect}`;
+
 /* ── Form inputs ────────────────────────────────────────── */
 
 export const textareaClassName =
-  "flex min-h-28 w-full resize-none rounded-2xl border border-white/60 bg-white/40 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 backdrop-blur-xl transition focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black/[0.04]";
+  `flex min-h-28 w-full resize-none border border-white/60 bg-white/40 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 backdrop-blur-xl transition focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-black/[0.04] ${roundedRect}`;
 
 export const fieldLabelClassName = "text-[13px] font-medium text-neutral-500";

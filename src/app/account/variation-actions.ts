@@ -85,18 +85,16 @@ export async function updateVariationFieldAction(
     const auid = session.auid;
 
     if (field === "name") {
-      await Promise.all([
-        sdk.ChangeVariationFirstName({
-          auid,
-          variationId,
-          firstName: optionalString(formData.get("firstName")),
-        }),
-        sdk.ChangeVariationLastName({
-          auid,
-          variationId,
-          lastName: optionalString(formData.get("lastName")),
-        }),
-      ]);
+      await sdk.ChangeVariationFirstName({
+        auid,
+        variationId,
+        firstName: optionalString(formData.get("firstName")),
+      });
+      await sdk.ChangeVariationLastName({
+        auid,
+        variationId,
+        lastName: optionalString(formData.get("lastName")),
+      });
     } else if (field === "firstName") {
       await sdk.ChangeVariationFirstName({
         auid,

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { loginAction, type AuthActionState } from "@/app/actions/auth";
+import { roundedRect } from "@/lib/design";
+import { cn } from "@/lib/utils";
 
 type LoginFormProps = {
   isOAuthFlow?: boolean;
@@ -36,7 +38,7 @@ export function LoginForm({ isOAuthFlow, registeredUsername }: LoginFormProps) {
       }
     >
       {registeredUsername ? (
-        <div className="mb-6 rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-600 backdrop-blur-sm">
+        <div className={cn("mb-6 border border-black/5 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-600 backdrop-blur-sm", roundedRect)}>
           Account created. Sign in with username{" "}
           <span className="font-medium text-black">{registeredUsername}</span>.
         </div>

@@ -9,6 +9,8 @@ import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
+import { roundedRect } from "@/lib/design";
+import { cn } from "@/lib/utils";
 import { SUPPORTED_SCOPES } from "@/lib/oauth/constants";
 import { useActionState } from "react";
 
@@ -36,7 +38,7 @@ export function ClientForm() {
             required
             rows={4}
             placeholder={"http://localhost:3001/callback\nhttps://app.example.com/callback"}
-            className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 text-sm text-black outline-none transition focus:border-black/30"
+            className={cn("w-full border border-black/10 bg-white/80 px-4 py-3 text-sm text-black outline-none transition focus:border-black/30", roundedRect)}
           />
           <span className="block text-xs text-neutral-500">
             One URI per line. Production URIs must use HTTPS except localhost.
@@ -50,7 +52,7 @@ export function ClientForm() {
           {SUPPORTED_SCOPES.map((scope) => (
             <label
               key={scope}
-              className="flex items-center gap-3 rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-700"
+              className={cn("flex items-center gap-3 border border-black/5 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-700", roundedRect)}
             >
               <input
                 type="checkbox"
@@ -70,7 +72,7 @@ export function ClientForm() {
         </Button>
         <Link
           href="/developer/oauth/clients"
-          className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-black/10 bg-white px-4 text-sm font-medium text-black transition hover:bg-neutral-50"
+          className={cn("inline-flex h-11 w-full items-center justify-center border border-black/10 bg-white px-4 text-sm font-medium text-black transition hover:bg-neutral-50", roundedRect)}
         >
           Cancel
         </Link>

@@ -1,3 +1,4 @@
+import { roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 
 type CardProps = React.ComponentProps<"div">;
@@ -6,7 +7,8 @@ export function Card({ className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl",
+        "border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl",
+        roundedRect,
         className,
       )}
       {...props}

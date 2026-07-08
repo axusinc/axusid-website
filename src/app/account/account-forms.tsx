@@ -4,11 +4,11 @@ import { useActionState, useEffect, useState } from "react";
 import { changePasswordAction, type AuthActionState } from "@/app/actions/auth";
 import {
   glassSurfaceStrong,
+  InlineEditActions,
   PanelHeader,
   StatusBadge,
   TextAction,
 } from "@/app/account/dashboard-ui";
-import { Button } from "@/components/ui/button";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 
@@ -55,45 +55,30 @@ export function AccountForms({ auid }: AccountFormsProps) {
     );
   }
 
+  const formId = `change-password-${auid}`;
+
   return (
     <section className={`${glassSurfaceStrong} p-6 sm:p-7`}>
-      <PanelHeader title="New password" subtitle="Choose a strong password" />
+      <PanelHeader
+        title="Security"
+        subtitle="Choose a new password"
+        action={
+          <InlineEditActions
+            formId={formId}
+            onCancel={() => setIsEditing(false)}
+            isSubmitting={changingPassword}
+          />
+        }
+      />
 
-      <form action={changePassword} className="mt-6 space-y-5">
+      <form id={formId} action={changePassword} className="mt-6 space-y-4">
         <input type="hidden" name="auid" value={auid} />
 
-        <div className="space-y-4">
-          <Input name="newPassword" label="New password" type="password" required />
-          <Input
-            name="confirmPassword"
-            label="Confirm password"
-            type="password"
-            required
-          />
-        </div>
+        <Input name="newPassword" label="New password" type="password" required autoFocus />
+        <Input name="confirmPassword" label="Confirm password" type="password" required />
 
         {passwordState.error ? <FormError>{passwordState.error}</FormError> : null}
         {passwordState.success ? <FormSuccess>{passwordState.success}</FormSuccess> : null}
-
-        <div className="flex gap-3 pt-1">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsEditing(false)}
-            className="flex-1"
-            disabled={changingPassword}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="brand"
-            className="flex-1"
-            disabled={changingPassword}
-          >
-            {changingPassword ? "Updating..." : "Update"}
-          </Button>
-        </div>
       </form>
     </section>
   );

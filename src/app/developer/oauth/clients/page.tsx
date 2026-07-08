@@ -3,6 +3,8 @@ import { listClientsByOwner } from "@/lib/oauth/client-store";
 import { requireDeveloperSession } from "@/lib/oauth/developer";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
+import { roundedRect } from "@/lib/design";
+import { cn } from "@/lib/utils";
 
 export default async function DeveloperClientsPage() {
   const session = await requireDeveloperSession();
@@ -44,7 +46,7 @@ export default async function DeveloperClientsPage() {
 
         <div className="mt-8 space-y-4">
           {clients.length === 0 ? (
-            <div className="rounded-2xl border border-black/5 bg-white/70 p-8 text-sm text-neutral-500 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+            <div className={cn("border border-black/5 bg-white/70 p-8 text-sm text-neutral-500 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl", roundedRect)}>
               No apps registered yet.
             </div>
           ) : (
@@ -52,7 +54,7 @@ export default async function DeveloperClientsPage() {
               <Link
                 key={client.clientId}
                 href={`/developer/oauth/clients/${client.clientId}`}
-                className="block rounded-2xl border border-black/5 bg-white/70 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl transition hover:border-black/10"
+                className={cn("block border border-black/5 bg-white/70 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl transition hover:border-black/10", roundedRect)}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>

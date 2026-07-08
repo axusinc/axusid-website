@@ -1,3 +1,4 @@
+import { roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 
 type ButtonProps = React.ComponentProps<"button"> & {
@@ -25,7 +26,8 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex h-11 items-center justify-center px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50",
+        roundedRect,
         variants[variant],
         className,
       )}

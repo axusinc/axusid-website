@@ -1,4 +1,6 @@
 import { Logo } from "@/components/ui/logo";
+import { roundedRect } from "@/lib/design";
+import { cn } from "@/lib/utils";
 
 type AuthShellProps = {
   title: string;
@@ -29,7 +31,7 @@ export function AuthShell({ title, description, children, footer }: AuthShellPro
           </div>
         </div>
 
-        <div className="rounded-2xl border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+        <div className={cn("border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl", roundedRect)}>
           {children}
         </div>
 

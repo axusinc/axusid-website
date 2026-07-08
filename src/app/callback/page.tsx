@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell";
 import { FormError } from "@/components/ui/form-message";
+import { roundedRect } from "@/lib/design";
+import { cn } from "@/lib/utils";
 
 export default async function CallbackPage({
   searchParams,
@@ -23,7 +25,7 @@ export default async function CallbackPage({
       <div className="space-y-4 text-sm text-neutral-600">
         {error ? <FormError>{error}</FormError> : null}
         {code ? (
-          <div className="rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3">
+          <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
             <p className="text-xs uppercase tracking-[0.18em] text-neutral-400">
               Authorization code
             </p>
@@ -38,7 +40,7 @@ export default async function CallbackPage({
         ) : null}
         <Link
           href="/"
-          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-black px-4 text-sm font-medium text-white transition hover:bg-neutral-800"
+          className={cn("inline-flex h-11 w-full items-center justify-center bg-black px-4 text-sm font-medium text-white transition hover:bg-neutral-800", roundedRect)}
         >
           Back home
         </Link>

@@ -3,6 +3,8 @@
 import { denyConsentAction, consentAction } from "@/app/actions/auth";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
+import { roundedRect } from "@/lib/design";
+import { cn } from "@/lib/utils";
 
 type ConsentFormProps = {
   clientName: string;
@@ -16,7 +18,7 @@ export function ConsentForm({ clientName, scopes }: ConsentFormProps) {
       description={`${clientName} is requesting access to your AXUS ID.`}
     >
       <div className="space-y-6">
-        <div className="rounded-xl border border-black/5 bg-white/60 p-4 backdrop-blur-sm">
+        <div className={cn("border border-black/5 bg-white/60 p-4 backdrop-blur-sm", roundedRect)}>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
             Requested permissions
           </p>
@@ -24,7 +26,7 @@ export function ConsentForm({ clientName, scopes }: ConsentFormProps) {
             {scopes.map((scope) => (
               <li
                 key={scope}
-                className="flex items-center justify-between rounded-lg bg-neutral-50/80 px-3 py-2 text-sm text-neutral-700"
+                className={cn("flex items-center justify-between bg-neutral-50/80 px-3 py-2 text-sm text-neutral-700", roundedRect)}
               >
                 <span>{scope}</span>
                 <span className="text-xs uppercase tracking-wide text-neutral-400">

@@ -7,6 +7,7 @@ import {
   glassSurfaceStrong,
   TextAction,
 } from "@/app/account/dashboard-ui";
+import { roundedRect } from "@/lib/design";
 import { AccountForms } from "./account-forms";
 import { VariationForms } from "./variation-forms";
 
@@ -115,7 +116,6 @@ export function AccountDashboard({
           className={cn(
             "mt-8 flex w-full flex-row gap-1 p-1 lg:flex-col",
             glassSurfaceStrong,
-            "rounded-[16px]",
           )}
           aria-label="Account sections"
         >
@@ -125,7 +125,8 @@ export function AccountDashboard({
               type="button"
               onClick={() => setActive(id)}
               className={cn(
-                "inline-flex flex-1 items-center justify-center gap-2 rounded-[12px] px-4 py-2.5 text-[13px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 lg:flex-none",
+                "inline-flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 lg:flex-none",
+                roundedRect,
                 active === id
                   ? "bg-white/70 text-neutral-900 hover:bg-white/80"
                   : "text-neutral-500 hover:bg-white/40 hover:text-neutral-800",

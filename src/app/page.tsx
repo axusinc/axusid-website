@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
+import { roundedRect } from "@/lib/design";
+import { cn } from "@/lib/utils";
 import { getIssuer } from "@/lib/oauth/constants";
 
 export default function HomePage() {
@@ -23,7 +25,7 @@ export default function HomePage() {
         </div>
 
         <section className="mt-16 grid gap-6 lg:grid-cols-2">
-          <article className="rounded-2xl border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+          <article className={cn("border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl", roundedRect)}>
             <h2 className="text-xl font-semibold text-black">For people</h2>
             <p className="mt-3 text-sm leading-relaxed text-neutral-500">
               Create an AXUS ID, manage your profile, and sign in to connected
@@ -39,20 +41,20 @@ export default function HomePage() {
             </div>
           </article>
 
-          <article className="rounded-2xl border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+          <article className={cn("border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl", roundedRect)}>
             <h2 className="text-xl font-semibold text-black">For developers</h2>
             <p className="mt-3 text-sm leading-relaxed text-neutral-500">
               OAuth2 Authorization Code + PKCE adapter backed by the AXUS GraphQL
               auth API. Discovery, authorize, token, and revoke endpoints included.
             </p>
             <dl className="mt-6 space-y-3 text-sm">
-              <div className="rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3">
+              <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
                 <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
                   Issuer
                 </dt>
                 <dd className="mt-1 font-mono text-xs text-black">{issuer}</dd>
               </div>
-              <div className="rounded-xl border border-black/5 bg-neutral-50/80 px-4 py-3">
+              <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
                 <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
                   Discovery
                 </dt>
