@@ -134,6 +134,50 @@ export async function updateVariationFieldAction(
   }
 }
 
+export async function changeUsernameAction(
+  _prevState: VariationActionState,
+  formData: FormData,
+): Promise<VariationActionState> {
+  const session = await getActionSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+
+  const oldUsername = String(formData.get("oldUsername") ?? "").trim();
+  const newUsername = String(formData.get("newUsername") ?? "").trim();
+
+  if (!oldUsername) {
+    return { error: "Current username is required." };
+  }
+
+  if (!newUsername) {
+    return { error: "New username is required." };
+  }
+
+  if (oldUsername === newUsername) {
+    return { error: "New username must be different from the current one." };
+  }
+
+  try {
+    const sdk = getAuthSdkForSession(session);
+    await sdk.ChangeUsername({
+      auid: session.auid,
+      oldUsername,
+      newUsername,
+    });
+    revalidatePath("/account");
+    return { success: "Username updated." };
+  } catch (error) {
+    return {
+      error: formatGraphqlError(
+        error,
+        "account",
+        "Unable to change username. Try again.",
+      ),
+    };
+  }
+}
+
 export async function setDefaultVariationAction(
   _prevState: VariationActionState,
   formData: FormData,

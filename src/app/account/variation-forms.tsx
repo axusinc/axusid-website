@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import {
+  changeUsernameAction,
   updateVariationFieldAction,
   type VariationActionState,
 } from "@/app/account/variation-actions";
@@ -32,7 +33,7 @@ type ProfileFormProps = {
   auid: string;
 };
 
-type EditableField = "name" | "status" | "description";
+type EditableField = "name" | "username" | "status" | "description";
 
 const initialState: VariationActionState = {};
 
@@ -86,6 +87,55 @@ function EditableNameField({
             className={inlineInputClassName}
           />
         </div>
+      </form>
+      {state.error ? (
+        <p className="mt-2">
+          <FormError>{state.error}</FormError>
+        </p>
+      ) : null}
+    </DataRow>
+  );
+}
+
+function EditableUsernameField({
+  defaultUsername,
+  onDone,
+}: {
+  defaultUsername: string;
+  onDone: () => void;
+}) {
+  const formId = `edit-username-${defaultUsername}`;
+  const [state, submitAction, isSubmitting] = useActionState(
+    changeUsernameAction,
+    initialState,
+  );
+
+  useEffect(() => {
+    if (state.success) {
+      onDone();
+    }
+  }, [state.success, onDone]);
+
+  return (
+    <DataRow
+      label="Username"
+      action={
+        <InlineEditActions
+          formId={formId}
+          onCancel={onDone}
+          isSubmitting={isSubmitting}
+        />
+      }
+    >
+      <form id={formId} action={submitAction}>
+        <input type="hidden" name="oldUsername" value={defaultUsername} />
+        <input
+          name="newUsername"
+          placeholder="New username"
+          defaultValue={defaultUsername}
+          className={inlineInputClassName}
+          autoFocus
+        />
       </form>
       {state.error ? (
         <p className="mt-2">
@@ -250,9 +300,23 @@ export function VariationForms({ defaultVariation, defaultUsername, auid }: Prof
             </DataRow>
           )}
 
-          <DataRow label="Username">
-            {defaultUsername ? `@${defaultUsername}` : empty}
-          </DataRow>
+          {editingField === "username" && defaultUsername ? (
+            <EditableUsernameField
+              defaultUsername={defaultUsername}
+              onDone={finishEditing}
+            />
+          ) : (
+            <DataRow
+              label="Username"
+              action={
+                defaultUsername ? (
+                  <TextAction onClick={() => setEditingField("username")}>Edit</TextAction>
+                ) : undefined
+              }
+            >
+              {defaultUsername ? `@${defaultUsername}` : empty}
+            </DataRow>
+          )}
 
           {editingField === "status" ? (
             <EditableStatusField variation={defaultVariation} onDone={finishEditing} />

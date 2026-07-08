@@ -73,6 +73,14 @@ mutation ChangeDefaultUsername($auid: ID!, $username: String!) {
   }
 }
 
+mutation ChangeUsername($auid: ID!, $oldUsername: String!, $newUsername: String!) {
+  changeUsername(auid: $auid, oldUsername: $oldUsername, newUsername: $newUsername) {
+    auid
+    usernames
+    defaultUsername
+  }
+}
+
 mutation CreateVariation(
   $auid: ID!
   $firstName: String
