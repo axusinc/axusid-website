@@ -1,15 +1,40 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
-import { Button } from "@/components/ui/button";
+import { AccountDashboard } from "@/app/account/account-dashboard";
+import { DashboardShell } from "@/app/account/dashboard-ui";
 import { FormError } from "@/components/ui/form-message";
 import { Logo } from "@/components/ui/logo";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { getValidSession } from "@/lib/session-access";
 import { fetchUserProfileWithVariations } from "@/lib/user-profile";
-import { AccountForms } from "./account-forms";
-import { VariationForms } from "./variation-forms";
+
+function TopBar({ username }: { username?: string | null }) {
+  return (
+    <header className="sticky top-0 z-50 border-b border-white/40 bg-white/20 px-6 py-4 backdrop-blur-2xl lg:px-10">
+      <div className="mx-auto flex max-w-7xl items-center justify-between">
+        <Link href="/" className="opacity-80 transition-opacity hover:opacity-100">
+          <Logo size={28} />
+        </Link>
+
+        <div className="flex items-center gap-6">
+          {username ? (
+            <span className="hidden text-[13px] text-neutral-400 sm:inline">@{username}</span>
+          ) : null}
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="cursor-pointer text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+    </header>
+  );
+}
 
 export default async function AccountPage() {
   const session = await getValidSession();
@@ -20,30 +45,14 @@ export default async function AccountPage() {
 
   const sdk = getAuthSdkForSession(session);
   let profile;
+
   try {
     profile = await fetchUserProfileWithVariations(sdk, session.auid);
   } catch (error) {
     return (
-      <div className="relative min-h-full overflow-hidden bg-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,0,0,0.04),transparent_55%),linear-gradient(180deg,#ffffff_0%,#f5f5f5_100%)]" />
-
-        <header className="relative border-b border-black/5 bg-white/70 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-            <div className="flex items-center gap-3">
-              <Logo size={36} />
-              <div>
-                <p className="text-sm font-medium text-black">Account</p>
-              </div>
-            </div>
-            <form action={logoutAction}>
-              <Button type="submit" variant="outline">
-                Sign out
-              </Button>
-            </form>
-          </div>
-        </header>
-
-        <main className="relative mx-auto max-w-5xl px-6 py-10">
+      <DashboardShell>
+        <TopBar />
+        <main className="mx-auto max-w-7xl px-6 py-10 lg:px-10">
           <FormError>
             {formatGraphqlError(
               error,
@@ -52,109 +61,40 @@ export default async function AccountPage() {
             )}
           </FormError>
         </main>
-
-        <footer className="relative border-t border-black/5 px-6 py-6 text-center text-sm text-neutral-500">
-          <Link href="/" className="hover:text-black">
-            Back to AXUS ID
-          </Link>
-        </footer>
-      </div>
+      </DashboardShell>
     );
   }
 
   const { user, variations } = profile;
+  const defaultVariation = user?.defaultVariation?.variationId
+    ? variations.find((v) => v.id === user.defaultVariation?.variationId) || null
+    : null;
+
+  const fullName = [defaultVariation?.firstName, defaultVariation?.lastName]
+    .filter(Boolean)
+    .join(" ");
+  const username = user?.usernames?.defaultUsername ?? null;
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,0,0,0.04),transparent_55%),linear-gradient(180deg,#ffffff_0%,#f5f5f5_100%)]" />
+    <DashboardShell>
+      <TopBar username={username} />
 
-      <header className="relative border-b border-black/5 bg-white/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3">
-            <Logo size={36} />
-            <div>
-              <p className="text-sm font-medium text-black">Account</p>
-              {user?.usernames?.defaultUsername ? (
-                <p className="text-xs text-neutral-500">
-                  @{user.usernames.defaultUsername}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <form action={logoutAction}>
-            <Button type="submit" variant="outline">
-              Sign out
-            </Button>
-          </form>
-        </div>
-      </header>
+      <AccountDashboard
+        auid={session.auid}
+        defaultUsername={username}
+        defaultVariation={defaultVariation}
+        fullName={fullName}
+        username={username}
+      />
 
-      <main className="relative mx-auto grid max-w-5xl gap-6 px-6 py-10 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="rounded-2xl border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl">
-          <h1 className="text-2xl font-semibold tracking-tight text-black">
-            Profile
-          </h1>
-          <p className="mt-2 text-sm text-neutral-500">
-            Manage your identity, usernames, and variations.
-          </p>
-
-          <dl className="mt-8 space-y-4">
-            <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
-              <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
-                Username
-              </dt>
-              <dd className="mt-1 text-sm font-medium text-black">
-                {user?.usernames?.defaultUsername}
-              </dd>
-            </div>
-            <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
-              <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
-                All usernames
-              </dt>
-              <dd className="mt-2 flex flex-wrap gap-2">
-                {user?.usernames?.usernames.map((username) => (
-                  <span
-                    key={username}
-                    className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs text-neutral-700"
-                  >
-                    {username}
-                    {username === user?.usernames?.defaultUsername ? (
-                      <span className="ml-1 text-neutral-400">default</span>
-                    ) : null}
-                  </span>
-                ))}
-              </dd>
-            </div>
-            <div className="rounded-xl border border-black/5 bg-neutral-50/70 px-4 py-3">
-              <dt className="text-xs uppercase tracking-[0.18em] text-neutral-400">
-                AUID
-              </dt>
-              <dd className="mt-1 font-mono text-sm text-neutral-600">
-                {user?.identity.auid}
-              </dd>
-            </div>
-          </dl>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/developer/oauth/clients">
-              <Button variant="outline">Developer apps</Button>
-            </Link>
-          </div>
-
-          <VariationForms
-            variations={variations}
-            defaultVariationId={user?.defaultVariation?.variationId ?? null}
-          />
-        </section>
-
-        <AccountForms auid={session.auid} />
-      </main>
-
-      <footer className="relative border-t border-black/5 px-6 py-6 text-center text-sm text-neutral-500">
-        <Link href="/" className="hover:text-black">
-          Back to AXUS ID
+      <footer className="border-t border-white/30 py-8 text-center">
+        <Link
+          href="/"
+          className="text-[13px] text-neutral-400 transition-colors hover:text-neutral-600"
+        >
+          axus.id
         </Link>
       </footer>
-    </div>
+    </DashboardShell>
   );
 }
