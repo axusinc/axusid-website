@@ -31,10 +31,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
 /* ── Surfaces ───────────────────────────────────────────── */
 
 export const glassSurface =
-  "rounded-3xl border border-white/50 bg-white/25 shadow-[0_4px_24px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-2xl";
+  "rounded-3xl border border-white/50 bg-white/25 backdrop-blur-2xl";
 
 export const glassSurfaceStrong =
-  "rounded-3xl border border-white/60 bg-white/45 shadow-[0_8px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-3xl";
+  "rounded-3xl border border-white/60 bg-white/45 backdrop-blur-3xl";
 
 /* ── Avatar ─────────────────────────────────────────────── */
 
@@ -58,7 +58,7 @@ export function Avatar({ firstName, lastName, username, size = "lg" }: AvatarPro
       className={cn(
         "relative flex shrink-0 items-center justify-center rounded-full font-light tracking-tight text-white",
         "bg-gradient-to-b from-neutral-700 to-neutral-900",
-        "ring-[3px] ring-white/60 shadow-[0_12px_40px_rgba(0,0,0,0.15)]",
+        "ring-[3px] ring-white/60",
         dims,
       )}
       aria-hidden
