@@ -1,4 +1,3 @@
-import { DatabaseConfigError } from "@/lib/db";
 import { oauthError } from "@/lib/oauth/adapter";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { consumeAuthorizationCode } from "@/lib/oauth/auth-code-store";
@@ -41,24 +40,12 @@ export async function POST(request: Request) {
     }
   }
 
-  let client;
-  let record;
-
-  try {
-    client = await getOAuthClient(payload.client_id);
-    if (!client) {
-      return oauthError("invalid_client", "Unknown client_id", 401);
-    }
-
-    record = await consumeAuthorizationCode(payload.code);
-  } catch (error) {
-    if (error instanceof DatabaseConfigError) {
-      return oauthError("server_error", "OAuth database is not configured", 500);
-    }
-
-    console.error("oauth_token_db_error", error);
-    return oauthError("server_error", "Database unavailable", 500);
+  const client = await getOAuthClient(payload.client_id);
+  if (!client) {
+    return oauthError("invalid_client", "Unknown client_id", 401);
   }
+
+  const record = await consumeAuthorizationCode(payload.code);
   if (!record) {
     return oauthError(
       "invalid_grant",

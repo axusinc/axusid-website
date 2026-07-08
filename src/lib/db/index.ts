@@ -4,17 +4,10 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
-export class DatabaseConfigError extends Error {
-  constructor(message = "DATABASE_URL is not configured") {
-    super(message);
-    this.name = "DatabaseConfigError";
-  }
-}
-
 function getDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL?.trim();
+  const url = process.env.DATABASE_URL;
   if (!url) {
-    throw new DatabaseConfigError();
+    throw new Error("DATABASE_URL is not configured");
   }
   return url;
 }
@@ -26,12 +19,7 @@ const globalDb = globalThis as typeof globalThis & {
 
 export function getDb() {
   if (!globalDb.__axusDrizzle) {
-    const client = postgres(getDatabaseUrl(), {
-      max: process.env.VERCEL ? 1 : 10,
-      idle_timeout: 20,
-      connect_timeout: 10,
-      prepare: false,
-    });
+    const client = postgres(getDatabaseUrl(), { max: 10 });
     globalDb.__axusPostgres = client;
     globalDb.__axusDrizzle = drizzle(client, { schema });
   }
