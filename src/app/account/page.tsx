@@ -66,9 +66,10 @@ export default async function AccountPage() {
   }
 
   const { user, variations } = profile;
-  const defaultVariation = user?.defaultVariation?.variationId
-    ? variations.find((v) => v.id === user.defaultVariation?.variationId) || null
-    : null;
+  const defaultVariationId = user?.defaultVariation?.variationId;
+  const defaultVariation = defaultVariationId
+    ? (variations.find((v) => v.id === defaultVariationId) ?? variations[0] ?? null)
+    : (variations[0] ?? null);
 
   const fullName = [defaultVariation?.firstName, defaultVariation?.lastName]
     .filter(Boolean)

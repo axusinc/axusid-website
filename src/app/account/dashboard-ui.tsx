@@ -121,15 +121,19 @@ type DataRowProps = {
   label: string;
   children: React.ReactNode;
   mono?: boolean;
+  action?: React.ReactNode;
 };
 
-export function DataRow({ label, children, mono }: DataRowProps) {
+export function DataRow({ label, children, mono, action }: DataRowProps) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-black/[0.04] py-4 last:border-0 sm:grid-cols-[minmax(120px,200px)_1fr] sm:items-baseline sm:gap-8">
-      <dt className="text-[13px] text-neutral-400">{label}</dt>
+    <div className="border-b border-black/[0.04] py-4 last:border-0">
+      <div className="flex items-start justify-between gap-4">
+        <dt className="text-[13px] text-neutral-400">{label}</dt>
+        {action}
+      </div>
       <dd
         className={cn(
-          "min-w-0 text-[13px] text-neutral-800 sm:text-right",
+          "mt-2 min-w-0 text-[13px] text-neutral-800",
           mono && "truncate font-mono text-xs",
         )}
       >
@@ -142,12 +146,16 @@ export function DataRow({ label, children, mono }: DataRowProps) {
 type DataBlockProps = {
   label: string;
   children: React.ReactNode;
+  action?: React.ReactNode;
 };
 
-export function DataBlock({ label, children }: DataBlockProps) {
+export function DataBlock({ label, children, action }: DataBlockProps) {
   return (
     <div className="border-b border-black/[0.04] py-4 last:border-0">
-      <p className="text-[13px] text-neutral-400">{label}</p>
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-[13px] text-neutral-400">{label}</p>
+        {action}
+      </div>
       <div className="mt-2 text-[13px] leading-relaxed text-neutral-800">{children}</div>
     </div>
   );

@@ -51,7 +51,17 @@ export async function createVariationAction(
   }
 }
 
-export async function updateVariationAction(
+type ProfileField = "firstName" | "lastName" | "status" | "description" | "name";
+
+const fieldSuccessMessages: Record<ProfileField, string> = {
+  firstName: "First name updated.",
+  lastName: "Last name updated.",
+  name: "Name updated.",
+  status: "Status updated.",
+  description: "Bio updated.",
+};
+
+export async function updateVariationFieldAction(
   _prevState: VariationActionState,
   formData: FormData,
 ): Promise<VariationActionState> {
@@ -62,46 +72,65 @@ export async function updateVariationAction(
 
   const variationId = String(formData.get("variationId") ?? "").trim();
   if (!variationId) {
-    return { error: "Variation is required." };
+    return { error: "Profile is required." };
   }
 
-  const firstName = optionalString(formData.get("firstName"));
-  const lastName = optionalString(formData.get("lastName"));
-  const status = optionalString(formData.get("status"));
-  const description = optionalString(formData.get("description"));
+  const field = String(formData.get("field") ?? "").trim() as ProfileField;
+  if (!field || !(field in fieldSuccessMessages)) {
+    return { error: "Unknown field." };
+  }
 
   try {
     const sdk = getAuthSdkForSession(session);
-    await Promise.all([
-      sdk.ChangeVariationFirstName({
-        auid: session.auid,
+    const auid = session.auid;
+
+    if (field === "name") {
+      await Promise.all([
+        sdk.ChangeVariationFirstName({
+          auid,
+          variationId,
+          firstName: optionalString(formData.get("firstName")),
+        }),
+        sdk.ChangeVariationLastName({
+          auid,
+          variationId,
+          lastName: optionalString(formData.get("lastName")),
+        }),
+      ]);
+    } else if (field === "firstName") {
+      await sdk.ChangeVariationFirstName({
+        auid,
         variationId,
-        firstName,
-      }),
-      sdk.ChangeVariationLastName({
-        auid: session.auid,
+        firstName: optionalString(formData.get("firstName")),
+      });
+    } else if (field === "lastName") {
+      await sdk.ChangeVariationLastName({
+        auid,
         variationId,
-        lastName,
-      }),
-      sdk.ChangeVariationStatus({
-        auid: session.auid,
+        lastName: optionalString(formData.get("lastName")),
+      });
+    } else if (field === "status") {
+      await sdk.ChangeVariationStatus({
+        auid,
         variationId,
-        status,
-      }),
-      sdk.ChangeVariationDescription({
-        auid: session.auid,
+        status: optionalString(formData.get("status")),
+      });
+    } else if (field === "description") {
+      await sdk.ChangeVariationDescription({
+        auid,
         variationId,
-        description,
-      }),
-    ]);
+        description: optionalString(formData.get("description")),
+      });
+    }
+
     revalidatePath("/account");
-    return { success: "Variation updated." };
+    return { success: fieldSuccessMessages[field] };
   } catch (error) {
     return {
       error: formatGraphqlError(
         error,
         "account",
-        "Unable to update variation. Try again.",
+        "Unable to update profile. Try again.",
       ),
     };
   }
