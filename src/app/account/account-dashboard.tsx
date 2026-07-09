@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DeveloperSection } from "@/app/account/developer-section";
-import { Avatar } from "@/app/account/dashboard-ui";
+import { Avatar, SectionIntro } from "@/app/account/dashboard-ui";
 import { cardSurface, roundedRect } from "@/lib/design";
 import type { OAuthClient } from "@/lib/oauth/constants";
 import { cn } from "@/lib/utils";
@@ -114,6 +114,23 @@ function parseSection(value: string | null): SectionId {
   return "profile";
 }
 
+const sectionMeta: Record<SectionId, { title: string; description: string }> = {
+  profile: {
+    title: "Profile",
+    description:
+      "Your name, username, and public details. Apps you sign in to can read this information.",
+  },
+  security: {
+    title: "Security",
+    description: "Manage how you sign in to your AXUS ID account.",
+  },
+  developer: {
+    title: "Developer",
+    description:
+      "Register OAuth 2.0 clients or configure SAML so other applications can authenticate users with AXUS ID.",
+  },
+};
+
 export function AccountDashboard({
   auid,
   defaultUsername,
@@ -221,6 +238,11 @@ export function AccountDashboard({
       </aside>
 
       <div className="min-w-0 flex-1">
+        <SectionIntro
+          title={sectionMeta[active].title}
+          description={sectionMeta[active].description}
+        />
+
         <div key={active} className="animate-[fadeIn_0.3s_ease-out]">
           {active === "profile" ? (
             <VariationForms

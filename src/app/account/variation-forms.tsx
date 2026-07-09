@@ -14,7 +14,7 @@ import {
   inlineInputClassName,
   inlineTextareaClassName,
   InlineEditActions,
-  PanelHeader,
+  SubsectionTitle,
 } from "@/app/account/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -93,6 +93,7 @@ function EditableNameField({
   return (
     <DataRow
       label="Name"
+      hint="Your display name"
       action={
         <InlineEditActions
           formId={formId}
@@ -157,6 +158,7 @@ function EditableUsernameField({
   return (
     <DataRow
       label="Username"
+      hint="Used to sign in and identify your account"
       action={
         <InlineEditActions
           formId={formId}
@@ -211,7 +213,8 @@ function EditableStatusField({
 
   return (
     <DataBlock
-      label="Status"
+      label="Status message"
+      hint="A short line shown on your profile"
       action={
         <InlineEditActions
           formId={formId}
@@ -268,6 +271,7 @@ function EditableBioField({
   return (
     <DataBlock
       label="Bio"
+      hint="A longer description about you"
       action={
         <InlineEditActions
           formId={formId}
@@ -355,21 +359,19 @@ export function VariationForms({
     .join(" ");
 
   return (
-    <Card className="p-6 sm:p-8">
-      <PanelHeader title="Profile" subtitle="Your public identity" />
-
+    <Card>
       {banner ? (
-        <div className="mt-5">
+        <div className="mb-5">
           <FormSuccess>{banner}</FormSuccess>
         </div>
       ) : null}
 
       {!defaultVariation ? (
-        <p className="mt-6 text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500">
           No profile found. Contact support if this looks wrong.
         </p>
       ) : (
-        <dl className="mt-6">
+        <dl className="[&>div:first-child]:pt-0">
           {editingField === "name" ? (
             <EditableNameField
               variation={defaultVariation}
@@ -379,6 +381,7 @@ export function VariationForms({
           ) : (
             <DataRow
               label="Name"
+              hint="Your display name"
               action={
                 <Button
                   type="button"
@@ -403,6 +406,7 @@ export function VariationForms({
           ) : (
             <DataRow
               label="Username"
+              hint="Used to sign in and identify your account"
               action={
                 defaultUsername ? (
                   <Button
@@ -428,7 +432,8 @@ export function VariationForms({
             />
           ) : (
             <DataBlock
-              label="Status"
+              label="Status message"
+              hint="A short line shown on your profile"
               action={
                 <Button
                   type="button"
@@ -453,6 +458,7 @@ export function VariationForms({
           ) : (
             <DataBlock
               label="Bio"
+              hint="A longer description about you"
               action={
                 <Button
                   type="button"
@@ -474,8 +480,11 @@ export function VariationForms({
         </dl>
       )}
 
-      <div className="mt-2">
-        <p className="mb-2 text-sm font-medium text-neutral-700">Account ID</p>
+      <div className="mt-6 border-t border-black/[0.04] pt-6">
+        <SubsectionTitle
+          title="AUID"
+          description="Your unique AXUS ID. Share with support if you need help with your account."
+        />
         <CopyChip value={auid} copied={copied} onCopy={copyAuid} />
         {copyError ? (
           <p className="mt-2">

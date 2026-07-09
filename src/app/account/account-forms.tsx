@@ -11,8 +11,8 @@ import {
 import { changePasswordAction, type AuthActionState } from "@/app/actions/auth";
 import {
   InlineEditActions,
-  PanelHeader,
   StatusBadge,
+  SubsectionTitle,
 } from "@/app/account/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -69,24 +69,24 @@ export function AccountForms({ auid, onEditingChange, cancelRef }: AccountFormsP
 
   if (!isEditing) {
     return (
-      <Card className="p-6 sm:p-8">
-        <PanelHeader
-          title="Security"
-          subtitle="Password and account protection"
-          action={
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-8 px-3"
-              onClick={() => setIsEditing(true)}
-            >
-              Change password
-            </Button>
-          }
-        />
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <SubsectionTitle
+            title="Password"
+            description="Sign in to AXUS ID with your password."
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 shrink-0"
+            onClick={() => setIsEditing(true)}
+          >
+            Change password
+          </Button>
+        </div>
 
-        <div className="mt-6">
-          <StatusBadge>Password is set</StatusBadge>
+        <div className="mt-4">
+          <StatusBadge>Password active</StatusBadge>
         </div>
 
         {passwordState.success ? (
@@ -101,18 +101,18 @@ export function AccountForms({ auid, onEditingChange, cancelRef }: AccountFormsP
   const formId = `change-password-${auid}`;
 
   return (
-    <Card className="p-6 sm:p-8">
-      <PanelHeader
-        title="Security"
-        subtitle="Choose a new password"
-        action={
-          <InlineEditActions
-            formId={formId}
-            onCancel={cancelEditing}
-            isSubmitting={changingPassword}
-          />
-        }
-      />
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <SubsectionTitle
+          title="Change password"
+          description="Enter a new password. You will use it the next time you sign in."
+        />
+        <InlineEditActions
+          formId={formId}
+          onCancel={cancelEditing}
+          isSubmitting={changingPassword}
+        />
+      </div>
 
       <form
         id={formId}
@@ -123,7 +123,7 @@ export function AccountForms({ auid, onEditingChange, cancelRef }: AccountFormsP
         <input type="hidden" name="auid" value={auid} />
 
         <Input name="newPassword" label="New password" type="password" required autoFocus />
-        <Input name="confirmPassword" label="Confirm password" type="password" required />
+        <Input name="confirmPassword" label="Confirm new password" type="password" required />
 
         {passwordState.error ? <FormError>{passwordState.error}</FormError> : null}
         {passwordState.success ? <FormSuccess>{passwordState.success}</FormSuccess> : null}

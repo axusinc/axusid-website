@@ -6,6 +6,7 @@ import {
   deleteSamlConfigAction,
   type SamlActionState,
 } from "@/app/developer/saml/actions";
+import { SubsectionTitle } from "@/app/account/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
@@ -26,6 +27,38 @@ type SamlFormProps = {
   };
 };
 
+function IdpDetail({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+}) {
+  return (
+    <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
+      <span className="block text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
+        {label}
+      </span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 block break-all font-mono text-xs text-black hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="mt-1 block break-all font-mono text-xs text-black select-all">
+          {value}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function SamlForm({ auid, issuer, config }: SamlFormProps) {
   const [state, formAction, pending] = useActionState(
     saveSamlConfigAction,
@@ -34,29 +67,29 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
 
   const idpEntityId = `${issuer}/saml/metadata/${auid}`;
   const idpSsoUrl = `${issuer}/saml/sso/${auid}`;
+  const idpSloUrl = `${issuer}/saml/slo/${auid}`;
+  const metadataUrl = `${issuer}/saml/metadata/${auid}`;
 
   return (
     <div className="space-y-8">
-      <Card className="p-6 sm:p-8">
-        <h2 className="text-xl font-semibold text-black">
-          SAML Service Provider Configuration
-        </h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Configure the external Service Provider (SP) that users will log in to.
-        </p>
+      <Card>
+        <SubsectionTitle
+          title="SAML single sign-on"
+          description="AXUS ID acts as the Identity Provider (IdP). Enter your app's Service Provider (SP) details below."
+        />
 
         <form action={formAction} className="mt-6 space-y-5">
           <Input
             name="name"
-            label="App Name"
-            placeholder="My SAML App"
+            label="App name"
+            placeholder="My SAML app"
             defaultValue={config?.name}
             required
           />
 
           <Input
             name="entityId"
-            label="SP Entity ID (Audience)"
+            label="SP Entity ID"
             placeholder="https://app.example.com/saml/metadata"
             defaultValue={config?.entityId}
             required
@@ -64,7 +97,7 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
 
           <Input
             name="acsUrl"
-            label="Assertion Consumer Service (ACS) URL"
+            label="SP Assertion Consumer Service (ACS) URL"
             placeholder="https://app.example.com/saml/acs"
             defaultValue={config?.acsUrl}
             required
@@ -72,7 +105,7 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
 
           <Input
             name="sloUrl"
-            label="Single Logout (SLO) URL (Optional)"
+            label="SP Single Logout URL (optional)"
             placeholder="https://app.example.com/saml/slo"
             defaultValue={config?.sloUrl || ""}
           />
@@ -80,11 +113,9 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
           {state.error ? <FormError>{state.error}</FormError> : null}
           {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
 
-          <div className="flex gap-4 pt-2">
-            <Button type="submit" variant="brand" className="flex-1" disabled={pending}>
-              {pending ? "Saving..." : "Save SAML Settings"}
-            </Button>
-          </div>
+          <Button type="submit" variant="brand" className="w-full" disabled={pending}>
+            {pending ? "Saving..." : "Save SAML settings"}
+          </Button>
         </form>
 
         {config ? (
@@ -92,72 +123,33 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
             <Button
               type="submit"
               variant="outline"
-              className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+              className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
             >
-              Delete SAML Configuration
+              Remove SAML configuration
             </Button>
           </form>
         ) : null}
       </Card>
 
-      <Card className="p-6 sm:p-8">
-        <h2 className="text-xl font-semibold text-black">
-          Identity Provider (IdP) Configuration Details
-        </h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Use these values to configure SAML SSO in your external Service Provider application.
-        </p>
+      <Card>
+        <SubsectionTitle
+          title="IdP details for your SP"
+          description="Copy these into your Service Provider's SAML configuration."
+        />
 
         <div className="mt-6 space-y-4">
-          <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
-            <span className="text-xs uppercase tracking-[0.18em] text-neutral-400 font-medium block">
-              IdP Entity ID (Issuer)
-            </span>
-            <span className="mt-1 block break-all font-mono text-xs text-black select-all">
-              {idpEntityId}
-            </span>
-          </div>
-
-          <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
-            <span className="text-xs uppercase tracking-[0.18em] text-neutral-400 font-medium block">
-              IdP Single Sign-On (SSO) URL
-            </span>
-            <span className="mt-1 block break-all font-mono text-xs text-black select-all">
-              {idpSsoUrl}
-            </span>
-          </div>
-
-          <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
-            <span className="text-xs uppercase tracking-[0.18em] text-neutral-400 font-medium block">
-              IdP Single Logout (SLO) URL
-            </span>
-            <span className="mt-1 block break-all font-mono text-xs text-black select-all">
-              {issuer}/saml/slo/{auid}
-            </span>
-          </div>
-
-          <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
-            <span className="text-xs uppercase tracking-[0.18em] text-neutral-400 font-medium block">
-              NameID Format
-            </span>
-            <span className="mt-1 block break-all font-mono text-xs text-black select-all">
-              urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified
-            </span>
-          </div>
-
-          <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
-            <span className="text-xs uppercase tracking-[0.18em] text-neutral-400 font-medium block">
-              Metadata XML Endpoint
-            </span>
-            <a
-              href={`/saml/metadata/${auid}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 block break-all font-mono text-xs text-brand hover:underline"
-            >
-              {idpEntityId}
-            </a>
-          </div>
+          <IdpDetail label="IdP Entity ID (Issuer)" value={idpEntityId} />
+          <IdpDetail label="IdP SSO URL" value={idpSsoUrl} />
+          <IdpDetail label="IdP SLO URL" value={idpSloUrl} />
+          <IdpDetail
+            label="NameID format"
+            value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
+          />
+          <IdpDetail
+            label="Metadata URL"
+            value={metadataUrl}
+            href={`/saml/metadata/${auid}`}
+          />
         </div>
       </Card>
     </div>

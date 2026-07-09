@@ -106,14 +106,44 @@ type PanelHeaderProps = {
 
 export function PanelHeader({ title, subtitle, action }: PanelHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
         <h2 className="text-xl font-semibold tracking-tight text-black">{title}</h2>
         {subtitle ? (
-          <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>
+          <p className="mt-1 text-sm leading-relaxed text-neutral-500">{subtitle}</p>
         ) : null}
       </div>
-      {action}
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+type SectionIntroProps = {
+  title: string;
+  description: string;
+};
+
+export function SectionIntro({ title, description }: SectionIntroProps) {
+  return (
+    <div className="mb-4">
+      <h2 className="text-2xl font-semibold tracking-tight text-black">{title}</h2>
+      <p className="mt-2 text-sm leading-relaxed text-neutral-500">{description}</p>
+    </div>
+  );
+}
+
+type SubsectionTitleProps = {
+  title: string;
+  description?: string;
+};
+
+export function SubsectionTitle({ title, description }: SubsectionTitleProps) {
+  return (
+    <div className="mb-4">
+      <h3 className="text-base font-semibold text-black">{title}</h3>
+      {description ? (
+        <p className="mt-1 text-sm text-neutral-500">{description}</p>
+      ) : null}
     </div>
   );
 }
@@ -147,16 +177,20 @@ export function TextAction({ onClick, href, children }: TextActionProps) {
 
 type DataRowProps = {
   label: string;
+  hint?: string;
   children: React.ReactNode;
   mono?: boolean;
   action?: React.ReactNode;
 };
 
-export function DataRow({ label, children, mono, action }: DataRowProps) {
+export function DataRow({ label, hint, children, mono, action }: DataRowProps) {
   return (
     <div className="border-b border-black/[0.04] py-4 last:border-0">
       <div className="flex items-start justify-between gap-4">
-        <dt className="text-sm font-medium text-neutral-700">{label}</dt>
+        <div className="min-w-0">
+          <dt className="text-sm font-medium text-neutral-700">{label}</dt>
+          {hint ? <p className="mt-0.5 text-xs text-neutral-500">{hint}</p> : null}
+        </div>
         {action}
       </div>
       <dd
@@ -173,15 +207,19 @@ export function DataRow({ label, children, mono, action }: DataRowProps) {
 
 type DataBlockProps = {
   label: string;
+  hint?: string;
   children: React.ReactNode;
   action?: React.ReactNode;
 };
 
-export function DataBlock({ label, children, action }: DataBlockProps) {
+export function DataBlock({ label, hint, children, action }: DataBlockProps) {
   return (
     <div className="border-b border-black/[0.04] py-4 last:border-0">
       <div className="flex items-start justify-between gap-4">
-        <p className="text-sm font-medium text-neutral-700">{label}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-neutral-700">{label}</p>
+          {hint ? <p className="mt-0.5 text-xs text-neutral-500">{hint}</p> : null}
+        </div>
         {action}
       </div>
       <div className="mt-2 text-sm leading-relaxed text-black">{children}</div>
