@@ -1,36 +1,32 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
 import { AccountDashboard } from "@/app/account/account-dashboard";
 import { DashboardShell } from "@/app/account/dashboard-ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { FormError } from "@/components/ui/form-message";
 import { Logo } from "@/components/ui/logo";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
+import { listClientsByOwner } from "@/lib/oauth/client-store";
+import { getIssuer } from "@/lib/oauth/constants";
 import { getValidSession } from "@/lib/session-access";
+import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import { fetchUserProfileWithVariations } from "@/lib/user-profile";
 
-function TopBar({ username }: { username?: string | null }) {
+function TopBar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/40 bg-white/20 px-6 py-4 backdrop-blur-2xl lg:px-10">
-      <div className="mx-auto flex max-w-7xl items-center justify-between">
-        <Link href="/" className="opacity-80 transition-opacity hover:opacity-100">
-          <Logo size={28} />
-        </Link>
-
-        <div className="flex items-center gap-6">
-          {username ? (
-            <span className="hidden text-[13px] text-neutral-400 sm:inline">@{username}</span>
-          ) : null}
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="cursor-pointer text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
-            >
-              Sign out
-            </button>
-          </form>
+    <header className="relative border-b border-black/5 bg-white/70 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-3">
+          <Logo size={36} />
+          <p className="text-sm font-medium text-black">Account</p>
         </div>
+        <form action={logoutAction}>
+          <Button type="submit" variant="outline">
+            Sign out
+          </Button>
+        </form>
       </div>
     </header>
   );
@@ -52,14 +48,23 @@ export default async function AccountPage() {
     return (
       <DashboardShell>
         <TopBar />
-        <main className="mx-auto max-w-7xl px-6 py-10 lg:px-10">
-          <FormError>
-            {formatGraphqlError(
-              error,
-              "account",
-              "Unable to load your account. Try again.",
-            )}
-          </FormError>
+        <main className="relative mx-auto max-w-5xl px-6 py-10">
+          <Card className="p-6 sm:p-8">
+            <FormError>
+              {formatGraphqlError(
+                error,
+                "account",
+                "Unable to load your account. Try again.",
+              )}
+            </FormError>
+            <div className="mt-4">
+              <a href="/account">
+                <Button type="button" variant="outline">
+                  Try again
+                </Button>
+              </a>
+            </div>
+          </Card>
         </main>
       </DashboardShell>
     );
@@ -75,27 +80,28 @@ export default async function AccountPage() {
     .filter(Boolean)
     .join(" ");
   const username = user?.usernames?.defaultUsername ?? null;
+  const [clients, samlConfig] = await Promise.all([
+    listClientsByOwner(session.auid),
+    getSamlConfigByAuid(session.auid),
+  ]);
+  const issuer = getIssuer();
 
   return (
     <DashboardShell>
-      <TopBar username={username} />
+      <TopBar />
 
-      <AccountDashboard
-        auid={session.auid}
-        defaultUsername={username}
-        defaultVariation={defaultVariation}
-        fullName={fullName}
-        username={username}
-      />
-
-      <footer className="border-t border-white/30 py-8 text-center">
-        <Link
-          href="/"
-          className="text-[13px] text-neutral-400 transition-colors hover:text-neutral-600"
-        >
-          axus.id
-        </Link>
-      </footer>
+      <main className="relative mx-auto max-w-5xl px-6 py-10">
+        <AccountDashboard
+          auid={session.auid}
+          defaultUsername={username}
+          defaultVariation={defaultVariation}
+          fullName={fullName}
+          username={username}
+          clients={clients}
+          issuer={issuer}
+          samlConfig={samlConfig}
+        />
+      </main>
     </DashboardShell>
   );
 }

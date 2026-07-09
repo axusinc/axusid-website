@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState, type KeyboardEvent, type RefObject } from "react";
 import {
   changeUsernameAction,
   updateVariationFieldAction,
@@ -10,13 +11,13 @@ import {
   CopyChip,
   DataBlock,
   DataRow,
-  glassSurfaceStrong,
   inlineInputClassName,
   inlineTextareaClassName,
   InlineEditActions,
   PanelHeader,
-  TextAction,
 } from "@/app/account/dashboard-ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
 
 type Variation = {
@@ -31,6 +32,8 @@ type ProfileFormProps = {
   defaultVariation: Variation | null;
   defaultUsername: string | null;
   auid: string;
+  onEditingChange?: (editing: boolean) => void;
+  cancelRef?: RefObject<(() => void) | null>;
 };
 
 type EditableField = "name" | "username" | "status" | "description";
@@ -39,12 +42,41 @@ const initialState: VariationActionState = {};
 
 const empty = <span className="text-neutral-400">—</span>;
 
+function handleFormKeyDown(
+  event: KeyboardEvent<HTMLFormElement>,
+  onCancel: () => void,
+  options: { submitOnEnter?: boolean; isTextarea?: boolean } = {},
+) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    onCancel();
+    return;
+  }
+
+  if (options.submitOnEnter && event.key === "Enter" && !options.isTextarea) {
+    event.preventDefault();
+    event.currentTarget.requestSubmit();
+    return;
+  }
+
+  if (
+    options.isTextarea &&
+    event.key === "Enter" &&
+    (event.metaKey || event.ctrlKey)
+  ) {
+    event.preventDefault();
+    event.currentTarget.requestSubmit();
+  }
+}
+
 function EditableNameField({
   variation,
   onDone,
+  onCancel,
 }: {
   variation: Variation;
-  onDone: () => void;
+  onDone: (message: string) => void;
+  onCancel: () => void;
 }) {
   const formId = `edit-name-${variation.id}`;
   const [state, submitAction, isSubmitting] = useActionState(
@@ -54,7 +86,7 @@ function EditableNameField({
 
   useEffect(() => {
     if (state.success) {
-      onDone();
+      onDone(state.success);
     }
   }, [state.success, onDone]);
 
@@ -64,12 +96,16 @@ function EditableNameField({
       action={
         <InlineEditActions
           formId={formId}
-          onCancel={onDone}
+          onCancel={onCancel}
           isSubmitting={isSubmitting}
         />
       }
     >
-      <form id={formId} action={submitAction}>
+      <form
+        id={formId}
+        action={submitAction}
+        onKeyDown={(event) => handleFormKeyDown(event, onCancel, { submitOnEnter: true })}
+      >
         <input type="hidden" name="variationId" value={variation.id} />
         <input type="hidden" name="field" value="name" />
         <div className="grid w-full grid-cols-2 gap-2">
@@ -100,9 +136,11 @@ function EditableNameField({
 function EditableUsernameField({
   defaultUsername,
   onDone,
+  onCancel,
 }: {
   defaultUsername: string;
-  onDone: () => void;
+  onDone: (message: string) => void;
+  onCancel: () => void;
 }) {
   const formId = `edit-username-${defaultUsername}`;
   const [state, submitAction, isSubmitting] = useActionState(
@@ -112,7 +150,7 @@ function EditableUsernameField({
 
   useEffect(() => {
     if (state.success) {
-      onDone();
+      onDone(state.success);
     }
   }, [state.success, onDone]);
 
@@ -122,12 +160,16 @@ function EditableUsernameField({
       action={
         <InlineEditActions
           formId={formId}
-          onCancel={onDone}
+          onCancel={onCancel}
           isSubmitting={isSubmitting}
         />
       }
     >
-      <form id={formId} action={submitAction}>
+      <form
+        id={formId}
+        action={submitAction}
+        onKeyDown={(event) => handleFormKeyDown(event, onCancel, { submitOnEnter: true })}
+      >
         <input type="hidden" name="oldUsername" value={defaultUsername} />
         <input
           name="newUsername"
@@ -149,9 +191,11 @@ function EditableUsernameField({
 function EditableStatusField({
   variation,
   onDone,
+  onCancel,
 }: {
   variation: Variation;
-  onDone: () => void;
+  onDone: (message: string) => void;
+  onCancel: () => void;
 }) {
   const formId = `edit-status-${variation.id}`;
   const [state, submitAction, isSubmitting] = useActionState(
@@ -161,7 +205,7 @@ function EditableStatusField({
 
   useEffect(() => {
     if (state.success) {
-      onDone();
+      onDone(state.success);
     }
   }, [state.success, onDone]);
 
@@ -171,12 +215,16 @@ function EditableStatusField({
       action={
         <InlineEditActions
           formId={formId}
-          onCancel={onDone}
+          onCancel={onCancel}
           isSubmitting={isSubmitting}
         />
       }
     >
-      <form id={formId} action={submitAction}>
+      <form
+        id={formId}
+        action={submitAction}
+        onKeyDown={(event) => handleFormKeyDown(event, onCancel, { submitOnEnter: true })}
+      >
         <input type="hidden" name="variationId" value={variation.id} />
         <input type="hidden" name="field" value="status" />
         <input
@@ -199,9 +247,11 @@ function EditableStatusField({
 function EditableBioField({
   variation,
   onDone,
+  onCancel,
 }: {
   variation: Variation;
-  onDone: () => void;
+  onDone: (message: string) => void;
+  onCancel: () => void;
 }) {
   const formId = `edit-bio-${variation.id}`;
   const [state, submitAction, isSubmitting] = useActionState(
@@ -211,7 +261,7 @@ function EditableBioField({
 
   useEffect(() => {
     if (state.success) {
-      onDone();
+      onDone(state.success);
     }
   }, [state.success, onDone]);
 
@@ -221,12 +271,16 @@ function EditableBioField({
       action={
         <InlineEditActions
           formId={formId}
-          onCancel={onDone}
+          onCancel={onCancel}
           isSubmitting={isSubmitting}
         />
       }
     >
-      <form id={formId} action={submitAction}>
+      <form
+        id={formId}
+        action={submitAction}
+        onKeyDown={(event) => handleFormKeyDown(event, onCancel, { isTextarea: true })}
+      >
         <input type="hidden" name="variationId" value={variation.id} />
         <input type="hidden" name="field" value="description" />
         <textarea
@@ -246,25 +300,54 @@ function EditableBioField({
   );
 }
 
-export function VariationForms({ defaultVariation, defaultUsername, auid }: ProfileFormProps) {
+function fieldActionLabel(hasValue: boolean) {
+  return hasValue ? "Edit" : "Add";
+}
+
+export function VariationForms({
+  defaultVariation,
+  defaultUsername,
+  auid,
+  onEditingChange,
+  cancelRef,
+}: ProfileFormProps) {
+  const router = useRouter();
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+
+  const cancelEditing = () => {
+    setEditingField(null);
+  };
+
+  const finishEditing = (message: string) => {
+    setEditingField(null);
+    setBanner(message);
+    router.refresh();
+    setTimeout(() => setBanner(null), 3000);
+  };
+
+  useEffect(() => {
+    onEditingChange?.(editingField !== null);
+  }, [editingField, onEditingChange]);
+
+  useEffect(() => {
+    if (cancelRef) {
+      cancelRef.current = cancelEditing;
+    }
+  });
 
   const copyAuid = async () => {
     try {
       await navigator.clipboard.writeText(auid);
       setCopied(true);
+      setCopyError(null);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy AUID", err);
+    } catch {
+      setCopyError("Unable to copy. Select and copy manually.");
+      setTimeout(() => setCopyError(null), 3000);
     }
-  };
-
-  const finishEditing = () => {
-    setEditingField(null);
-    setBanner("Profile updated.");
-    setTimeout(() => setBanner(null), 3000);
   };
 
   const fullName = [defaultVariation?.firstName, defaultVariation?.lastName]
@@ -272,7 +355,7 @@ export function VariationForms({ defaultVariation, defaultUsername, auid }: Prof
     .join(" ");
 
   return (
-    <section className={`${glassSurfaceStrong} p-6 sm:p-7`}>
+    <Card className="p-6 sm:p-8">
       <PanelHeader title="Profile" subtitle="Your public identity" />
 
       {banner ? (
@@ -282,18 +365,29 @@ export function VariationForms({ defaultVariation, defaultUsername, auid }: Prof
       ) : null}
 
       {!defaultVariation ? (
-        <p className="mt-6 text-[13px] text-neutral-500">
+        <p className="mt-6 text-sm text-neutral-500">
           No profile found. Contact support if this looks wrong.
         </p>
       ) : (
         <dl className="mt-6">
           {editingField === "name" ? (
-            <EditableNameField variation={defaultVariation} onDone={finishEditing} />
+            <EditableNameField
+              variation={defaultVariation}
+              onDone={finishEditing}
+              onCancel={cancelEditing}
+            />
           ) : (
             <DataRow
               label="Name"
               action={
-                <TextAction onClick={() => setEditingField("name")}>Edit</TextAction>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 px-3"
+                  onClick={() => setEditingField("name")}
+                >
+                  {fieldActionLabel(Boolean(fullName))}
+                </Button>
               }
             >
               {fullName || empty}
@@ -304,13 +398,21 @@ export function VariationForms({ defaultVariation, defaultUsername, auid }: Prof
             <EditableUsernameField
               defaultUsername={defaultUsername}
               onDone={finishEditing}
+              onCancel={cancelEditing}
             />
           ) : (
             <DataRow
               label="Username"
               action={
                 defaultUsername ? (
-                  <TextAction onClick={() => setEditingField("username")}>Edit</TextAction>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-8 px-3"
+                    onClick={() => setEditingField("username")}
+                  >
+                    Edit
+                  </Button>
                 ) : undefined
               }
             >
@@ -319,12 +421,23 @@ export function VariationForms({ defaultVariation, defaultUsername, auid }: Prof
           )}
 
           {editingField === "status" ? (
-            <EditableStatusField variation={defaultVariation} onDone={finishEditing} />
+            <EditableStatusField
+              variation={defaultVariation}
+              onDone={finishEditing}
+              onCancel={cancelEditing}
+            />
           ) : (
             <DataBlock
               label="Status"
               action={
-                <TextAction onClick={() => setEditingField("status")}>Edit</TextAction>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 px-3"
+                  onClick={() => setEditingField("status")}
+                >
+                  {fieldActionLabel(Boolean(defaultVariation.status))}
+                </Button>
               }
             >
               {defaultVariation.status || empty}
@@ -332,12 +445,23 @@ export function VariationForms({ defaultVariation, defaultUsername, auid }: Prof
           )}
 
           {editingField === "description" ? (
-            <EditableBioField variation={defaultVariation} onDone={finishEditing} />
+            <EditableBioField
+              variation={defaultVariation}
+              onDone={finishEditing}
+              onCancel={cancelEditing}
+            />
           ) : (
             <DataBlock
               label="Bio"
               action={
-                <TextAction onClick={() => setEditingField("description")}>Edit</TextAction>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 px-3"
+                  onClick={() => setEditingField("description")}
+                >
+                  {fieldActionLabel(Boolean(defaultVariation.description))}
+                </Button>
               }
             >
               {defaultVariation.description ? (
@@ -351,9 +475,14 @@ export function VariationForms({ defaultVariation, defaultUsername, auid }: Prof
       )}
 
       <div className="mt-2">
-        <p className="mb-2 text-[13px] text-neutral-400">Account ID</p>
+        <p className="mb-2 text-sm font-medium text-neutral-700">Account ID</p>
         <CopyChip value={auid} copied={copied} onCopy={copyAuid} />
+        {copyError ? (
+          <p className="mt-2">
+            <FormError>{copyError}</FormError>
+          </p>
+        ) : null}
       </div>
-    </section>
+    </Card>
   );
 }

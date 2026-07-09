@@ -8,7 +8,7 @@ export async function requireDeveloperSession(): Promise<IdPSession> {
   const session = await getValidSession();
 
   if (!session) {
-    redirect("/login?next=/developer/oauth/clients");
+    redirect("/login?next=/account?section=developer");
   }
 
   return session;

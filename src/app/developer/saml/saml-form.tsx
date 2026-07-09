@@ -7,6 +7,7 @@ import {
   type SamlActionState,
 } from "@/app/developer/saml/actions";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { roundedRect } from "@/lib/design";
@@ -35,9 +36,8 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
   const idpSsoUrl = `${issuer}/saml/sso/${auid}`;
 
   return (
-    <div className="space-y-10">
-      {/* Configuration Form */}
-      <section className={cn("border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl", roundedRect)}>
+    <div className="space-y-8">
+      <Card className="p-6 sm:p-8">
         <h2 className="text-xl font-semibold text-black">
           SAML Service Provider Configuration
         </h2>
@@ -98,10 +98,9 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
             </Button>
           </form>
         ) : null}
-      </section>
+      </Card>
 
-      {/* IdP Information */}
-      <section className={cn("border border-black/5 bg-white/70 p-8 shadow-[0_8px_32px_rgba(0,0,0,0.06)] backdrop-blur-xl", roundedRect)}>
+      <Card className="p-6 sm:p-8">
         <h2 className="text-xl font-semibold text-black">
           Identity Provider (IdP) Configuration Details
         </h2>
@@ -160,7 +159,7 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
             </a>
           </div>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

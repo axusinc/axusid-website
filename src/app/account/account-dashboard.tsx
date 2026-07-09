@@ -1,17 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { DeveloperSection } from "@/app/account/developer-section";
+import { Avatar } from "@/app/account/dashboard-ui";
+import { cardSurface, roundedRect } from "@/lib/design";
+import type { OAuthClient } from "@/lib/oauth/constants";
 import { cn } from "@/lib/utils";
-import {
-  Avatar,
-  glassSurfaceStrong,
-  TextAction,
-} from "@/app/account/dashboard-ui";
-import { roundedRect } from "@/lib/design";
 import { AccountForms } from "./account-forms";
 import { VariationForms } from "./variation-forms";
 
-type SectionId = "profile" | "security";
+type SectionId = "profile" | "security" | "developer";
 
 type SectionIconProps = {
   className?: string;
@@ -54,6 +53,25 @@ function SecurityIcon({ className }: SectionIconProps) {
   );
 }
 
+function DeveloperIcon({ className }: SectionIconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M16 18 22 12 16 6" />
+      <path d="M8 6 2 12 8 18" />
+    </svg>
+  );
+}
+
 type Variation = {
   id: string;
   firstName: string | null;
@@ -62,12 +80,22 @@ type Variation = {
   description: string | null;
 };
 
+type SamlConfig = {
+  name: string;
+  entityId: string;
+  acsUrl: string;
+  sloUrl?: string | null;
+};
+
 type AccountDashboardProps = {
   auid: string;
   defaultUsername: string | null;
   defaultVariation: Variation | null;
   fullName: string;
   username: string | null;
+  clients: OAuthClient[];
+  issuer: string;
+  samlConfig?: SamlConfig;
 };
 
 const sections: {
@@ -77,7 +105,14 @@ const sections: {
 }[] = [
   { id: "profile", label: "Profile", Icon: ProfileIcon },
   { id: "security", label: "Security", Icon: SecurityIcon },
+  { id: "developer", label: "Developer", Icon: DeveloperIcon },
 ];
+
+function parseSection(value: string | null): SectionId {
+  if (value === "security") return "security";
+  if (value === "developer") return "developer";
+  return "profile";
+}
 
 export function AccountDashboard({
   auid,
@@ -85,77 +120,131 @@ export function AccountDashboard({
   defaultVariation,
   fullName,
   username,
+  clients,
+  issuer,
+  samlConfig,
 }: AccountDashboardProps) {
-  const [active, setActive] = useState<SectionId>("profile");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [active, setActive] = useState<SectionId>(() =>
+    parseSection(searchParams.get("section")),
+  );
+  const [isEditing, setIsEditing] = useState(false);
+  const profileCancelRef = useRef<(() => void) | null>(null);
+  const securityCancelRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    setActive(parseSection(searchParams.get("section")));
+  }, [searchParams]);
+
+  const handleSectionChange = (section: SectionId) => {
+    if (section === active) {
+      return;
+    }
+
+    if (isEditing) {
+      const confirmed = window.confirm("Discard unsaved changes?");
+      if (!confirmed) {
+        return;
+      }
+
+      if (active === "profile") {
+        profileCancelRef.current?.();
+      } else if (active === "security") {
+        securityCancelRef.current?.();
+      }
+      setIsEditing(false);
+    }
+
+    setActive(section);
+    router.replace(`/account?section=${section}`, { scroll: false });
+  };
+
+  const handleEditingChange = (editing: boolean) => {
+    setIsEditing(editing);
+  };
+
+  const sectionNav = (
+    <nav
+      className={cn(
+        "flex w-full flex-col gap-1 p-2",
+        cardSurface,
+        roundedRect,
+        "max-lg:sticky max-lg:top-[73px] max-lg:z-40 max-lg:-mx-6 max-lg:px-6 max-lg:py-2 max-lg:bg-white/70 max-lg:backdrop-blur-xl",
+      )}
+      aria-label="Account sections"
+    >
+      {sections.map(({ id, label, Icon }) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => handleSectionChange(id)}
+          className={cn(
+            "inline-flex w-full items-center justify-start gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10",
+            roundedRect,
+            active === id
+              ? "bg-neutral-100 text-black"
+              : "text-neutral-500 hover:bg-neutral-50 hover:text-black",
+          )}
+          aria-current={active === id ? "page" : undefined}
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          {label}
+        </button>
+      ))}
+    </nav>
+  );
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 py-8 lg:flex-row lg:items-start lg:gap-14 lg:px-10 lg:py-10 xl:gap-20">
-      {/* Sidebar */}
-      <aside className="flex shrink-0 flex-col items-center text-center lg:sticky lg:top-28 lg:w-52 xl:w-56">
-        <Avatar
-          firstName={defaultVariation?.firstName}
-          lastName={defaultVariation?.lastName}
-          username={username}
-        />
+    <div className="flex w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-14 xl:gap-20">
+      <aside className="flex shrink-0 flex-col lg:sticky lg:top-28 lg:w-52 lg:items-center lg:text-center xl:w-56">
+        <div className="flex items-center gap-4 lg:flex-col lg:items-center">
+          <Avatar
+            firstName={defaultVariation?.firstName}
+            lastName={defaultVariation?.lastName}
+            username={username}
+            size="md"
+            className="lg:h-24 lg:w-24 lg:text-3xl"
+          />
 
-        <h1 className="mt-6 text-2xl font-light tracking-tight text-neutral-900 lg:text-3xl">
-          {fullName || "Your account"}
-        </h1>
-
-        {username ? (
-          <p className="mt-1.5 text-[13px] text-neutral-400">@{username}</p>
-        ) : null}
-
-        {defaultVariation?.status ? (
-          <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-neutral-500 lg:max-w-none">
-            {defaultVariation.status}
-          </p>
-        ) : null}
-
-        <nav
-          className={cn(
-            "mt-8 flex w-full flex-row gap-1 p-1 lg:flex-col",
-            glassSurfaceStrong,
-          )}
-          aria-label="Account sections"
-        >
-          {sections.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setActive(id)}
-              className={cn(
-                "inline-flex flex-1 items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 lg:flex-none",
-                roundedRect,
-                active === id
-                  ? "bg-white/70 text-neutral-900 hover:bg-white/80"
-                  : "text-neutral-500 hover:bg-white/40 hover:text-neutral-800",
-              )}
-              aria-current={active === id ? "page" : undefined}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </button>
-          ))}
-        </nav>
-
-        <div className="mt-6 flex flex-col items-center gap-2">
-          <TextAction href="/developer/oauth/clients">Developer apps →</TextAction>
-          <TextAction href="/developer/saml">SAML settings →</TextAction>
+          <div className="min-w-0 text-left lg:mt-6 lg:text-center">
+            <h1 className="text-xl font-semibold tracking-tight text-black lg:text-3xl">
+              {fullName || "Your account"}
+            </h1>
+            {username ? (
+              <p className="mt-1 text-sm text-neutral-500">@{username}</p>
+            ) : null}
+          </div>
         </div>
+
+        <div className="mt-6 lg:mt-8 lg:w-full">{sectionNav}</div>
       </aside>
 
-      {/* Main content */}
-      <div key={active} className="min-w-0 flex-1 animate-[fadeIn_0.3s_ease-out]">
-        {active === "profile" ? (
-          <VariationForms
-            defaultVariation={defaultVariation}
-            defaultUsername={defaultUsername}
-            auid={auid}
-          />
-        ) : (
-          <AccountForms auid={auid} />
-        )}
+      <div className="min-w-0 flex-1">
+        <div key={active} className="animate-[fadeIn_0.3s_ease-out]">
+          {active === "profile" ? (
+            <VariationForms
+              defaultVariation={defaultVariation}
+              defaultUsername={defaultUsername}
+              auid={auid}
+              onEditingChange={handleEditingChange}
+              cancelRef={profileCancelRef}
+            />
+          ) : active === "security" ? (
+            <AccountForms
+              auid={auid}
+              onEditingChange={handleEditingChange}
+              cancelRef={securityCancelRef}
+            />
+          ) : (
+            <DeveloperSection
+              auid={auid}
+              issuer={issuer}
+              clients={clients}
+              samlConfig={samlConfig}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

@@ -104,7 +104,7 @@ export function EditClientForm({ client, created }: EditClientFormProps) {
         </form>
 
         <Link
-          href="/developer/oauth/clients"
+          href="/account?section=developer"
           className={cn("inline-flex h-11 w-full items-center justify-center border border-black/10 bg-white px-4 text-sm font-medium text-black transition hover:bg-neutral-50", roundedRect)}
         >
           Back to apps

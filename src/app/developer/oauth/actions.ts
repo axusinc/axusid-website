@@ -61,6 +61,7 @@ export async function createClientAction(
       ownerAuid: session.auid,
     });
 
+    revalidatePath("/account");
     revalidatePath("/developer/oauth/clients");
   } catch (error) {
     return {
@@ -97,6 +98,7 @@ export async function updateClientAction(
       return { error: "Client not found." };
     }
 
+    revalidatePath("/account");
     revalidatePath("/developer/oauth/clients");
     revalidatePath(`/developer/oauth/clients/${clientId}`);
     return { success: "Client updated." };
@@ -113,15 +115,16 @@ export async function deleteClientAction(formData: FormData) {
   const clientId = String(formData.get("clientId") ?? "").trim();
 
   if (!clientId) {
-    redirect("/developer/oauth/clients");
+    redirect("/account?section=developer");
   }
 
   const existing = await getClientForOwner(clientId, session.auid);
   if (!existing) {
-    redirect("/developer/oauth/clients");
+    redirect("/account?section=developer");
   }
 
   await deleteClient(clientId, session.auid);
+  revalidatePath("/account");
   revalidatePath("/developer/oauth/clients");
-  redirect("/developer/oauth/clients");
+  redirect("/account?section=developer");
 }

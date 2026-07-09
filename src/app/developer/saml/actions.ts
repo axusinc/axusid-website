@@ -32,6 +32,7 @@ export async function saveSamlConfigAction(
       sloUrl: sloUrl || undefined,
     });
 
+    revalidatePath("/account");
     revalidatePath("/developer/saml");
     return { success: "SAML configuration saved successfully." };
   } catch (error) {
@@ -47,10 +48,11 @@ export async function deleteSamlConfigAction() {
 
   try {
     await deleteSamlConfig(session.auid);
+    revalidatePath("/account");
     revalidatePath("/developer/saml");
   } catch (error) {
     console.error("Failed to delete SAML configuration:", error);
   }
 
-  redirect("/developer/saml");
+  redirect("/account?section=developer");
 }

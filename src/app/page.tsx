@@ -64,7 +64,7 @@ export default function HomePage() {
               </div>
             </dl>
             <div className="mt-6">
-              <Link href="/developer/oauth/clients">
+              <Link href="/account?section=developer">
                 <Button variant="outline">Register your app</Button>
               </Link>
             </div>
