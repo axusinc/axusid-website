@@ -14,11 +14,12 @@ type LoginFormProps = {
   isOAuthFlow?: boolean;
   registeredUsername?: string;
   redirectUri?: string;
+  next?: string;
 };
 
 const initialState: AuthActionState = {};
 
-export function LoginForm({ isOAuthFlow, registeredUsername, redirectUri }: LoginFormProps) {
+export function LoginForm({ isOAuthFlow, registeredUsername, redirectUri, next }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
@@ -50,6 +51,7 @@ export function LoginForm({ isOAuthFlow, registeredUsername, redirectUri }: Logi
 
       <form action={formAction} className="space-y-4">
         {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
+        {next ? <input type="hidden" name="next" value={next} /> : null}
         <Input
           name="username"
           label="Username"

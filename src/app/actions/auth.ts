@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { loginWithBackend } from "@/lib/oauth/adapter";
@@ -46,6 +47,7 @@ export async function loginAction(
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const redirectUri = String(formData.get("redirect_uri") ?? "");
+  const next = String(formData.get("next") ?? "");
 
   if (!username || !password) {
     return { error: "Username and password are required." };
@@ -62,7 +64,6 @@ export async function loginAction(
   }
 
   const isOAuthFlow = redirectUri.startsWith("/authorize");
-  const isSamlFlow = redirectUri.startsWith("/saml/sso/");
   let oidcScopes = ["openid"];
   let axusPermissions: string[] = [];
 
@@ -129,13 +130,12 @@ export async function loginAction(
     sessionCookieOptions,
   );
 
-  if ((isOAuthFlow || isSamlFlow) && redirectUri) {
-    if (redirectUri.startsWith("/") && !redirectUri.startsWith("//")) {
-      redirect(redirectUri);
-    }
-  }
-
-  redirect("/account");
+  redirect(
+    resolveAuthenticatedRedirect({
+      redirectUri: redirectUri || undefined,
+      next: next || undefined,
+    }),
+  );
 }
 
 export async function consentAction(formData: FormData) {
