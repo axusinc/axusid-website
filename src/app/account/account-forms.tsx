@@ -27,6 +27,7 @@ export function AccountForms({ auid }: AccountFormsProps) {
 
   useEffect(() => {
     if (passwordState.success) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsEditing(false);
     }
   }, [passwordState.success]);

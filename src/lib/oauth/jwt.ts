@@ -1,6 +1,6 @@
 import "server-only";
 
-import { EncryptJWT, importPKCS8, importSPKI, SignJWT, jwtVerify, exportJWK } from "jose";
+import { importPKCS8, importSPKI, SignJWT, jwtVerify, exportJWK } from "jose";
 import { getIssuer } from "@/lib/oauth/constants";
 
 function getPrivateKeyPem(): string {

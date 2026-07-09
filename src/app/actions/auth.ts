@@ -20,6 +20,14 @@ import {
   sessionCookieOptions,
   type IdPSession,
 } from "@/lib/session";
+import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
+import {
+  createIdentityProvider,
+  createServiceProvider,
+  createSamlLogoutRequest,
+} from "@/lib/saml/saml-idp";
+import { fetchUserProfileWithVariations } from "@/lib/user-profile";
+import { getIssuer } from "@/lib/oauth/constants";
 
 export type AuthActionState = {
   error?: string;
@@ -53,6 +61,7 @@ export async function loginAction(
   }
 
   const isOAuthFlow = redirectUri.startsWith("/authorize");
+  const isSamlFlow = redirectUri.startsWith("/saml/sso/");
   let scopes = ["openid"];
 
   if (isOAuthFlow) {
@@ -113,7 +122,7 @@ export async function loginAction(
     sessionCookieOptions,
   );
 
-  if (isOAuthFlow && redirectUri) {
+  if ((isOAuthFlow || isSamlFlow) && redirectUri) {
     if (redirectUri.startsWith("/") && !redirectUri.startsWith("//")) {
       redirect(redirectUri);
     }
@@ -233,9 +242,32 @@ export async function registerAction(
 }
 
 export async function logoutAction() {
+  const session = await getValidSession();
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
-  redirect("/login");
+
+  let redirectUrl: string = "/login";
+  if (session?.auid) {
+    try {
+      const samlConfig = await getSamlConfigByAuid(session.auid);
+      if (samlConfig && samlConfig.sloUrl) {
+        const sdk = getAuthSdkForSession(session);
+        const { user } = await fetchUserProfileWithVariations(sdk, session.auid);
+        const username = user?.usernames?.defaultUsername || "user";
+        const issuerUrl = new URL(getIssuer());
+        const email = `${username}@${issuerUrl.hostname}`;
+
+        const idp = createIdentityProvider(session.auid);
+        const sp = createServiceProvider(samlConfig.entityId, samlConfig.acsUrl, samlConfig.sloUrl);
+        const logoutReq = await createSamlLogoutRequest(idp, sp, email);
+        redirectUrl = logoutReq.context;
+      }
+    } catch (e) {
+      console.error("Failed to generate SAML SLO request during logout:", e);
+    }
+  }
+
+  redirect(redirectUrl);
 }
 
 export async function changePasswordAction(

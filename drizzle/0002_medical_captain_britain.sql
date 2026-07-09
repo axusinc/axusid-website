@@ -1,0 +1,1 @@
+ALTER TABLE "saml_configs" ADD COLUMN "slo_url" text;

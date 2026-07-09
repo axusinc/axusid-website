@@ -37,3 +37,21 @@ export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
 
 export type OAuthClientRow = typeof oauthClients.$inferSelect;
 export type OAuthClientInsert = typeof oauthClients.$inferInsert;
+
+export const samlConfigs = pgTable("saml_configs", {
+  ownerAuid: text("owner_auid").primaryKey(),
+  name: text("name").notNull(),
+  entityId: text("entity_id").notNull().unique(),
+  acsUrl: text("acs_url").notNull(),
+  sloUrl: text("slo_url"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type SamlConfigRow = typeof samlConfigs.$inferSelect;
+export type SamlConfigInsert = typeof samlConfigs.$inferInsert;
+

@@ -139,8 +139,9 @@ export function AccountDashboard({
           ))}
         </nav>
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col items-center gap-2">
           <TextAction href="/developer/oauth/clients">Developer apps →</TextAction>
+          <TextAction href="/developer/saml">SAML settings →</TextAction>
         </div>
       </aside>
 
