@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 type ConsentFormProps = {
   clientName: string;
   scopes: string[];
+  authReq: string;
 };
 
-export function ConsentForm({ clientName, scopes }: ConsentFormProps) {
+export function ConsentForm({ clientName, scopes, authReq }: ConsentFormProps) {
   return (
     <AuthShell
       title="Authorize access"
@@ -38,12 +39,14 @@ export function ConsentForm({ clientName, scopes }: ConsentFormProps) {
         </div>
 
         <form action={consentAction} className="space-y-3">
+          <input type="hidden" name="auth_req" value={authReq} />
           <Button type="submit" variant="brand" className="w-full">
             Allow access
           </Button>
         </form>
 
         <form action={denyConsentAction}>
+          <input type="hidden" name="auth_req" value={authReq} />
           <Button type="submit" variant="outline" className="w-full">
             Deny
           </Button>

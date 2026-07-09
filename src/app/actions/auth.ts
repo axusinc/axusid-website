@@ -12,11 +12,7 @@ import {
   validateScopes,
 } from "@/lib/oauth/clients";
 
-import {
-  PENDING_OAUTH_COOKIE,
-  clearPendingOAuthCookieOptions,
-  getPendingOAuth,
-} from "@/lib/pending-oauth";
+import { getPendingOAuth } from "@/lib/pending-oauth";
 import {
   buildAuthorizeResumeUrl,
   buildLoginOAuthUrl,
@@ -37,11 +33,6 @@ export type AuthActionState = {
 
 async function getActionSession(): Promise<IdPSession | null> {
   return getValidSession();
-}
-
-async function getPendingOAuthFromRequest() {
-  const cookieStore = await cookies();
-  return getPendingOAuth(cookieStore.get(PENDING_OAUTH_COOKIE)?.value);
 }
 
 export async function loginAction(
@@ -65,10 +56,8 @@ export async function loginAction(
     };
   }
 
-  const cookieStore = await cookies();
-  const pendingOAuth = await getPendingOAuth(
-    cookieStore.get(PENDING_OAUTH_COOKIE)?.value,
-  );
+  const authReq = String(formData.get("auth_req") ?? "");
+  const pendingOAuth = authReq ? await getPendingOAuth(authReq) : null;
   let scopes = ["openid"];
 
   if (pendingOAuth) {
@@ -109,21 +98,23 @@ export async function loginAction(
     consentedClients: [],
   };
 
+  const cookieStore = await cookies();
   cookieStore.set(
     SESSION_COOKIE,
     await serializeSession(session),
     sessionCookieOptions,
   );
 
-  if (pendingOAuth) {
-    redirect(buildAuthorizeResumeUrl());
+  if (pendingOAuth && authReq) {
+    redirect(buildAuthorizeResumeUrl(authReq));
   }
 
   redirect("/account");
 }
 
-export async function consentAction() {
-  const pendingOAuth = await getPendingOAuthFromRequest();
+export async function consentAction(formData: FormData) {
+  const authReq = String(formData.get("auth_req") ?? "");
+  const pendingOAuth = authReq ? await getPendingOAuth(authReq) : null;
   if (!pendingOAuth) {
     redirect(buildLoginOAuthUrl());
   }
@@ -151,18 +142,16 @@ export async function consentAction() {
     sessionCookieOptions,
   );
 
-  redirect(buildAuthorizeResumeUrl());
+  redirect(buildAuthorizeResumeUrl(authReq));
 }
 
-export async function denyConsentAction() {
-  const pendingOAuth = await getPendingOAuthFromRequest();
+export async function denyConsentAction(formData: FormData) {
+  const authReq = String(formData.get("auth_req") ?? "");
+  const pendingOAuth = authReq ? await getPendingOAuth(authReq) : null;
 
   if (!pendingOAuth) {
     redirect("/");
   }
-
-  const cookieStore = await cookies();
-  cookieStore.set(PENDING_OAUTH_COOKIE, "", clearPendingOAuthCookieOptions);
 
   const url = new URL(pendingOAuth.redirect_uri);
   url.searchParams.set("error", "access_denied");
@@ -209,7 +198,6 @@ export async function registerAction(
 export async function logoutAction() {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
-  cookieStore.set(PENDING_OAUTH_COOKIE, "", clearPendingOAuthCookieOptions);
   redirect("/login");
 }
 

@@ -13,11 +13,12 @@ import { cn } from "@/lib/utils";
 type LoginFormProps = {
   isOAuthFlow?: boolean;
   registeredUsername?: string;
+  authReq?: string;
 };
 
 const initialState: AuthActionState = {};
 
-export function LoginForm({ isOAuthFlow, registeredUsername }: LoginFormProps) {
+export function LoginForm({ isOAuthFlow, registeredUsername, authReq }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
@@ -45,6 +46,7 @@ export function LoginForm({ isOAuthFlow, registeredUsername }: LoginFormProps) {
       ) : null}
 
       <form action={formAction} className="space-y-4">
+        {authReq ? <input type="hidden" name="auth_req" value={authReq} /> : null}
         <Input
           name="username"
           label="Username"

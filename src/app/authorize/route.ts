@@ -11,10 +11,7 @@ import {
 } from "@/lib/oauth/auth-code-store";
 import { generateOpaqueCode } from "@/lib/oauth/pkce";
 import {
-  PENDING_OAUTH_COOKIE,
-  clearPendingOAuthCookieOptions,
   getPendingOAuth,
-  pendingOAuthCookieOptions,
   serializePendingOAuth,
 } from "@/lib/pending-oauth";
 import {
@@ -62,37 +59,22 @@ function authorize400(
   );
 }
 
-async function attachPendingOAuth(
-  response: NextResponse,
-  query: AuthorizeQuery,
-): Promise<NextResponse> {
-  response.cookies.set(
-    PENDING_OAUTH_COOKIE,
-    await serializePendingOAuth(query),
-    pendingOAuthCookieOptions,
-  );
-
-  return response;
-}
-
-function clearPendingOAuth(response: NextResponse): NextResponse {
-  response.cookies.set(
-    PENDING_OAUTH_COOKIE,
-    "",
-    clearPendingOAuthCookieOptions,
-  );
-  return response;
-}
-
 export async function GET(request: NextRequest) {
-  const pendingCookie = request.cookies.get(PENDING_OAUTH_COOKIE)?.value;
   const session = await getValidSession();
   const resume = request.nextUrl.searchParams.get("resume") === "1";
+  const authReq = request.nextUrl.searchParams.get("auth_req");
 
   let query: AuthorizeQuery;
 
   if (resume) {
-    const pending = await getPendingOAuth(pendingCookie);
+    if (!authReq) {
+      return authorize400(
+        "invalid_request",
+        "No pending authorization request",
+        { resume: true },
+      );
+    }
+    const pending = await getPendingOAuth(authReq);
     if (!pending) {
       return authorize400(
         "invalid_request",
@@ -152,17 +134,17 @@ export async function GET(request: NextRequest) {
   }
 
   if (!session) {
-    const loginUrl = new URL(buildLoginOAuthUrl(), request.url);
-    const response = NextResponse.redirect(loginUrl, 303);
-    return attachPendingOAuth(response, query);
+    const newAuthReq = await serializePendingOAuth(query);
+    const loginUrl = new URL(buildLoginOAuthUrl(newAuthReq), request.url);
+    return NextResponse.redirect(loginUrl, 303);
   }
 
   const hasConsented = session.consentedClients.includes(client.clientId);
 
   if (!hasConsented) {
-    const consentUrl = new URL("/consent", request.url);
-    const response = NextResponse.redirect(consentUrl, 303);
-    return attachPendingOAuth(response, query);
+    const newAuthReq = await serializePendingOAuth(query);
+    const consentUrl = new URL(`/consent?auth_req=${newAuthReq}`, request.url);
+    return NextResponse.redirect(consentUrl, 303);
   }
 
   const code = await generateOpaqueCode();
@@ -184,8 +166,7 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("state", query.state);
   }
 
-  const response = NextResponse.redirect(redirectUrl, 303);
-  return clearPendingOAuth(response);
+  return NextResponse.redirect(redirectUrl, 303);
 }
 
 export { GET as POST };

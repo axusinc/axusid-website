@@ -64,11 +64,14 @@ export async function parseRequestBody(
   return parseFormBody(await request.text());
 }
 
-export function buildAuthorizeResumeUrl(): string {
-  return "/authorize?resume=1";
+export function buildAuthorizeResumeUrl(authReq: string): string {
+  return `/authorize?resume=1&auth_req=${authReq}`;
 }
 
-export function buildLoginOAuthUrl(): string {
+export function buildLoginOAuthUrl(authReq?: string): string {
+  if (authReq) {
+    return `/login?oauth=1&auth_req=${authReq}`;
+  }
   return "/login?oauth=1";
 }
 

@@ -4,7 +4,7 @@ import type { AuthorizeQuery } from "@/lib/oauth/schemas";
 import { authorizeQuerySchema } from "@/lib/oauth/schemas";
 import { fromBase64Url, toBase64Url } from "@/lib/oauth/pkce";
 
-export const PENDING_OAUTH_COOKIE = "axusid_pending_oauth";
+
 
 export const PENDING_OAUTH_TTL_MS = 15 * 60 * 1000;
 
@@ -54,13 +54,13 @@ export async function serializePendingOAuth(
 }
 
 export async function getPendingOAuth(
-  cookieValue?: string,
+  token?: string,
 ): Promise<AuthorizeQuery | null> {
-  if (!cookieValue) {
+  if (!token) {
     return null;
   }
 
-  const [body, signature] = cookieValue.split(".");
+  const [body, signature] = token.split(".");
   if (!body || !signature) {
     return null;
   }
@@ -85,15 +85,4 @@ export async function getPendingOAuth(
   }
 }
 
-export const pendingOAuthCookieOptions = {
-  path: "/",
-  httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-  maxAge: PENDING_OAUTH_TTL_MS / 1000,
-};
 
-export const clearPendingOAuthCookieOptions = {
-  ...pendingOAuthCookieOptions,
-  maxAge: 0,
-};
