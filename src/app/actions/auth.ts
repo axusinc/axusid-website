@@ -12,11 +12,6 @@ import {
   validateScopes,
 } from "@/lib/oauth/clients";
 
-import { getPendingOAuth } from "@/lib/pending-oauth";
-import {
-  buildAuthorizeResumeUrl,
-  buildLoginOAuthUrl,
-} from "@/lib/oauth/schemas";
 import { getValidSession } from "@/lib/session-access";
 import {
   SESSION_COOKIE,
@@ -41,6 +36,7 @@ export async function loginAction(
 ): Promise<AuthActionState> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const redirectUrl = String(formData.get("redirect_url") ?? "");
 
   if (!username || !password) {
     return { error: "Username and password are required." };
@@ -56,12 +52,24 @@ export async function loginAction(
     };
   }
 
-  const authReq = String(formData.get("auth_req") ?? "");
-  const pendingOAuth = authReq ? await getPendingOAuth(authReq) : null;
+  const isOAuthFlow = redirectUrl.startsWith("/authorize");
   let scopes = ["openid"];
 
-  if (pendingOAuth) {
-    const client = await getOAuthClient(pendingOAuth.client_id);
+  if (isOAuthFlow) {
+    let url: URL;
+    try {
+      url = new URL(redirectUrl, "http://localhost");
+    } catch {
+      return { error: "Invalid redirect_url." };
+    }
+    const clientId = url.searchParams.get("client_id");
+    const scopeParam = url.searchParams.get("scope");
+
+    if (!clientId) {
+      return { error: "Invalid redirect_url: client_id is missing." };
+    }
+
+    const client = await getOAuthClient(clientId);
     if (!client) {
       return { error: "Unknown OAuth client." };
     }
@@ -69,7 +77,7 @@ export async function loginAction(
     try {
       scopes = validateScopes(
         client,
-        normalizeScopes(pendingOAuth.scope),
+        normalizeScopes(scopeParam ?? ""),
       );
     } catch (error) {
       return {
@@ -105,29 +113,42 @@ export async function loginAction(
     sessionCookieOptions,
   );
 
-  if (pendingOAuth && authReq) {
-    redirect(buildAuthorizeResumeUrl(authReq));
+  if (isOAuthFlow && redirectUrl) {
+    if (redirectUrl.startsWith("/") && !redirectUrl.startsWith("//")) {
+      redirect(redirectUrl);
+    }
   }
 
   redirect("/account");
 }
 
 export async function consentAction(formData: FormData) {
-  const authReq = String(formData.get("auth_req") ?? "");
-  const pendingOAuth = authReq ? await getPendingOAuth(authReq) : null;
-  if (!pendingOAuth) {
-    redirect(buildLoginOAuthUrl());
+  const redirectUrl = String(formData.get("redirect_url") ?? "");
+  if (!redirectUrl || !redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
+    redirect("/");
   }
 
-  const client = await getOAuthClient(pendingOAuth.client_id);
+  let url: URL;
+  try {
+    url = new URL(redirectUrl, "http://localhost");
+  } catch {
+    redirect("/");
+  }
+
+  const clientId = url.searchParams.get("client_id");
+  if (!clientId) {
+    redirect("/");
+  }
+
+  const client = await getOAuthClient(clientId);
   if (!client) {
-    redirect(buildLoginOAuthUrl());
+    redirect("/");
   }
 
   const session = await getValidSession();
 
   if (!session) {
-    redirect(buildLoginOAuthUrl());
+    redirect(`/login?redirect_url=${encodeURIComponent(redirectUrl)}`);
   }
 
   const cookieStore = await cookies();
@@ -142,25 +163,37 @@ export async function consentAction(formData: FormData) {
     sessionCookieOptions,
   );
 
-  redirect(buildAuthorizeResumeUrl(authReq));
+  redirect(redirectUrl);
 }
 
 export async function denyConsentAction(formData: FormData) {
-  const authReq = String(formData.get("auth_req") ?? "");
-  const pendingOAuth = authReq ? await getPendingOAuth(authReq) : null;
-
-  if (!pendingOAuth) {
+  const redirectUrl = String(formData.get("redirect_url") ?? "");
+  if (!redirectUrl || !redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
     redirect("/");
   }
 
-  const url = new URL(pendingOAuth.redirect_uri);
-  url.searchParams.set("error", "access_denied");
-  url.searchParams.set("error_description", "The user denied the request");
-  if (pendingOAuth.state) {
-    url.searchParams.set("state", pendingOAuth.state);
+  let url: URL;
+  try {
+    url = new URL(redirectUrl, "http://localhost");
+  } catch {
+    redirect("/");
   }
 
-  redirect(url.toString());
+  const redirectUri = url.searchParams.get("redirect_uri");
+  const state = url.searchParams.get("state");
+
+  if (!redirectUri) {
+    redirect("/");
+  }
+
+  const clientUrl = new URL(redirectUri);
+  clientUrl.searchParams.set("error", "access_denied");
+  clientUrl.searchParams.set("error_description", "The user denied the request");
+  if (state) {
+    clientUrl.searchParams.set("state", state);
+  }
+
+  redirect(clientUrl.toString());
 }
 
 export async function registerAction(
@@ -170,6 +203,7 @@ export async function registerAction(
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const redirectUrl = String(formData.get("redirect_url") ?? "");
 
   if (!username || !password) {
     return { error: "Username and password are required." };
@@ -192,7 +226,10 @@ export async function registerAction(
     };
   }
 
-  redirect(`/login?registered=${encodeURIComponent(username)}`);
+  const dest = redirectUrl
+    ? `/login?registered=${encodeURIComponent(username)}&redirect_url=${encodeURIComponent(redirectUrl)}`
+    : `/login?registered=${encodeURIComponent(username)}`;
+  redirect(dest);
 }
 
 export async function logoutAction() {

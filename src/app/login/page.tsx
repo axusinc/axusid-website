@@ -6,8 +6,8 @@ type LoginPageProps = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
-  const isOAuthFlow = params.oauth === "1";
-  const authReq = typeof params.auth_req === "string" ? params.auth_req : undefined;
+  const redirectUrl = typeof params.redirect_url === "string" ? params.redirect_url : undefined;
+  const isOAuthFlow = !!redirectUrl?.startsWith("/authorize");
   const registered =
     typeof params.registered === "string" ? params.registered : undefined;
 
@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <LoginForm
       isOAuthFlow={isOAuthFlow}
       registeredUsername={registered}
-      authReq={authReq}
+      redirectUrl={redirectUrl}
     />
   );
 }

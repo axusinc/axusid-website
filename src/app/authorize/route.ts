@@ -11,13 +11,8 @@ import {
 } from "@/lib/oauth/auth-code-store";
 import { generateOpaqueCode } from "@/lib/oauth/pkce";
 import {
-  getPendingOAuth,
-  serializePendingOAuth,
-} from "@/lib/pending-oauth";
-import {
   type AuthorizeQuery,
   authorizeQuerySchema,
-  buildLoginOAuthUrl,
 } from "@/lib/oauth/schemas";
 import { getValidSession } from "@/lib/session-access";
 
@@ -61,45 +56,22 @@ function authorize400(
 
 export async function GET(request: NextRequest) {
   const session = await getValidSession();
-  const resume = request.nextUrl.searchParams.get("resume") === "1";
-  const authReq = request.nextUrl.searchParams.get("auth_req");
 
-  let query: AuthorizeQuery;
+  const params = Object.fromEntries(request.nextUrl.searchParams.entries());
+  const parsed = authorizeQuerySchema.safeParse(params);
 
-  if (resume) {
-    if (!authReq) {
-      return authorize400(
-        "invalid_request",
-        "No pending authorization request",
-        { resume: true },
-      );
-    }
-    const pending = await getPendingOAuth(authReq);
-    if (!pending) {
-      return authorize400(
-        "invalid_request",
-        "No pending authorization request",
-        { resume: true },
-      );
-    }
-    query = pending;
-  } else {
-    const params = Object.fromEntries(request.nextUrl.searchParams.entries());
-    const parsed = authorizeQuerySchema.safeParse(params);
-
-    if (!parsed.success) {
-      return authorize400(
-        "invalid_request",
-        parsed.error.issues[0]?.message ?? "Invalid request",
-        {
-          client_id: params.client_id,
-          redirect_uri: params.redirect_uri,
-        },
-      );
-    }
-
-    query = parsed.data;
+  if (!parsed.success) {
+    return authorize400(
+      "invalid_request",
+      parsed.error.issues[0]?.message ?? "Invalid request",
+      {
+        client_id: params.client_id,
+        redirect_uri: params.redirect_uri,
+      },
+    );
   }
+
+  const query = parsed.data;
 
   const client = await getOAuthClient(query.client_id);
 
@@ -133,17 +105,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const currentUrl = request.nextUrl.pathname + request.nextUrl.search;
+
   if (!session) {
-    const newAuthReq = await serializePendingOAuth(query);
-    const loginUrl = new URL(buildLoginOAuthUrl(newAuthReq), request.url);
+    const loginUrl = new URL(`/login?redirect_url=${encodeURIComponent(currentUrl)}`, request.url);
     return NextResponse.redirect(loginUrl, 303);
   }
 
   const hasConsented = session.consentedClients.includes(client.clientId);
 
   if (!hasConsented) {
-    const newAuthReq = await serializePendingOAuth(query);
-    const consentUrl = new URL(`/consent?auth_req=${newAuthReq}`, request.url);
+    const consentUrl = new URL(`/consent?redirect_url=${encodeURIComponent(currentUrl)}`, request.url);
     return NextResponse.redirect(consentUrl, 303);
   }
 

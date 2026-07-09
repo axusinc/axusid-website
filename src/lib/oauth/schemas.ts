@@ -64,37 +64,6 @@ export async function parseRequestBody(
   return parseFormBody(await request.text());
 }
 
-export function buildAuthorizeResumeUrl(authReq: string): string {
-  return `/authorize?resume=1&auth_req=${authReq}`;
-}
 
-export function buildLoginOAuthUrl(authReq?: string): string {
-  if (authReq) {
-    return `/login?oauth=1&auth_req=${authReq}`;
-  }
-  return "/login?oauth=1";
-}
 
-export function buildAuthorizeReturnUrl(params: AuthorizeQuery): string {
-  const search = new URLSearchParams({
-    response_type: params.response_type,
-    client_id: params.client_id,
-    redirect_uri: params.redirect_uri,
-    code_challenge: params.code_challenge,
-    code_challenge_method: params.code_challenge_method,
-  });
 
-  if (params.scope) {
-    search.set("scope", params.scope);
-  }
-
-  if (params.state) {
-    search.set("state", params.state);
-  }
-
-  return `/authorize?${search.toString()}`;
-}
-
-export function serializeOAuthParams(params: AuthorizeQuery): string {
-  return buildAuthorizeReturnUrl(params).replace("/authorize?", "");
-}

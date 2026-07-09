@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 type LoginFormProps = {
   isOAuthFlow?: boolean;
   registeredUsername?: string;
-  authReq?: string;
+  redirectUrl?: string;
 };
 
 const initialState: AuthActionState = {};
 
-export function LoginForm({ isOAuthFlow, registeredUsername, authReq }: LoginFormProps) {
+export function LoginForm({ isOAuthFlow, registeredUsername, redirectUrl }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
@@ -32,7 +32,10 @@ export function LoginForm({ isOAuthFlow, registeredUsername, authReq }: LoginFor
       footer={
         <>
           New to AXUS ID?{" "}
-          <Link href="/register" className="font-medium text-black underline-offset-4 hover:underline">
+          <Link
+            href={redirectUrl ? `/register?redirect_url=${encodeURIComponent(redirectUrl)}` : "/register"}
+            className="font-medium text-black underline-offset-4 hover:underline"
+          >
             Create an account
           </Link>
         </>
@@ -46,7 +49,7 @@ export function LoginForm({ isOAuthFlow, registeredUsername, authReq }: LoginFor
       ) : null}
 
       <form action={formAction} className="space-y-4">
-        {authReq ? <input type="hidden" name="auth_req" value={authReq} /> : null}
+        {redirectUrl ? <input type="hidden" name="redirect_url" value={redirectUrl} /> : null}
         <Input
           name="username"
           label="Username"
