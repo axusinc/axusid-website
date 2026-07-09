@@ -30,13 +30,11 @@ export function credentialsToTokenResponse(
 export async function loginWithBackend(
   auid: string,
   password: string,
-  permissions: string[],
 ): Promise<AuthCredentials> {
   const sdk = getAuthSdk();
   const result = await sdk.Login({
     auid,
     password,
-    permissions: permissions.length > 0 ? permissions : undefined,
   });
 
   return result.login;

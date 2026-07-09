@@ -11,7 +11,7 @@ import {
   normalizeScopes,
   validateScopes,
 } from "@/lib/oauth/clients";
-import { scopesToBackendPermissions } from "@/lib/oauth/permissions";
+
 import {
   PENDING_OAUTH_COOKIE,
   clearPendingOAuthCookieOptions,
@@ -92,11 +92,9 @@ export async function loginAction(
 
   let credentials;
   try {
-    const backendPermissions = scopesToBackendPermissions(scopes);
     credentials = await loginWithBackend(
       auid,
       password,
-      backendPermissions ?? [],
     );
   } catch (error) {
     return {

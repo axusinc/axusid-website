@@ -1,5 +1,5 @@
-mutation Login($auid: ID!, $password: String!, $permissions: [String!]) {
-  login(auid: $auid, password: $password, permissions: $permissions) {
+mutation Login($auid: ID!, $password: String!) {
+  login(auid: $auid, password: $password) {
     accessToken
     refreshToken
     accessTokenExpiresAt
