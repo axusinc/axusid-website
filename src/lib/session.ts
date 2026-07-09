@@ -2,18 +2,22 @@ import "server-only";
 
 import type { AuthCredentials } from "@/lib/auth-graphql";
 import { fromBase64Url, toBase64Url } from "@/lib/oauth/pkce";
+import { partitionScopes } from "@/lib/oauth/scopes";
 
 export const SESSION_COOKIE = "axusid_session";
 
 export type IdPSession = {
   auid: string;
   credentials: AuthCredentials;
-  scopes: string[];
+  oidcScopes: string[];
+  axusPermissions: string[];
   consentedClients: string[];
 };
 
 type SessionPayload = IdPSession & {
   exp: number;
+  /** @deprecated Legacy field — partitioned on read */
+  scopes?: string[];
 };
 
 const encoder = new TextEncoder();
@@ -74,10 +78,24 @@ async function decodeSession(token: string): Promise<IdPSession | null> {
       return null;
     }
 
+    if (payload.oidcScopes && payload.axusPermissions) {
+      return {
+        auid: payload.auid,
+        credentials: payload.credentials,
+        oidcScopes: payload.oidcScopes,
+        axusPermissions: payload.axusPermissions,
+        consentedClients: payload.consentedClients ?? [],
+      };
+    }
+
+    const legacyScopes = payload.scopes ?? [];
+    const { oidcScopes, axusPermissions } = partitionScopes(legacyScopes);
+
     return {
       auid: payload.auid,
       credentials: payload.credentials,
-      scopes: payload.scopes,
+      oidcScopes,
+      axusPermissions,
       consentedClients: payload.consentedClients ?? [],
     };
   } catch {

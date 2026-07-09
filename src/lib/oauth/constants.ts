@@ -1,3 +1,5 @@
+import { isOidcScope, isValidPermissionKey } from "@/lib/oauth/scopes";
+
 export type OAuthClient = {
   clientId: string;
   name: string;
@@ -36,12 +38,20 @@ export function validateScopes(
   client: OAuthClient,
   scopes: string[],
 ): string[] {
-  const invalid = scopes.filter(
-    (scope) => !client.allowedScopes.includes(scope),
+  const invalidOidc = scopes.filter(
+    (scope) => isOidcScope(scope) && !client.allowedScopes.includes(scope),
   );
 
-  if (invalid.length > 0) {
-    throw new Error(`Invalid scopes: ${invalid.join(", ")}`);
+  if (invalidOidc.length > 0) {
+    throw new Error(`Invalid scopes: ${invalidOidc.join(", ")}`);
+  }
+
+  const invalidPermissions = scopes.filter(
+    (scope) => !isOidcScope(scope) && !isValidPermissionKey(scope),
+  );
+
+  if (invalidPermissions.length > 0) {
+    throw new Error(`Invalid permission keys: ${invalidPermissions.join(", ")}`);
   }
 
   return scopes;

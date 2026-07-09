@@ -1,11 +1,15 @@
 import { redirect } from "next/navigation";
 import { ConsentForm } from "./consent-form";
+import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import {
   getOAuthClient,
   normalizeScopes,
+  partitionScopes,
   validateScopes,
+  getConsentPermissions,
 } from "@/lib/oauth/clients";
 import { getValidSession } from "@/lib/session-access";
+import { resolveUserDisplayInfo } from "@/lib/user-profile";
 
 type ConsentPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -50,5 +54,36 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
     redirect("/");
   }
 
-  return <ConsentForm clientName={client.name} scopes={scopes} redirectUri={redirectUri} />;
+  const { axusPermissions } = partitionScopes(scopes);
+  const permissions = getConsentPermissions(axusPermissions);
+
+  const clientRedirectUri = url.searchParams.get("redirect_uri");
+  let redirectHost: string | null = null;
+  if (clientRedirectUri) {
+    try {
+      redirectHost = new URL(clientRedirectUri).host;
+    } catch {
+      redirectHost = null;
+    }
+  }
+
+  const sdk = getAuthSdkForSession(session);
+  let applicationUser = null;
+
+  if (client.ownerAuid) {
+    try {
+      applicationUser = await resolveUserDisplayInfo(sdk, client.ownerAuid);
+    } catch {
+      // Owner profile is optional on consent.
+    }
+  }
+
+  return (
+    <ConsentForm
+      applicationUser={applicationUser}
+      redirectHost={redirectHost}
+      permissions={permissions}
+      redirectUri={redirectUri}
+    />
+  );
 }

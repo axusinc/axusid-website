@@ -40,17 +40,20 @@ export type AccessTokenClaims = {
   sub: string;
   aud: string;
   scope: string;
+  oidcScope: string;
 };
 
 export async function signAccessToken(params: {
   sub: string;
   aud: string;
   scope: string;
+  oidcScope?: string;
   expiresInSeconds: number;
 }): Promise<string> {
   const key = await getPrivateKey();
   return new SignJWT({
     scope: params.scope,
+    ...(params.oidcScope ? { oidc_scope: params.oidcScope } : {}),
   })
     .setProtectedHeader({ alg: "RS256", typ: "JWT" })
     .setIssuer(getIssuer())
@@ -101,6 +104,8 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenClaim
     sub: payload.sub,
     aud,
     scope: typeof payload.scope === "string" ? payload.scope : "",
+    oidcScope:
+      typeof payload.oidc_scope === "string" ? payload.oidc_scope : "",
   };
 }
 

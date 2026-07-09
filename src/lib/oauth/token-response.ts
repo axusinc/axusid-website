@@ -12,6 +12,7 @@ import {
   wrapRefreshToken,
 } from "@/lib/oauth/refresh-token";
 import { refreshWithBackend } from "@/lib/oauth/adapter";
+import { partitionScopes } from "@/lib/oauth/scopes";
 
 export type DualTokenResponse = {
   access_token: string;
@@ -36,17 +37,19 @@ export async function issueTokenResponse(params: {
   scopes: string[];
   credentials: AuthCredentials;
 }): Promise<DualTokenResponse> {
-  const scopeString = params.scopes.join(" ");
+  const { oidcScopes, axusPermissions } = partitionScopes(params.scopes);
+  const permissionScopeString = axusPermissions.join(" ");
   const expiresIn = credentialsExpiresIn(params.credentials);
   const profileClaims = await buildOidcClaims(
     params.auid,
     opaqueGraphqlBearer(params.credentials),
-    params.scopes,
+    oidcScopes,
   );
 
   const accessToken = await signGraphqlAccessToken({
     auid: params.auid,
-    scopes: params.scopes,
+    permissions: axusPermissions,
+    oidcScopes,
     credentials: params.credentials,
     clientId: params.clientId,
   });
@@ -56,10 +59,10 @@ export async function issueTokenResponse(params: {
     token_type: "Bearer",
     expires_in: expiresIn,
     axus_access_token: params.credentials.accessToken,
-    scope: scopeString,
+    ...(permissionScopeString ? { scope: permissionScopeString } : {}),
   };
 
-  if (params.scopes.includes("openid")) {
+  if (oidcScopes.includes("openid")) {
     response.id_token = await signIdToken({
       sub: params.auid,
       aud: params.clientId,
@@ -68,7 +71,7 @@ export async function issueTokenResponse(params: {
     });
   }
 
-  if (params.scopes.includes("offline_access")) {
+  if (oidcScopes.includes("offline_access")) {
     response.refresh_token = await wrapRefreshToken({
       auid: params.auid,
       clientId: params.clientId,

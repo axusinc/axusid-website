@@ -28,15 +28,15 @@ async function handleUserinfo(request: Request): Promise<Response> {
     return unauthorized("Missing or invalid Authorization header");
   }
 
-  let claimsContext: { sub: string; aud: string; scope: string };
+  let claimsContext: { sub: string; aud: string; scope: string; oidcScope: string };
   try {
     claimsContext = await verifyAccessToken(token);
   } catch {
     return unauthorized("Access token is invalid or expired");
   }
 
-  const scopes = claimsContext.scope.split(/\s+/).filter(Boolean);
-  if (!scopes.includes("openid")) {
+  const oidcScopes = claimsContext.oidcScope.split(/\s+/).filter(Boolean);
+  if (!oidcScopes.includes("openid")) {
     return unauthorized("Access token does not include the openid scope");
   }
 
@@ -44,7 +44,7 @@ async function handleUserinfo(request: Request): Promise<Response> {
     const profileClaims = await buildOidcClaims(
       claimsContext.sub,
       "",
-      scopes,
+      oidcScopes,
     );
 
     return Response.json(profileClaims, {

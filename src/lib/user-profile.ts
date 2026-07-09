@@ -20,6 +20,37 @@ export type UserProfileWithVariations = {
   variations: VariationsQuery["variations"];
 };
 
+export type UserDisplayInfo = {
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  displayName: string;
+};
+
+export async function resolveUserDisplayInfo(
+  sdk: AuthSdk,
+  auid: string,
+): Promise<UserDisplayInfo> {
+  const { user, variations } = await fetchUserProfileWithVariations(sdk, auid);
+  const username = user?.usernames?.defaultUsername ?? null;
+
+  const defaultVariationId = user?.defaultVariation?.variationId;
+  const defaultVariation = variations.find(
+    (variation) => variation.id === defaultVariationId,
+  );
+  const firstName = defaultVariation?.firstName ?? null;
+  const lastName = defaultVariation?.lastName ?? null;
+
+  const fullName = [firstName, lastName].filter(Boolean).join(" ");
+
+  return {
+    firstName,
+    lastName,
+    username,
+    displayName: fullName || username || auid,
+  };
+}
+
 /**
  * Loads account profile data via granular queries. The backend `user` query
  * currently returns INTERNAL_ERROR, while usernames/defaultVariation/variations work.

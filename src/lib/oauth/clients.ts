@@ -13,6 +13,17 @@ export {
   validateScopes,
   validateSupportedScopes,
 } from "@/lib/oauth/constants";
+export {
+  OIDC_SCOPES,
+  partitionScopes,
+  isOidcScope,
+  isValidPermissionKey,
+  permissionImplies,
+  validatePermissionKeys,
+  getConsentPermissions,
+  formatPermissionLabel,
+  combineScopes,
+} from "@/lib/oauth/scopes";
 
 export async function getOAuthClient(
   clientId: string,

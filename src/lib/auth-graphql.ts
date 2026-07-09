@@ -38,14 +38,16 @@ export function opaqueGraphqlBearer(credentials: AuthCredentials): string {
  */
 export async function signGraphqlAccessToken(params: {
   auid: string;
-  scopes: string[];
+  permissions: string[];
+  oidcScopes: string[];
   credentials: AuthCredentials;
   clientId?: string;
 }): Promise<string> {
   return signAccessToken({
     sub: params.auid,
     aud: params.clientId ?? getIssuer(),
-    scope: params.scopes.join(" "),
+    scope: params.permissions.join(" "),
+    oidcScope: params.oidcScopes.join(" "),
     expiresInSeconds: credentialsExpiresInSeconds(params.credentials),
   });
 }
@@ -73,7 +75,8 @@ export function getAuthSdkForSession(session: IdPSession) {
 export async function getAuthSdkForSessionJwt(session: IdPSession) {
   const bearerToken = await signGraphqlAccessToken({
     auid: session.auid,
-    scopes: session.scopes,
+    permissions: session.axusPermissions,
+    oidcScopes: session.oidcScopes,
     credentials: session.credentials,
   });
   return getAuthSdk(bearerToken);

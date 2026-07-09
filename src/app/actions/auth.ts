@@ -9,6 +9,7 @@ import { resolveLoginAuid } from "@/lib/resolve-login-identity";
 import {
   getOAuthClient,
   normalizeScopes,
+  partitionScopes,
   validateScopes,
 } from "@/lib/oauth/clients";
 
@@ -62,7 +63,8 @@ export async function loginAction(
 
   const isOAuthFlow = redirectUri.startsWith("/authorize");
   const isSamlFlow = redirectUri.startsWith("/saml/sso/");
-  let scopes = ["openid"];
+  let oidcScopes = ["openid"];
+  let axusPermissions: string[] = [];
 
   if (isOAuthFlow) {
     let url: URL;
@@ -84,10 +86,13 @@ export async function loginAction(
     }
 
     try {
-      scopes = validateScopes(
+      const validatedScopes = validateScopes(
         client,
         normalizeScopes(scopeParam ?? ""),
       );
+      const partitioned = partitionScopes(validatedScopes);
+      oidcScopes = partitioned.oidcScopes;
+      axusPermissions = partitioned.axusPermissions;
     } catch (error) {
       return {
         error:
@@ -101,6 +106,7 @@ export async function loginAction(
     credentials = await loginWithBackend(
       auid,
       password,
+      axusPermissions.length > 0 ? axusPermissions : undefined,
     );
   } catch (error) {
     return {
@@ -111,7 +117,8 @@ export async function loginAction(
   const session: IdPSession = {
     auid,
     credentials,
-    scopes,
+    oidcScopes,
+    axusPermissions,
     consentedClients: [],
   };
 

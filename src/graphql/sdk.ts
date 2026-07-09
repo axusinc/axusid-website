@@ -289,6 +289,7 @@ export type Variation = {
 export type LoginMutationVariables = Exact<{
   auid: string | number;
   password: string;
+  permissions?: Array<string> | string | null | undefined;
 }>;
 
 
@@ -454,8 +455,8 @@ export type SetDefaultVariationMutation = { setDefaultVariation: { auid: string,
 
 
 export const LoginDocument = gql`
-    mutation Login($auid: ID!, $password: String!) {
-  login(auid: $auid, password: $password) {
+    mutation Login($auid: ID!, $password: String!, $permissions: [String!]) {
+  login(auid: $auid, password: $password, permissions: $permissions) {
     accessToken
     refreshToken
     accessTokenExpiresAt
