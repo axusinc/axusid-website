@@ -1,13 +1,9 @@
 import { isOidcScope, isValidPermissionKey } from "@/lib/oauth/scopes";
 
 export type OAuthClient = {
-  clientId: string;
-  name: string;
+  auid: string;
   redirectUris: string[];
   allowedScopes: string[];
-  ownerAuid?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
 };
 
 export const SUPPORTED_SCOPES = [

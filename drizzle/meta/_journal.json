@@ -22,6 +22,20 @@
       "when": 1783614793520,
       "tag": "0002_medical_captain_britain",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783621246541,
+      "tag": "0003_wandering_hemingway",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783621500000,
+      "tag": "0004_rename_client_id_to_auid",
+      "breakpoints": true
     }
   ]
 }

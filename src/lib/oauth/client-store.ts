@@ -7,41 +7,31 @@ import type { OAuthClient } from "@/lib/oauth/constants";
 
 function rowToClient(row: OAuthClientRow): OAuthClient {
   return {
-    clientId: row.clientId,
-    name: row.name,
+    auid: row.auid,
     redirectUris: row.redirectUris,
     allowedScopes: row.allowedScopes,
-    ownerAuid: row.ownerAuid,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
   };
 }
 
 export async function getClientById(
-  clientId: string,
+  auid: string,
 ): Promise<OAuthClient | undefined> {
   const db = getDb();
   const rows = await db
     .select()
     .from(oauthClients)
-    .where(eq(oauthClients.clientId, clientId))
+    .where(eq(oauthClients.auid, auid))
     .limit(1);
 
   return rows[0] ? rowToClient(rows[0]) : undefined;
 }
 
 export async function listClientsByOwner(auid: string): Promise<OAuthClient[]> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(oauthClients)
-    .where(eq(oauthClients.ownerAuid, auid));
-
-  return rows.map(rowToClient);
+  const client = await getClientById(auid);
+  return client ? [client] : [];
 }
 
 export type CreateClientInput = {
-  name: string;
   redirectUris: string[];
   allowedScopes: string[];
   ownerAuid: string;
@@ -51,15 +41,12 @@ export async function createClient(
   input: CreateClientInput,
 ): Promise<OAuthClient> {
   const db = getDb();
-  const clientId = crypto.randomUUID();
   const rows = await db
     .insert(oauthClients)
     .values({
-      clientId,
-      name: input.name,
+      auid: input.ownerAuid,
       redirectUris: input.redirectUris,
       allowedScopes: input.allowedScopes,
-      ownerAuid: input.ownerAuid,
     })
     .returning();
 
@@ -67,7 +54,6 @@ export async function createClient(
 }
 
 export type UpdateClientInput = {
-  name: string;
   redirectUris: string[];
   allowedScopes: string[];
 };
@@ -77,20 +63,21 @@ export async function updateClient(
   ownerAuid: string,
   input: UpdateClientInput,
 ): Promise<OAuthClient | undefined> {
+  if (clientId !== ownerAuid) {
+    return undefined;
+  }
   const db = getDb();
   const rows = await db
     .update(oauthClients)
     .set({
-      name: input.name,
       redirectUris: input.redirectUris,
       allowedScopes: input.allowedScopes,
-      updatedAt: new Date(),
     })
-    .where(eq(oauthClients.clientId, clientId))
+    .where(eq(oauthClients.auid, clientId))
     .returning();
 
   const row = rows[0];
-  if (!row || row.ownerAuid !== ownerAuid) {
+  if (!row) {
     return undefined;
   }
 
@@ -103,11 +90,11 @@ export async function deleteClient(
 ): Promise<boolean> {
   const db = getDb();
   const existing = await getClientById(clientId);
-  if (!existing || existing.ownerAuid !== ownerAuid) {
+  if (!existing || existing.auid !== ownerAuid) {
     return false;
   }
 
-  await db.delete(oauthClients).where(eq(oauthClients.clientId, clientId));
+  await db.delete(oauthClients).where(eq(oauthClients.auid, clientId));
   return true;
 }
 
@@ -116,8 +103,37 @@ export async function getClientForOwner(
   ownerAuid: string,
 ): Promise<OAuthClient | undefined> {
   const client = await getClientById(clientId);
-  if (!client || client.ownerAuid !== ownerAuid) {
+  if (!client || client.auid !== ownerAuid) {
     return undefined;
   }
   return client;
+}
+
+export type SaveOauthClientInput = {
+  redirectUris: string[];
+  allowedScopes: string[];
+};
+
+export async function saveOauthClient(
+  auid: string,
+  input: SaveOauthClientInput,
+): Promise<OAuthClient> {
+  const db = getDb();
+  const rows = await db
+    .insert(oauthClients)
+    .values({
+      auid,
+      redirectUris: input.redirectUris,
+      allowedScopes: input.allowedScopes,
+    })
+    .onConflictDoUpdate({
+      target: oauthClients.auid,
+      set: {
+        redirectUris: input.redirectUris,
+        allowedScopes: input.allowedScopes,
+      },
+    })
+    .returning();
+
+  return rowToClient(rows[0]!);
 }

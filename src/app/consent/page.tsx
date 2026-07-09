@@ -70,9 +70,9 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   const sdk = getAuthSdkForSession(session);
   let applicationUser = null;
 
-  if (client.ownerAuid) {
+  if (client.auid) {
     try {
-      applicationUser = await resolveUserDisplayInfo(sdk, client.ownerAuid);
+      applicationUser = await resolveUserDisplayInfo(sdk, client.auid);
     } catch {
       // Owner profile is optional on consent.
     }

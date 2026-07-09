@@ -151,6 +151,7 @@ export function AccountDashboard({
   const securityCancelRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActive(parseSection(searchParams.get("section")));
   }, [searchParams]);
 

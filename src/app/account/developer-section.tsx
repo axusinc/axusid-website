@@ -1,9 +1,21 @@
-import Link from "next/link";
+"use client";
+
+import { useActionState } from "react";
 import { SubsectionTitle } from "@/app/account/dashboard-ui";
 import { SamlForm } from "@/app/developer/saml/saml-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { OAuthClient } from "@/lib/oauth/constants";
+import { FormError, FormSuccess } from "@/components/ui/form-message";
+import {
+  saveOauthConfigAction,
+  deleteClientAction,
+  type DeveloperActionState,
+} from "@/app/developer/oauth/actions";
+import { SUPPORTED_SCOPES, type OAuthClient } from "@/lib/oauth/constants";
+import { cn } from "@/lib/utils";
+import { roundedRect } from "@/lib/design";
+
+const initialState: DeveloperActionState = {};
 
 type SamlConfig = {
   name: string;
@@ -19,61 +31,133 @@ type DeveloperSectionProps = {
   samlConfig?: SamlConfig;
 };
 
+function IdpDetail({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+}) {
+  return (
+    <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
+      <span className="block text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
+        {label}
+      </span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 block break-all font-mono text-xs text-black hover:underline"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="mt-1 block break-all font-mono text-xs text-black select-all">
+          {value}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function DeveloperSection({
   auid,
   issuer,
   clients,
   samlConfig,
 }: DeveloperSectionProps) {
+  const [state, formAction, pending] = useActionState(
+    saveOauthConfigAction,
+    initialState,
+  );
+
+  const client = clients[0];
+
   return (
     <div className="space-y-8">
       <Card>
         <SubsectionTitle
-          title="OAuth 2.0 clients"
-          description="Authorization Code + PKCE. Each client gets a client ID and allowed redirect URIs."
+          title="OAuth 2.0 client settings"
+          description="Configure redirect URIs and allowed scopes for your OAuth client (1 user = 1 client)."
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="text-sm text-neutral-500">
-            {clients.length === 0
-              ? "No clients registered yet."
-              : `${clients.length} registered client${clients.length === 1 ? "" : "s"}`}
-          </p>
-          <Link href="/developer/oauth/clients/new">
-            <Button type="button" variant="brand">
-              Register client
-            </Button>
-          </Link>
-        </div>
+        <form action={formAction} className="mt-6 space-y-5">
 
-        {clients.length > 0 ? (
-          <ul className="mt-6 divide-y divide-black/[0.06] border-t border-black/[0.06]">
-            {clients.map((client) => (
-              <li key={client.clientId}>
-                <Link
-                  href={`/developer/oauth/clients/${client.clientId}`}
-                  className="group flex items-start justify-between gap-4 py-4 transition hover:bg-neutral-50/80 -mx-2 px-2 rounded-lg"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-black group-hover:underline">
-                      {client.name}
-                    </p>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      Client ID
-                    </p>
-                    <p className="mt-0.5 break-all font-mono text-xs text-neutral-600">
-                      {client.clientId}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600">
-                    {client.redirectUris.length} redirect URI
-                    {client.redirectUris.length === 1 ? "" : "s"}
-                  </span>
-                </Link>
-              </li>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-neutral-700">
+              Redirect URIs (one per line)
+            </span>
+            <textarea
+              name="redirectUris"
+              required
+              rows={4}
+              defaultValue={client?.redirectUris.join("\n") || ""}
+              placeholder="http://localhost:3000/callback"
+              className={cn("w-full border border-black/10 bg-white/80 px-4 py-3 text-sm text-black outline-none transition focus:border-black/30", roundedRect)}
+            />
+          </label>
+
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium text-neutral-700">
+              Allowed scopes
+            </legend>
+            {SUPPORTED_SCOPES.map((scope) => (
+              <label
+                key={scope}
+                className={cn("flex items-center gap-3 border border-black/5 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-700", roundedRect)}
+              >
+                <input
+                  type="checkbox"
+                  name="allowedScopes"
+                  value={scope}
+                  defaultChecked={client ? client.allowedScopes.includes(scope) : ["openid"].includes(scope)}
+                />
+                <span>{scope}</span>
+              </label>
             ))}
-          </ul>
+          </fieldset>
+
+          {state.error ? <FormError>{state.error}</FormError> : null}
+          {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
+
+          <Button type="submit" variant="brand" className="w-full" disabled={pending}>
+            {pending ? "Saving..." : "Save OAuth settings"}
+          </Button>
+        </form>
+
+        {client ? (
+          <form action={deleteClientAction} className="mt-4">
+            <Button
+              type="submit"
+              variant="outline"
+              className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+            >
+              Remove OAuth configuration
+            </Button>
+          </form>
         ) : null}
+      </Card>
+
+      <Card>
+        <SubsectionTitle
+          title="OAuth 2.0 integration details"
+          description="Copy these parameters to integrate external services using your user account."
+        />
+
+        <div className="mt-6 space-y-4">
+          <IdpDetail label="Client ID (Your AUID)" value={auid} />
+          <IdpDetail label="Authorization endpoint" value={`${issuer}/authorize`} />
+          <IdpDetail label="Token endpoint" value={`${issuer}/oauth/token`} />
+          <IdpDetail label="Userinfo endpoint" value={`${issuer}/oauth/userinfo`} />
+          <IdpDetail
+            label="JWKS URI"
+            value={`${issuer}/.well-known/jwks.json`}
+            href={`${issuer}/.well-known/jwks.json`}
+          />
+        </div>
       </Card>
 
       <SamlForm auid={auid} issuer={issuer} config={samlConfig} />

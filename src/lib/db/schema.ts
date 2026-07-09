@@ -2,33 +2,23 @@ import {
   pgTable,
   text,
   timestamp,
-  uuid,
   jsonb,
 } from "drizzle-orm/pg-core";
 
 export const oauthClients = pgTable("oauth_clients", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  clientId: text("client_id").notNull().unique(),
-  name: text("name").notNull(),
+  auid: text("auid").primaryKey(),
   redirectUris: text("redirect_uris").array().notNull(),
   allowedScopes: text("allowed_scopes").array().notNull(),
-  ownerAuid: text("owner_auid"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
 });
 
 export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
   code: text("code").primaryKey(),
-  clientId: text("client_id")
+  clientAuid: text("client_auid")
     .notNull()
-    .references(() => oauthClients.clientId, { onDelete: "cascade" }),
+    .references(() => oauthClients.auid, { onDelete: "cascade" }),
   redirectUri: text("redirect_uri").notNull(),
   scopes: text("scopes").array().notNull(),
-  auid: text("auid").notNull(),
+  userAuid: text("user_auid").notNull(),
   credentials: jsonb("credentials").notNull(),
   codeChallenge: text("code_challenge").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (record.clientId !== payload.client_id) {
+  if (record.clientAuid !== payload.client_id) {
     return oauthError("invalid_grant", "client_id mismatch", 400);
   }
 
@@ -73,8 +73,8 @@ export async function POST(request: Request) {
 
   try {
     const tokenResponse = await issueTokenResponse({
-      auid: record.auid,
-      clientId: record.clientId,
+      auid: record.userAuid,
+      clientId: record.clientAuid,
       scopes: record.scopes,
       credentials: record.credentials,
     });

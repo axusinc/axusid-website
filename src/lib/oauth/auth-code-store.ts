@@ -8,10 +8,10 @@ import { oauthAuthorizationCodes } from "@/lib/db/schema";
 
 export type AuthorizationCodeRecord = {
   code: string;
-  clientId: string;
+  clientAuid: string;
   redirectUri: string;
   scopes: string[];
-  auid: string;
+  userAuid: string;
   credentials: AuthCredentials;
   codeChallenge: string;
   codeChallengeMethod: "S256";
@@ -28,10 +28,10 @@ export async function saveAuthorizationCode(
 
   await db.insert(oauthAuthorizationCodes).values({
     code: record.code,
-    clientId: record.clientId,
+    clientAuid: record.clientAuid,
     redirectUri: record.redirectUri,
     scopes: record.scopes,
-    auid: record.auid,
+    userAuid: record.userAuid,
     credentials: encryptedCredentials,
     codeChallenge: record.codeChallenge,
     expiresAt: record.expiresAt,
@@ -72,10 +72,10 @@ export async function consumeAuthorizationCode(
 
   return {
     code: row.code,
-    clientId: row.clientId,
+    clientAuid: row.clientAuid,
     redirectUri: row.redirectUri,
     scopes: row.scopes,
-    auid: row.auid,
+    userAuid: row.userAuid,
     credentials,
     codeChallenge: row.codeChallenge,
     codeChallengeMethod: "S256",

@@ -5,8 +5,7 @@ const DATABASE_URL =
   "postgresql://axusid:axusid@localhost:5432/axusid";
 
 const DEV_CLIENT = {
-  client_id: "axusid-dev",
-  name: "AXUS ID Dev Client",
+  auid: "axusid-dev",
   redirect_uris: [
     "http://localhost:3000/callback",
     "http://localhost:3001/callback",
@@ -20,7 +19,7 @@ async function main() {
 
   try {
     const existing = await sql`
-      SELECT client_id FROM oauth_clients WHERE client_id = ${DEV_CLIENT.client_id}
+      SELECT auid FROM oauth_clients WHERE auid = ${DEV_CLIENT.auid}
     `;
 
     if (existing.length > 0) {
@@ -30,17 +29,13 @@ async function main() {
 
     await sql`
       INSERT INTO oauth_clients (
-        client_id,
-        name,
+        auid,
         redirect_uris,
-        allowed_scopes,
-        owner_auid
+        allowed_scopes
       ) VALUES (
-        ${DEV_CLIENT.client_id},
-        ${DEV_CLIENT.name},
+        ${DEV_CLIENT.auid},
         ${DEV_CLIENT.redirect_uris},
-        ${DEV_CLIENT.allowed_scopes},
-        NULL
+        ${DEV_CLIENT.allowed_scopes}
       )
     `;
 

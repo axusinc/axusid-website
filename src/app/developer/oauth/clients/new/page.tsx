@@ -1,5 +1,5 @@
-import { ClientForm } from "./client-form";
+import { redirect } from "next/navigation";
 
 export default function NewClientPage() {
-  return <ClientForm />;
+  redirect("/account?section=developer");
 }

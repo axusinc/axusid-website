@@ -170,7 +170,7 @@ export async function consentAction(formData: FormData) {
   const cookieStore = await cookies();
   const updatedSession: IdPSession = {
     ...session,
-    consentedClients: [...new Set([...session.consentedClients, client.clientId])],
+    consentedClients: [...new Set([...session.consentedClients, client.auid])],
   };
 
   cookieStore.set(

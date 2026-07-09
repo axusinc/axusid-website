@@ -26,7 +26,7 @@ export {
 } from "@/lib/oauth/scopes";
 
 export async function getOAuthClient(
-  clientId: string,
+  auid: string,
 ): Promise<OAuthClient | undefined> {
-  return getClientById(clientId);
+  return getClientById(auid);
 }

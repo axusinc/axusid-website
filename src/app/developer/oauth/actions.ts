@@ -5,20 +5,16 @@ import { redirect } from "next/navigation";
 import {
   validateRedirectUris,
   validateSupportedScopes,
-  type OAuthClient,
 } from "@/lib/oauth/constants";
 import {
-  createClient,
   deleteClient,
-  getClientForOwner,
-  updateClient,
+  saveOauthClient,
 } from "@/lib/oauth/client-store";
 import { requireDeveloperSession } from "@/lib/oauth/developer";
 
 export type DeveloperActionState = {
   error?: string;
   success?: string;
-  clientId?: string;
 };
 
 function parseScopes(raw: FormData): string[] {
@@ -39,92 +35,35 @@ function parseRedirectUris(raw: FormData): string[] {
   return validateRedirectUris(value.split("\n"));
 }
 
-export async function createClientAction(
-  _prevState: DeveloperActionState,
-  formData: FormData,
-): Promise<DeveloperActionState> {
+export async function deleteClientAction() {
   const session = await requireDeveloperSession();
-  const name = String(formData.get("name") ?? "").trim();
-
-  if (!name) {
-    return { error: "App name is required." };
-  }
-
-  let client: OAuthClient;
-  try {
-    const redirectUris = parseRedirectUris(formData);
-    const allowedScopes = parseScopes(formData);
-    client = await createClient({
-      name,
-      redirectUris,
-      allowedScopes,
-      ownerAuid: session.auid,
-    });
-
-    revalidatePath("/account");
-    revalidatePath("/developer/oauth/clients");
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : "Unable to create client.",
-    };
-  }
-
-  redirect(`/developer/oauth/clients/${client.clientId}?created=1`);
-}
-
-export async function updateClientAction(
-  _prevState: DeveloperActionState,
-  formData: FormData,
-): Promise<DeveloperActionState> {
-  const session = await requireDeveloperSession();
-  const clientId = String(formData.get("clientId") ?? "").trim();
-  const name = String(formData.get("name") ?? "").trim();
-
-  if (!clientId || !name) {
-    return { error: "Client ID and app name are required." };
-  }
-
-  try {
-    const redirectUris = parseRedirectUris(formData);
-    const allowedScopes = parseScopes(formData);
-    const client = await updateClient(clientId, session.auid, {
-      name,
-      redirectUris,
-      allowedScopes,
-    });
-
-    if (!client) {
-      return { error: "Client not found." };
-    }
-
-    revalidatePath("/account");
-    revalidatePath("/developer/oauth/clients");
-    revalidatePath(`/developer/oauth/clients/${clientId}`);
-    return { success: "Client updated." };
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : "Unable to update client.",
-    };
-  }
-}
-
-export async function deleteClientAction(formData: FormData) {
-  const session = await requireDeveloperSession();
-  const clientId = String(formData.get("clientId") ?? "").trim();
-
-  if (!clientId) {
-    redirect("/account?section=developer");
-  }
-
-  const existing = await getClientForOwner(clientId, session.auid);
-  if (!existing) {
-    redirect("/account?section=developer");
-  }
-
-  await deleteClient(clientId, session.auid);
+  await deleteClient(session.auid, session.auid);
   revalidatePath("/account");
   revalidatePath("/developer/oauth/clients");
   redirect("/account?section=developer");
+}
+
+export async function saveOauthConfigAction(
+  _prevState: DeveloperActionState,
+  formData: FormData,
+): Promise<DeveloperActionState> {
+  const session = await requireDeveloperSession();
+
+  try {
+    const redirectUris = parseRedirectUris(formData);
+    const allowedScopes = parseScopes(formData);
+    await saveOauthClient(session.auid, {
+      redirectUris,
+      allowedScopes,
+    });
+
+    revalidatePath("/account");
+    revalidatePath("/developer/oauth/clients");
+    return { success: "OAuth settings saved successfully." };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Unable to save OAuth settings.",
+    };
+  }
 }

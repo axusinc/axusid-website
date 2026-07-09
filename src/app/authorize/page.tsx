@@ -110,7 +110,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
   }
 
-  const hasConsented = session.consentedClients.includes(client.clientId);
+  const hasConsented = session.consentedClients.includes(client.auid);
 
   if (!hasConsented) {
     redirect(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`);
@@ -119,10 +119,10 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
   const code = await generateOpaqueCode();
   await saveAuthorizationCode({
     code,
-    clientId: client.clientId,
+    clientAuid: client.auid,
     redirectUri: query.redirect_uri,
     scopes,
-    auid: session.auid,
+    userAuid: session.auid,
     credentials: session.credentials,
     codeChallenge: query.code_challenge,
     codeChallengeMethod: "S256",
