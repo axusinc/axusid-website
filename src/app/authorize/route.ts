@@ -108,14 +108,14 @@ export async function GET(request: NextRequest) {
   const currentUrl = request.nextUrl.pathname + request.nextUrl.search;
 
   if (!session) {
-    const loginUrl = new URL(`/login?redirect_url=${encodeURIComponent(currentUrl)}`, request.url);
+    const loginUrl = new URL(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`, request.url);
     return NextResponse.redirect(loginUrl, 303);
   }
 
   const hasConsented = session.consentedClients.includes(client.clientId);
 
   if (!hasConsented) {
-    const consentUrl = new URL(`/consent?redirect_url=${encodeURIComponent(currentUrl)}`, request.url);
+    const consentUrl = new URL(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`, request.url);
     return NextResponse.redirect(consentUrl, 303);
   }
 

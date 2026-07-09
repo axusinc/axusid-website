@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 type LoginFormProps = {
   isOAuthFlow?: boolean;
   registeredUsername?: string;
-  redirectUrl?: string;
+  redirectUri?: string;
 };
 
 const initialState: AuthActionState = {};
 
-export function LoginForm({ isOAuthFlow, registeredUsername, redirectUrl }: LoginFormProps) {
+export function LoginForm({ isOAuthFlow, registeredUsername, redirectUri }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
@@ -33,7 +33,7 @@ export function LoginForm({ isOAuthFlow, registeredUsername, redirectUrl }: Logi
         <>
           New to AXUS ID?{" "}
           <Link
-            href={redirectUrl ? `/register?redirect_url=${encodeURIComponent(redirectUrl)}` : "/register"}
+            href={redirectUri ? `/register?redirect_uri=${encodeURIComponent(redirectUri)}` : "/register"}
             className="font-medium text-black underline-offset-4 hover:underline"
           >
             Create an account
@@ -49,7 +49,7 @@ export function LoginForm({ isOAuthFlow, registeredUsername, redirectUrl }: Logi
       ) : null}
 
       <form action={formAction} className="space-y-4">
-        {redirectUrl ? <input type="hidden" name="redirect_url" value={redirectUrl} /> : null}
+        {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
         <Input
           name="username"
           label="Username"

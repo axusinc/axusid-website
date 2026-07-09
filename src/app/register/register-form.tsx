@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 const initialState: AuthActionState = {};
 
 type RegisterFormProps = {
-  redirectUrl?: string;
+  redirectUri?: string;
 };
 
-export function RegisterForm({ redirectUrl }: RegisterFormProps) {
+export function RegisterForm({ redirectUri }: RegisterFormProps) {
   const [state, formAction, pending] = useActionState(
     registerAction,
     initialState,
@@ -28,7 +28,7 @@ export function RegisterForm({ redirectUrl }: RegisterFormProps) {
         <>
           Already have an account?{" "}
           <Link
-            href={redirectUrl ? `/login?redirect_url=${encodeURIComponent(redirectUrl)}` : "/login"}
+            href={redirectUri ? `/login?redirect_uri=${encodeURIComponent(redirectUri)}` : "/login"}
             className="font-medium text-black underline-offset-4 hover:underline"
           >
             Sign in
@@ -37,7 +37,7 @@ export function RegisterForm({ redirectUrl }: RegisterFormProps) {
       }
     >
       <form action={formAction} className="space-y-4">
-        {redirectUrl ? <input type="hidden" name="redirect_url" value={redirectUrl} /> : null}
+        {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
         <Input
           name="username"
           label="Username"

@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils";
 type ConsentFormProps = {
   clientName: string;
   scopes: string[];
-  redirectUrl: string;
+  redirectUri: string;
 };
 
-export function ConsentForm({ clientName, scopes, redirectUrl }: ConsentFormProps) {
+export function ConsentForm({ clientName, scopes, redirectUri }: ConsentFormProps) {
   return (
     <AuthShell
       title="Authorize access"
@@ -39,14 +39,14 @@ export function ConsentForm({ clientName, scopes, redirectUrl }: ConsentFormProp
         </div>
 
         <form action={consentAction} className="space-y-3">
-          <input type="hidden" name="redirect_url" value={redirectUrl} />
+          <input type="hidden" name="redirect_uri" value={redirectUri} />
           <Button type="submit" variant="brand" className="w-full">
             Allow access
           </Button>
         </form>
 
         <form action={denyConsentAction}>
-          <input type="hidden" name="redirect_url" value={redirectUrl} />
+          <input type="hidden" name="redirect_uri" value={redirectUri} />
           <Button type="submit" variant="outline" className="w-full">
             Deny
           </Button>

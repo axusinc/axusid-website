@@ -13,20 +13,20 @@ type ConsentPageProps = {
 
 export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   const params = await searchParams;
-  const redirectUrl = typeof params.redirect_url === "string" ? params.redirect_url : undefined;
+  const redirectUri = typeof params.redirect_uri === "string" ? params.redirect_uri : undefined;
 
   const session = await getValidSession();
   if (!session) {
-    redirect(`/login?redirect_url=${encodeURIComponent(redirectUrl ?? "/consent")}`);
+    redirect(`/login?redirect_uri=${encodeURIComponent(redirectUri ?? "/consent")}`);
   }
 
-  if (!redirectUrl || !redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
+  if (!redirectUri || !redirectUri.startsWith("/") || redirectUri.startsWith("//")) {
     redirect("/");
   }
 
   let url: URL;
   try {
-    url = new URL(redirectUrl, "http://localhost");
+    url = new URL(redirectUri, "http://localhost");
   } catch {
     redirect("/");
   }
@@ -50,5 +50,5 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
     redirect("/");
   }
 
-  return <ConsentForm clientName={client.name} scopes={scopes} redirectUrl={redirectUrl} />;
+  return <ConsentForm clientName={client.name} scopes={scopes} redirectUri={redirectUri} />;
 }

@@ -6,6 +6,6 @@ type RegisterPageProps = {
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const params = await searchParams;
-  const redirectUrl = typeof params.redirect_url === "string" ? params.redirect_url : undefined;
-  return <RegisterForm redirectUrl={redirectUrl} />;
+  const redirectUri = typeof params.redirect_uri === "string" ? params.redirect_uri : undefined;
+  return <RegisterForm redirectUri={redirectUri} />;
 }

@@ -36,7 +36,7 @@ export async function loginAction(
 ): Promise<AuthActionState> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const redirectUrl = String(formData.get("redirect_url") ?? "");
+  const redirectUri = String(formData.get("redirect_uri") ?? "");
 
   if (!username || !password) {
     return { error: "Username and password are required." };
@@ -52,21 +52,21 @@ export async function loginAction(
     };
   }
 
-  const isOAuthFlow = redirectUrl.startsWith("/authorize");
+  const isOAuthFlow = redirectUri.startsWith("/authorize");
   let scopes = ["openid"];
 
   if (isOAuthFlow) {
     let url: URL;
     try {
-      url = new URL(redirectUrl, "http://localhost");
+      url = new URL(redirectUri, "http://localhost");
     } catch {
-      return { error: "Invalid redirect_url." };
+      return { error: "Invalid redirect_uri." };
     }
     const clientId = url.searchParams.get("client_id");
     const scopeParam = url.searchParams.get("scope");
 
     if (!clientId) {
-      return { error: "Invalid redirect_url: client_id is missing." };
+      return { error: "Invalid redirect_uri: client_id is missing." };
     }
 
     const client = await getOAuthClient(clientId);
@@ -113,9 +113,9 @@ export async function loginAction(
     sessionCookieOptions,
   );
 
-  if (isOAuthFlow && redirectUrl) {
-    if (redirectUrl.startsWith("/") && !redirectUrl.startsWith("//")) {
-      redirect(redirectUrl);
+  if (isOAuthFlow && redirectUri) {
+    if (redirectUri.startsWith("/") && !redirectUri.startsWith("//")) {
+      redirect(redirectUri);
     }
   }
 
@@ -123,14 +123,14 @@ export async function loginAction(
 }
 
 export async function consentAction(formData: FormData) {
-  const redirectUrl = String(formData.get("redirect_url") ?? "");
-  if (!redirectUrl || !redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
+  const redirectUri = String(formData.get("redirect_uri") ?? "");
+  if (!redirectUri || !redirectUri.startsWith("/") || redirectUri.startsWith("//")) {
     redirect("/");
   }
 
   let url: URL;
   try {
-    url = new URL(redirectUrl, "http://localhost");
+    url = new URL(redirectUri, "http://localhost");
   } catch {
     redirect("/");
   }
@@ -148,7 +148,7 @@ export async function consentAction(formData: FormData) {
   const session = await getValidSession();
 
   if (!session) {
-    redirect(`/login?redirect_url=${encodeURIComponent(redirectUrl)}`);
+    redirect(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
   const cookieStore = await cookies();
@@ -163,30 +163,30 @@ export async function consentAction(formData: FormData) {
     sessionCookieOptions,
   );
 
-  redirect(redirectUrl);
+  redirect(redirectUri);
 }
 
 export async function denyConsentAction(formData: FormData) {
-  const redirectUrl = String(formData.get("redirect_url") ?? "");
-  if (!redirectUrl || !redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
+  const redirectUri = String(formData.get("redirect_uri") ?? "");
+  if (!redirectUri || !redirectUri.startsWith("/") || redirectUri.startsWith("//")) {
     redirect("/");
   }
 
   let url: URL;
   try {
-    url = new URL(redirectUrl, "http://localhost");
+    url = new URL(redirectUri, "http://localhost");
   } catch {
     redirect("/");
   }
 
-  const redirectUri = url.searchParams.get("redirect_uri");
+  const clientRedirectUri = url.searchParams.get("redirect_uri");
   const state = url.searchParams.get("state");
 
-  if (!redirectUri) {
+  if (!clientRedirectUri) {
     redirect("/");
   }
 
-  const clientUrl = new URL(redirectUri);
+  const clientUrl = new URL(clientRedirectUri);
   clientUrl.searchParams.set("error", "access_denied");
   clientUrl.searchParams.set("error_description", "The user denied the request");
   if (state) {
@@ -203,7 +203,7 @@ export async function registerAction(
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  const redirectUrl = String(formData.get("redirect_url") ?? "");
+  const redirectUri = String(formData.get("redirect_uri") ?? "");
 
   if (!username || !password) {
     return { error: "Username and password are required." };
@@ -226,8 +226,8 @@ export async function registerAction(
     };
   }
 
-  const dest = redirectUrl
-    ? `/login?registered=${encodeURIComponent(username)}&redirect_url=${encodeURIComponent(redirectUrl)}`
+  const dest = redirectUri
+    ? `/login?registered=${encodeURIComponent(username)}&redirect_uri=${encodeURIComponent(redirectUri)}`
     : `/login?registered=${encodeURIComponent(username)}`;
   redirect(dest);
 }
