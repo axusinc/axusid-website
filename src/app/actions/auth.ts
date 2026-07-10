@@ -74,11 +74,11 @@ export async function loginAction(
     } catch {
       return { error: "Invalid redirect_uri." };
     }
-    const clientId = url.searchParams.get("client_id");
+    const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
     const scopeParam = url.searchParams.get("scope");
 
     if (!clientId) {
-      return { error: "Invalid redirect_uri: client_id is missing." };
+      return { error: "Invalid redirect_uri: client_id or auid is missing." };
     }
 
     const client = await getOAuthClient(clientId);
@@ -151,7 +151,7 @@ export async function consentAction(formData: FormData) {
     redirect("/");
   }
 
-  const clientId = url.searchParams.get("client_id");
+  const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
   if (!clientId) {
     redirect("/");
   }

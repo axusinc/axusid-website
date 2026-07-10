@@ -47,6 +47,10 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     }
   }
 
+  if (!queryParams.client_id && queryParams.auid) {
+    queryParams.client_id = queryParams.auid;
+  }
+
   const parsed = authorizeQuerySchema.safeParse(queryParams);
 
   if (!parsed.success) {

@@ -35,7 +35,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
     redirect("/");
   }
 
-  const clientId = url.searchParams.get("client_id");
+  const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
   const scopeParam = url.searchParams.get("scope");
 
   if (!clientId) {

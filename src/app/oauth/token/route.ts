@@ -11,6 +11,9 @@ import {
 
 export async function POST(request: Request) {
   const body = await parseRequestBody(request);
+  if (!body.client_id && body.auid) {
+    body.client_id = body.auid;
+  }
   const parsed = tokenRequestSchema.safeParse(body);
 
   if (!parsed.success) {
