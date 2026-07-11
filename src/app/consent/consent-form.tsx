@@ -57,7 +57,7 @@ export function ConsentForm({
           {applicationUser ? (
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
-                Application user
+                Application
               </p>
               <div className="mt-3 flex items-center gap-3">
                 <Avatar

@@ -10,6 +10,7 @@ import {
 } from "@/lib/oauth/clients";
 import { getValidSession } from "@/lib/session-access";
 import { resolveUserDisplayInfo } from "@/lib/user-profile";
+import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 
 type ConsentPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -35,46 +36,71 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
     redirect("/");
   }
 
-  const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-  const scopeParam = url.searchParams.get("scope");
+  let clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
+  let isSaml = false;
+  if (!clientId && url.pathname.startsWith("/saml/sso/")) {
+    const parts = url.pathname.split("/");
+    clientId = parts[parts.length - 1] || null;
+    isSaml = true;
+  }
 
   if (!clientId) {
     redirect("/");
   }
 
-  const client = await getOAuthClient(clientId);
-  if (!client) {
-    redirect("/");
-  }
-
-  let scopes: string[];
-  try {
-    scopes = validateScopes(client, normalizeScopes(scopeParam ?? ""));
-  } catch {
-    redirect("/");
-  }
-
-  const { axusPermissions } = partitionScopes(scopes);
-  const permissions = getConsentPermissions(axusPermissions);
-
-  const clientRedirectUri = url.searchParams.get("redirect_uri");
   let redirectHost: string | null = null;
-  if (clientRedirectUri) {
-    try {
-      redirectHost = new URL(clientRedirectUri).host;
-    } catch {
-      redirectHost = null;
-    }
-  }
-
-  const sdk = getAuthSdkForSession(session);
+  let permissions: string[] = [];
   let applicationUser = null;
 
-  if (client.auid) {
+  const sdk = getAuthSdkForSession(session);
+
+  if (isSaml) {
+    const samlConfig = await getSamlConfigByAuid(clientId);
+    if (!samlConfig) {
+      redirect("/");
+    }
     try {
-      applicationUser = await resolveUserDisplayInfo(sdk, client.auid);
+      redirectHost = new URL(samlConfig.acsUrl).host;
+    } catch {
+      redirectHost = samlConfig.acsUrl;
+    }
+    try {
+      applicationUser = await resolveUserDisplayInfo(sdk, clientId);
     } catch {
       // Owner profile is optional on consent.
+    }
+  } else {
+    const client = await getOAuthClient(clientId);
+    if (!client) {
+      redirect("/");
+    }
+
+    const scopeParam = url.searchParams.get("scope");
+    let scopes: string[];
+    try {
+      scopes = validateScopes(client, normalizeScopes(scopeParam ?? ""));
+    } catch {
+      redirect("/");
+    }
+
+    const { axusPermissions } = partitionScopes(scopes);
+    permissions = getConsentPermissions(axusPermissions);
+
+    const clientRedirectUri = url.searchParams.get("redirect_uri");
+    if (clientRedirectUri) {
+      try {
+        redirectHost = new URL(clientRedirectUri).host;
+      } catch {
+        redirectHost = null;
+      }
+    }
+
+    if (client.auid) {
+      try {
+        applicationUser = await resolveUserDisplayInfo(sdk, client.auid);
+      } catch {
+        // Owner profile is optional on consent.
+      }
     }
   }
 

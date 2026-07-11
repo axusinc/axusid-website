@@ -151,14 +151,28 @@ export async function consentAction(formData: FormData) {
     redirect("/");
   }
 
-  const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
+  let clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
+  let isSaml = false;
+  if (!clientId && url.pathname.startsWith("/saml/sso/")) {
+    const parts = url.pathname.split("/");
+    clientId = parts[parts.length - 1] || null;
+    isSaml = true;
+  }
+
   if (!clientId) {
     redirect("/");
   }
 
-  const client = await getOAuthClient(clientId);
-  if (!client) {
-    redirect("/");
+  if (isSaml) {
+    const samlConfig = await getSamlConfigByAuid(clientId);
+    if (!samlConfig) {
+      redirect("/");
+    }
+  } else {
+    const client = await getOAuthClient(clientId);
+    if (!client) {
+      redirect("/");
+    }
   }
 
   const session = await getValidSession();
@@ -170,7 +184,7 @@ export async function consentAction(formData: FormData) {
   const cookieStore = await cookies();
   const updatedSession: IdPSession = {
     ...session,
-    consentedClients: [...new Set([...session.consentedClients, client.auid])],
+    consentedClients: [...new Set([...session.consentedClients, clientId])],
   };
 
   cookieStore.set(

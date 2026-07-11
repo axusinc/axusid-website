@@ -46,26 +46,26 @@ type AvatarProps = {
   className?: string;
 };
 
-export function Avatar({ firstName, lastName, username, size = "lg", className }: AvatarProps) {
-  const initials =
-    [firstName?.[0], lastName?.[0]].filter(Boolean).join("").toUpperCase() ||
-    username?.[0]?.toUpperCase() ||
-    "·";
-
-  const dims = size === "lg" ? "h-24 w-24 text-3xl" : "h-10 w-10 text-sm";
+export function Avatar({ username, size = "lg", className }: AvatarProps) {
+  const dims = size === "lg" ? "h-24 w-24" : "h-10 w-10";
+  const seed = username || "default";
+  const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aade,d1d4f9,ffd5dc,ffdfbf`;
 
   return (
     <div
       className={cn(
-        "relative flex shrink-0 items-center justify-center rounded-full font-semibold tracking-tight text-white",
-        "bg-gradient-to-b from-neutral-700 to-neutral-900",
-        "ring-[3px] ring-black/5",
+        "relative flex shrink-0 items-center justify-center rounded-full overflow-hidden bg-neutral-100 ring-[3px] ring-black/5",
         dims,
         className,
       )}
       aria-hidden
     >
-      {initials}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={avatarUrl}
+        alt={username || "Avatar"}
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }

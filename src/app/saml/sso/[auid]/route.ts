@@ -63,7 +63,20 @@ async function handleSsoRequest(
 
   // 3. Verify user authentication
   const session = await getValidSession();
-  const currentUrl = request.nextUrl.pathname + request.nextUrl.search;
+  
+  // Reconstruct GET-equivalent current URL so that query/POST parameters (SAMLRequest/RelayState)
+  // are preserved across login and consent redirects.
+  let currentUrl = request.nextUrl.pathname;
+  const searchParams = new URLSearchParams(request.nextUrl.search);
+  if (method === "POST" && samlRequest) {
+    searchParams.set("SAMLRequest", samlRequest);
+    if (relayState) {
+      searchParams.set("RelayState", relayState);
+    }
+    currentUrl += "?" + searchParams.toString();
+  } else {
+    currentUrl += request.nextUrl.search;
+  }
 
   if (!session) {
     const loginUrl = new URL(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`, request.url);
@@ -75,6 +88,13 @@ async function handleSsoRequest(
     // Session user mismatch: redirect to login to switch accounts
     const loginUrl = new URL(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`, request.url);
     return NextResponse.redirect(loginUrl, 303);
+  }
+
+  // Check if the user has consented to the SAML client config
+  const hasConsented = session.consentedClients.includes(auidParam);
+  if (!hasConsented) {
+    const consentUrl = new URL(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`, request.url);
+    return NextResponse.redirect(consentUrl, 303);
   }
 
   try {
