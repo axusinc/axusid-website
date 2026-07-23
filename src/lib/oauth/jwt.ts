@@ -36,6 +36,8 @@ async function getPublicKey() {
   return publicKeyPromise;
 }
 
+const KEY_ID = "axusid-oauth-rs256";
+
 export type AccessTokenClaims = {
   sub: string;
   aud: string;
@@ -55,7 +57,7 @@ export async function signAccessToken(params: {
     scope: params.scope,
     ...(params.oidcScope ? { oidc_scope: params.oidcScope } : {}),
   })
-    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: KEY_ID })
     .setIssuer(getIssuer())
     .setSubject(params.sub)
     .setAudience(params.aud)
@@ -72,7 +74,7 @@ export async function signIdToken(params: {
 }): Promise<string> {
   const key = await getPrivateKey();
   return new SignJWT(params.claims)
-    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: KEY_ID })
     .setIssuer(getIssuer())
     .setSubject(params.sub)
     .setAudience(params.aud)
@@ -118,7 +120,7 @@ export async function exportJwks() {
         ...jwk,
         use: "sig",
         alg: "RS256",
-        kid: "axusid-oauth-rs256",
+        kid: KEY_ID,
       },
     ],
   };
