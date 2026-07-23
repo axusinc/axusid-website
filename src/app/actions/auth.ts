@@ -209,6 +209,28 @@ export async function denyConsentAction(formData: FormData) {
     redirect("/");
   }
 
+  let clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
+  let isSaml = false;
+  if (!clientId && url.pathname.startsWith("/saml/sso/")) {
+    const parts = url.pathname.split("/");
+    clientId = parts[parts.length - 1] || null;
+    isSaml = true;
+  }
+
+  if (isSaml && clientId) {
+    const samlConfig = await getSamlConfigByAuid(clientId);
+    if (samlConfig?.acsUrl) {
+      const acsUrl = new URL(samlConfig.acsUrl);
+      acsUrl.searchParams.set("error", "access_denied");
+      acsUrl.searchParams.set("error_description", "The user denied the request");
+      const relayState = url.searchParams.get("RelayState");
+      if (relayState) {
+        acsUrl.searchParams.set("RelayState", relayState);
+      }
+      redirect(acsUrl.toString());
+    }
+  }
+
   const clientRedirectUri = url.searchParams.get("redirect_uri");
   const state = url.searchParams.get("state");
 
