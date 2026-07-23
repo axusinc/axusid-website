@@ -80,14 +80,6 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
 
         <form action={formAction} className="mt-6 space-y-5">
           <Input
-            name="name"
-            label="App name"
-            placeholder="My SAML app"
-            defaultValue={config?.name}
-            required
-          />
-
-          <Input
             name="entityId"
             label="SP Entity ID"
             placeholder="https://app.example.com/saml/metadata"

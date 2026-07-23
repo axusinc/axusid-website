@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireDeveloperSession } from "@/lib/oauth/developer";
 import { upsertSamlConfig, deleteSamlConfig } from "@/lib/saml/saml-store";
+import { getAuthSdkForSession } from "@/lib/auth-graphql";
+import { resolveUserDisplayInfo } from "@/lib/user-profile";
 
 export type SamlActionState = {
   error?: string;
@@ -15,13 +17,21 @@ export async function saveSamlConfigAction(
   formData: FormData,
 ): Promise<SamlActionState> {
   const session = await requireDeveloperSession();
-  const name = String(formData.get("name") ?? "").trim();
   const entityId = String(formData.get("entityId") ?? "").trim();
   const acsUrl = String(formData.get("acsUrl") ?? "").trim();
   const sloUrl = String(formData.get("sloUrl") ?? "").trim();
 
-  if (!name || !entityId || !acsUrl) {
-    return { error: "All fields (App Name, Entity ID, ACS URL) are required." };
+  if (!entityId || !acsUrl) {
+    return { error: "All fields (Entity ID, ACS URL) are required." };
+  }
+
+  const sdk = getAuthSdkForSession(session);
+  let name = session.auid;
+  try {
+    const info = await resolveUserDisplayInfo(sdk, session.auid);
+    name = info.username || session.auid;
+  } catch (error) {
+    console.error("Failed to resolve user display info for SAML name:", error);
   }
 
   try {

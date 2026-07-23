@@ -9,7 +9,7 @@ import {
   type SamlUserAttributes,
 } from "@/lib/saml/saml-idp";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
-import { fetchUserProfileWithVariations } from "@/lib/user-profile";
+import { fetchUserProfileWithVariations, resolveUserDisplayInfo } from "@/lib/user-profile";
 import { getIssuer } from "@/lib/oauth/constants";
 
 async function handleSsoRequest(
@@ -138,6 +138,17 @@ async function handleSsoRequest(
       variationId: defaultVariation?.id || "",
     };
 
+    // Fetch the client/SAML config owner's profile details to resolve their app name dynamically
+    let ownerInfo = null;
+    try {
+      ownerInfo = await resolveUserDisplayInfo(sdk, auidParam);
+    } catch (e) {
+      console.error("Failed to fetch SAML config owner profile:", e);
+    }
+    const appName = ownerInfo
+      ? (ownerInfo.username ? `@${ownerInfo.username}` : ownerInfo.displayName)
+      : (samlConfig.name || auidParam);
+
     // 7. Generate SAML Response Response
     const response = await createSamlResponse(idp, sp, requestInfo, userAttributes);
 
@@ -149,7 +160,7 @@ async function handleSsoRequest(
   <title>SAML SSO Redirect</title>
 </head>
 <body onload="document.forms[0].submit()">
-  <p>Authenticating with ${escapeHtml(samlConfig.name)}...</p>
+  <p>Authenticating with ${escapeHtml(appName)}...</p>
   <form method="post" action="${escapeHtml(response.acsUrl)}">
     <input type="hidden" name="SAMLResponse" value="${escapeHtml(response.context)}" />
     ${relayState ? `<input type="hidden" name="RelayState" value="${escapeHtml(relayState)}" />` : ""}
