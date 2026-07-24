@@ -74,7 +74,6 @@ AXUS ID clients are **public** (no client secret). PKCE (`S256`) is required.
 4. Click **Register an app** and fill in:
    - **App name**: `Winelore`
    - **Redirect URIs**: one URI per line (must match exactly, including scheme and port)
-   - **Allowed scopes**: enable at least `openid` and `profile`; add `offline_access` if Winelore needs refresh tokens
 
 5. Copy the generated **Client ID** (UUID). There is no client secret.
 
@@ -561,7 +560,7 @@ Users sign in with their **username** (not AUID). AXUS ID resolves the username 
 | Invalid or expired code | Token endpoint `invalid_grant` | Restart sign-in |
 | PKCE mismatch | Token endpoint `invalid_grant` | Restart sign-in; verify verifier storage |
 | Redirect URI mismatch | Authorize or token error | Fix client registration |
-| Invalid scope | `error=invalid_scope` | Adjust requested scopes or client allowed scopes |
+| Invalid scope | `error=invalid_scope` | Fix requested scope syntax |
 | Expired access token | GraphQL 401 | Refresh or re-authenticate |
 
 Always validate `state` on callback before exchanging the code.

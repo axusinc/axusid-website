@@ -31,17 +31,9 @@ export function normalizeScopes(scope?: string): string[] {
 }
 
 export function validateScopes(
-  client: OAuthClient,
+  _client: OAuthClient,
   scopes: string[],
 ): string[] {
-  const invalidOidc = scopes.filter(
-    (scope) => isOidcScope(scope) && !client.allowedScopes.includes(scope),
-  );
-
-  if (invalidOidc.length > 0) {
-    throw new Error(`Invalid scopes: ${invalidOidc.join(", ")}`);
-  }
-
   const invalidPermissions = scopes.filter(
     (scope) => !isOidcScope(scope) && !isValidPermissionKey(scope),
   );

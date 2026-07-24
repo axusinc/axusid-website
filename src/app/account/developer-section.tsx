@@ -11,7 +11,7 @@ import {
   deleteClientAction,
   type DeveloperActionState,
 } from "@/app/developer/oauth/actions";
-import { SUPPORTED_SCOPES, type OAuthClient } from "@/lib/oauth/constants";
+import { type OAuthClient } from "@/lib/oauth/constants";
 import { cn } from "@/lib/utils";
 import { roundedRect } from "@/lib/design";
 
@@ -81,7 +81,7 @@ export function DeveloperSection({
       <Card>
         <SubsectionTitle
           title="OAuth 2.0 client settings"
-          description="Configure redirect URIs and allowed scopes for your OAuth client (1 user = 1 client)."
+          description="Configure redirect URIs for your OAuth client (1 user = 1 client)."
         />
 
         <form action={formAction} className="mt-6 space-y-5">
@@ -99,26 +99,6 @@ export function DeveloperSection({
               className={cn("w-full border border-black/10 bg-white/80 px-4 py-3 text-sm text-black outline-none transition focus:border-black/30", roundedRect)}
             />
           </label>
-
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-neutral-700">
-              Allowed scopes
-            </legend>
-            {SUPPORTED_SCOPES.map((scope) => (
-              <label
-                key={scope}
-                className={cn("flex items-center gap-3 border border-black/5 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-700", roundedRect)}
-              >
-                <input
-                  type="checkbox"
-                  name="allowedScopes"
-                  value={scope}
-                  defaultChecked={client ? client.allowedScopes.includes(scope) : ["openid"].includes(scope)}
-                />
-                <span>{scope}</span>
-              </label>
-            ))}
-          </fieldset>
 
           {state.error ? <FormError>{state.error}</FormError> : null}
           {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}

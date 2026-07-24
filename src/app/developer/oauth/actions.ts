@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   validateRedirectUris,
-  validateSupportedScopes,
+  SUPPORTED_SCOPES,
 } from "@/lib/oauth/constants";
 import {
   deleteClient,
@@ -16,19 +16,6 @@ export type DeveloperActionState = {
   error?: string;
   success?: string;
 };
-
-function parseScopes(raw: FormData): string[] {
-  const scopes = raw
-    .getAll("allowedScopes")
-    .map((value) => String(value))
-    .filter(Boolean);
-
-  if (scopes.length === 0) {
-    throw new Error("Select at least one scope.");
-  }
-
-  return validateSupportedScopes(scopes);
-}
 
 function parseRedirectUris(raw: FormData): string[] {
   const value = String(raw.get("redirectUris") ?? "");
@@ -51,10 +38,9 @@ export async function saveOauthConfigAction(
 
   try {
     const redirectUris = parseRedirectUris(formData);
-    const allowedScopes = parseScopes(formData);
     await saveOauthClient(session.auid, {
       redirectUris,
-      allowedScopes,
+      allowedScopes: [...SUPPORTED_SCOPES],
     });
 
     revalidatePath("/account");
