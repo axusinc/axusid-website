@@ -127,7 +127,7 @@ Protected GraphQL operations require an `Authorization: Bearer …` header. The 
 
 OIDC scopes (`openid`, `profile`, `email`, `offline_access`) are **not** AXUS hierarchical permissions. They control consent, JWT claims, and refresh token issuance. Backend `permissions` on login are omitted for standard OIDC scopes.
 
-The `email` scope is accepted but no email claim is available until the backend exposes one.
+The `email` scope returns a synthetic email (`[auid]@amail.com`) for app compatibility.
 
 ## OAuth2 flow
 

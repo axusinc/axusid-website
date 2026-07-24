@@ -28,7 +28,10 @@ import {
   createServiceProvider,
   createSamlLogoutRequest,
 } from "@/lib/saml/saml-idp";
-import { fetchUserProfileWithVariations } from "@/lib/user-profile";
+import {
+  fetchUserProfileWithVariations,
+  formatSyntheticEmail,
+} from "@/lib/user-profile";
 import { getIssuer } from "@/lib/oauth/constants";
 
 export type AuthActionState = {
@@ -294,11 +297,7 @@ export async function logoutAction() {
     try {
       const samlConfig = await getSamlConfigByAuid(session.auid);
       if (samlConfig && samlConfig.sloUrl) {
-        const sdk = getAuthSdkForSession(session);
-        const { user } = await fetchUserProfileWithVariations(sdk, session.auid);
-        const username = user?.usernames?.defaultUsername || "user";
-        const issuerUrl = new URL(getIssuer());
-        const email = `${username}@${issuerUrl.hostname}`;
+        const email = formatSyntheticEmail(session.auid);
 
         const idp = createIdentityProvider(session.auid);
         const sp = createServiceProvider(samlConfig.entityId, samlConfig.acsUrl, samlConfig.sloUrl);

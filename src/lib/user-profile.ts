@@ -51,6 +51,10 @@ export async function resolveUserDisplayInfo(
   };
 }
 
+export function formatSyntheticEmail(auid: string): string {
+  return `${auid}@amail.com`;
+}
+
 /**
  * Loads account profile data via granular queries. The backend `user` query
  * currently returns INTERNAL_ERROR, while usernames/defaultVariation/variations work.

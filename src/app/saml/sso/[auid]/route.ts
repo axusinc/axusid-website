@@ -9,7 +9,11 @@ import {
   type SamlUserAttributes,
 } from "@/lib/saml/saml-idp";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
-import { fetchUserProfileWithVariations, resolveUserDisplayInfo } from "@/lib/user-profile";
+import {
+  fetchUserProfileWithVariations,
+  formatSyntheticEmail,
+  resolveUserDisplayInfo,
+} from "@/lib/user-profile";
 import { getIssuer } from "@/lib/oauth/constants";
 
 async function handleSsoRequest(
@@ -120,8 +124,7 @@ async function handleSsoRequest(
       : (variations[0] ?? null);
     
     const username = user?.usernames?.defaultUsername || "user";
-    const issuerUrl = new URL(getIssuer());
-    const email = `${username}@${issuerUrl.hostname}`;
+    const email = formatSyntheticEmail(session.auid);
 
     const firstName = defaultVariation?.firstName || "";
     const lastName = defaultVariation?.lastName || "";

@@ -204,7 +204,7 @@ window.location.assign(
 |---|---|
 | `openid` | Required for OIDC; enables `sub` claim and `id_token` |
 | `profile` | `preferred_username`, `name`, `given_name`, `family_name` |
-| `email` | Accepted at consent time; **no email claim is returned yet** |
+| `email` | `email` (synthetic email `[auid]@amail.com`) |
 | `offline_access` | Enables `refresh_token` in the token response |
 
 If `scope` is omitted, AXUS ID defaults to `openid`.
@@ -612,7 +612,7 @@ For a quick smoke test without registering a client, use seeded `axusid-dev` if 
 ## Support & schema changes
 
 - GraphQL operations available to authenticated clients are defined in AXUS ID's auth schema (`login`, `refreshCredentials`, `variations`, `usernames`, etc.).
-- The `email` OIDC scope is reserved; no email claim is emitted until the backend exposes one.
+- The `email` OIDC scope returns a synthetic email (`[auid]@amail.com`) for application compatibility.
 - OIDC scopes (`openid`, `profile`, …) are **not** AXUS hierarchical permissions — they control consent and JWT claims only.
 
 For Winelore-specific backend permissions (if added later), contact the AXUS platform team — custom scopes beyond the supported set require coordination on both AXUS ID client configuration and auth backend permission models.

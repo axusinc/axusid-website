@@ -1,7 +1,10 @@
 import "server-only";
 
 import { getAuthSdk } from "@/lib/auth-graphql";
-import { fetchUserProfileWithVariations } from "@/lib/user-profile";
+import {
+  fetchUserProfileWithVariations,
+  formatSyntheticEmail,
+} from "@/lib/user-profile";
 
 export type OidcClaims = Record<string, string | undefined>;
 
@@ -31,6 +34,7 @@ export async function fetchProfileClaims(
     name,
     given_name: givenName ?? undefined,
     family_name: familyName ?? undefined,
+    email: formatSyntheticEmail(auid),
   };
 }
 
@@ -52,7 +56,7 @@ export function filterClaimsByScope(
   }
 
   if (scopes.includes("email")) {
-    // Backend does not expose email yet.
+    result.email = claims.email;
   }
 
   return result;
