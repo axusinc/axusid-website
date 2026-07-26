@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
@@ -28,11 +29,7 @@ import {
   createServiceProvider,
   createSamlLogoutRequest,
 } from "@/lib/saml/saml-idp";
-import {
-  fetchUserProfileWithVariations,
-  formatSyntheticEmail,
-} from "@/lib/user-profile";
-import { getIssuer } from "@/lib/oauth/constants";
+import { formatSyntheticEmail } from "@/lib/user-profile";
 
 export type AuthActionState = {
   error?: string;
@@ -259,6 +256,7 @@ export async function registerAction(
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const redirectUri = String(formData.get("redirect_uri") ?? "");
+  const contextAuid = String(formData.get("contextAuid") ?? "").trim();
 
   if (!username || !password) {
     return { error: "Username and password are required." };
@@ -270,7 +268,11 @@ export async function registerAction(
 
   try {
     const sdk = getAuthSdk();
-    await sdk.CreateUser({ username, password });
+    await sdk.CreateUser({
+      username,
+      password,
+      contextAuid: contextAuid || undefined,
+    });
   } catch (error) {
     return {
       error: formatGraphqlError(
@@ -285,6 +287,52 @@ export async function registerAction(
     ? `/login?registered=${encodeURIComponent(username)}&redirect_uri=${encodeURIComponent(redirectUri)}`
     : `/login?registered=${encodeURIComponent(username)}`;
   redirect(dest);
+}
+
+export async function createNestedAccountAction(
+  _prevState: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const session = await getActionSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+
+  const username = String(formData.get("username") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const customContextAuid = String(formData.get("contextAuid") ?? "").trim();
+  const contextAuid = customContextAuid || session.auid;
+
+  if (!username || !password) {
+    return { error: "Username and password are required." };
+  }
+
+  if (password !== confirmPassword) {
+    return { error: "Passwords do not match." };
+  }
+
+  try {
+    const sdk = getAuthSdkForSession(session);
+    const result = await sdk.CreateUser({
+      username,
+      password,
+      contextAuid,
+    });
+
+    revalidatePath("/account");
+    return {
+      success: `Nested account created successfully: @${username} (AUID: ${result.createUser.auid}).`,
+    };
+  } catch (error) {
+    return {
+      error: formatGraphqlError(
+        error,
+        "account",
+        "Unable to create nested account. Try again.",
+      ),
+    };
+  }
 }
 
 export async function logoutAction() {

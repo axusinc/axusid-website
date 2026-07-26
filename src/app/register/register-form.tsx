@@ -12,9 +12,10 @@ const initialState: AuthActionState = {};
 
 type RegisterFormProps = {
   redirectUri?: string;
+  contextAuid?: string;
 };
 
-export function RegisterForm({ redirectUri }: RegisterFormProps) {
+export function RegisterForm({ redirectUri, contextAuid }: RegisterFormProps) {
   const [state, formAction, pending] = useActionState(
     registerAction,
     initialState,
@@ -22,8 +23,12 @@ export function RegisterForm({ redirectUri }: RegisterFormProps) {
 
   return (
     <AuthShell
-      title="Create account"
-      description="Register a new AXUS ID to get started."
+      title={contextAuid ? "Create nested account" : "Create account"}
+      description={
+        contextAuid
+          ? `Registering under parent context (AUID: ${contextAuid}).`
+          : "Register a new AXUS ID to get started."
+      }
       footer={
         <>
           Already have an account?{" "}
@@ -38,6 +43,7 @@ export function RegisterForm({ redirectUri }: RegisterFormProps) {
     >
       <form action={formAction} className="space-y-4">
         {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
+        {contextAuid ? <input type="hidden" name="contextAuid" value={contextAuid} /> : null}
         <Input
           name="username"
           label="Username"

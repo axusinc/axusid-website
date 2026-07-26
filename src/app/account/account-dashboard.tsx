@@ -8,13 +8,35 @@ import { cardSurface, roundedRect } from "@/lib/design";
 import type { OAuthClient } from "@/lib/oauth/constants";
 import { cn } from "@/lib/utils";
 import { AccountForms } from "./account-forms";
+import { NestedAccountForm } from "./nested-account-form";
 import { VariationForms } from "./variation-forms";
 
-type SectionId = "profile" | "security" | "developer";
+type SectionId = "profile" | "security" | "nested-accounts" | "developer";
 
 type SectionIconProps = {
   className?: string;
 };
+
+function AccountsIcon({ className }: SectionIconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
 
 function ProfileIcon({ className }: SectionIconProps) {
   return (
@@ -105,11 +127,13 @@ const sections: {
 }[] = [
   { id: "profile", label: "Profile", Icon: ProfileIcon },
   { id: "security", label: "Security", Icon: SecurityIcon },
+  { id: "nested-accounts", label: "Nested Accounts", Icon: AccountsIcon },
   { id: "developer", label: "Developer", Icon: DeveloperIcon },
 ];
 
 function parseSection(value: string | null): SectionId {
   if (value === "security") return "security";
+  if (value === "nested-accounts") return "nested-accounts";
   if (value === "developer") return "developer";
   return "profile";
 }
@@ -123,6 +147,11 @@ const sectionMeta: Record<SectionId, { title: string; description: string }> = {
   security: {
     title: "Security",
     description: "Manage how you sign in to your AXUS ID account.",
+  },
+  "nested-accounts": {
+    title: "Nested Accounts",
+    description:
+      "Create sub-accounts in the context of your user account.",
   },
   developer: {
     title: "Developer",
@@ -259,6 +288,8 @@ export function AccountDashboard({
               onEditingChange={handleEditingChange}
               cancelRef={securityCancelRef}
             />
+          ) : active === "nested-accounts" ? (
+            <NestedAccountForm auid={auid} />
           ) : (
             <DeveloperSection
               auid={auid}
