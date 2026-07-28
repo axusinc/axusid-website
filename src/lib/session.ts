@@ -14,10 +14,21 @@ export type IdPSession = {
   consentedClients: string[];
 };
 
-type SessionPayload = IdPSession & {
+export type MultiSession = {
+  activeAuid: string;
+  accounts: IdPSession[];
+};
+
+type LegacySessionPayload = IdPSession & {
   exp: number;
   /** @deprecated Legacy field — partitioned on read */
   scopes?: string[];
+};
+
+type MultiSessionPayload = {
+  activeAuid: string;
+  accounts: Array<IdPSession & { scopes?: string[] }>;
+  exp: number;
 };
 
 const encoder = new TextEncoder();
@@ -48,9 +59,33 @@ async function verify(value: string, signature: string): Promise<boolean> {
   return expected === signature;
 }
 
-async function encodeSession(session: IdPSession): Promise<string> {
-  const payload: SessionPayload = {
-    ...session,
+function parseAccountPayload(rawAccount: IdPSession & { scopes?: string[] }): IdPSession {
+  if (rawAccount.oidcScopes && rawAccount.axusPermissions) {
+    return {
+      auid: rawAccount.auid,
+      credentials: rawAccount.credentials,
+      oidcScopes: rawAccount.oidcScopes,
+      axusPermissions: rawAccount.axusPermissions,
+      consentedClients: rawAccount.consentedClients ?? [],
+    };
+  }
+
+  const legacyScopes = rawAccount.scopes ?? [];
+  const { oidcScopes, axusPermissions } = partitionScopes(legacyScopes);
+
+  return {
+    auid: rawAccount.auid,
+    credentials: rawAccount.credentials,
+    oidcScopes,
+    axusPermissions,
+    consentedClients: rawAccount.consentedClients ?? [],
+  };
+}
+
+export async function encodeMultiSession(multiSession: MultiSession): Promise<string> {
+  const payload: MultiSessionPayload = {
+    activeAuid: multiSession.activeAuid,
+    accounts: multiSession.accounts,
     exp: Date.now() + 24 * 60 * 60 * 1000,
   };
 
@@ -59,7 +94,7 @@ async function encodeSession(session: IdPSession): Promise<string> {
   return `${body}.${signature}`;
 }
 
-async function decodeSession(token: string): Promise<IdPSession | null> {
+export async function decodeMultiSession(token: string): Promise<MultiSession | null> {
   const [body, signature] = token.split(".");
   if (!body || !signature) {
     return null;
@@ -72,47 +107,67 @@ async function decodeSession(token: string): Promise<IdPSession | null> {
 
   try {
     const json = new TextDecoder().decode(fromBase64Url(body));
-    const payload = JSON.parse(json) as SessionPayload;
+    const raw = JSON.parse(json) as Partial<MultiSessionPayload & LegacySessionPayload>;
 
-    if (payload.exp <= Date.now()) {
+    if (!raw.exp || raw.exp <= Date.now()) {
       return null;
     }
 
-    if (payload.oidcScopes && payload.axusPermissions) {
+    // Check if multi-session format
+    if (raw.activeAuid && Array.isArray(raw.accounts)) {
+      const accounts = raw.accounts.map(parseAccountPayload);
+      if (accounts.length === 0) {
+        return null;
+      }
+      // Ensure activeAuid exists in accounts; fallback to first account if not found
+      const activeExists = accounts.some((acc) => acc.auid === raw.activeAuid);
+      const activeAuid = activeExists ? raw.activeAuid! : accounts[0].auid;
       return {
-        auid: payload.auid,
-        credentials: payload.credentials,
-        oidcScopes: payload.oidcScopes,
-        axusPermissions: payload.axusPermissions,
-        consentedClients: payload.consentedClients ?? [],
+        activeAuid,
+        accounts,
       };
     }
 
-    const legacyScopes = payload.scopes ?? [];
-    const { oidcScopes, axusPermissions } = partitionScopes(legacyScopes);
+    // Fallback: legacy single session payload
+    if (raw.auid && raw.credentials) {
+      const singleAccount = parseAccountPayload(raw as LegacySessionPayload);
+      return {
+        activeAuid: singleAccount.auid,
+        accounts: [singleAccount],
+      };
+    }
 
-    return {
-      auid: payload.auid,
-      credentials: payload.credentials,
-      oidcScopes,
-      axusPermissions,
-      consentedClients: payload.consentedClients ?? [],
-    };
+    return null;
   } catch {
     return null;
   }
 }
 
-export async function getSession(cookieValue?: string): Promise<IdPSession | null> {
+export async function getMultiSession(cookieValue?: string): Promise<MultiSession | null> {
   if (!cookieValue) {
     return null;
   }
 
-  return decodeSession(cookieValue);
+  return decodeMultiSession(cookieValue);
+}
+
+export async function getSession(cookieValue?: string): Promise<IdPSession | null> {
+  const multi = await getMultiSession(cookieValue);
+  if (!multi) {
+    return null;
+  }
+  return multi.accounts.find((acc) => acc.auid === multi.activeAuid) ?? multi.accounts[0] ?? null;
+}
+
+export async function serializeMultiSession(multiSession: MultiSession): Promise<string> {
+  return encodeMultiSession(multiSession);
 }
 
 export async function serializeSession(session: IdPSession): Promise<string> {
-  return encodeSession(session);
+  return encodeMultiSession({
+    activeAuid: session.auid,
+    accounts: [session],
+  });
 }
 
 export const sessionCookieOptions = {

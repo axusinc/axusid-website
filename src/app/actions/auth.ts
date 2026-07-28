@@ -15,7 +15,13 @@ import {
   validateScopes,
 } from "@/lib/oauth/clients";
 
-import { getValidSession } from "@/lib/session-access";
+import {
+  addAccountToSession,
+  clearAllSessions,
+  getValidSession,
+  removeAccountFromSession,
+  switchActiveAccount,
+} from "@/lib/session-access";
 import {
   SESSION_COOKIE,
   clearSessionCookieOptions,
@@ -123,12 +129,7 @@ export async function loginAction(
     consentedClients: [],
   };
 
-  const cookieStore = await cookies();
-  cookieStore.set(
-    SESSION_COOKIE,
-    await serializeSession(session),
-    sessionCookieOptions,
-  );
+  await addAccountToSession(session);
 
   redirect(
     resolveAuthenticatedRedirect({
@@ -136,6 +137,104 @@ export async function loginAction(
       next: next || undefined,
     }),
   );
+}
+
+export async function switchAccountAction(formData: FormData) {
+  const auid = String(formData.get("auid") ?? "").trim();
+  const redirectUri = String(formData.get("redirect_uri") ?? "");
+  const next = String(formData.get("next") ?? "");
+
+  if (auid) {
+    await switchActiveAccount(auid);
+  }
+
+  revalidatePath("/", "layout");
+
+  if (redirectUri || next) {
+    redirect(
+      resolveAuthenticatedRedirect({
+        redirectUri: redirectUri || undefined,
+        next: next || undefined,
+      }),
+    );
+  } else {
+    redirect("/account");
+  }
+}
+
+export async function logoutAccountAction(formData: FormData) {
+  const auid = String(formData.get("auid") ?? "").trim();
+  const redirectUri = String(formData.get("redirect_uri") ?? "");
+
+  if (auid) {
+    const remaining = await removeAccountFromSession(auid);
+    revalidatePath("/", "layout");
+    if (!remaining) {
+      redirect("/login");
+    }
+    if (redirectUri) {
+      redirect(redirectUri);
+    }
+    redirect("/account");
+  }
+
+  redirect("/account");
+}
+
+export async function logoutAllAction() {
+  await clearAllSessions();
+  revalidatePath("/", "layout");
+  redirect("/login");
+}
+
+export async function logoutAction(formData?: FormData) {
+  const targetAuid = formData ? String(formData.get("auid") ?? "").trim() : "";
+  const logoutAll = formData ? formData.get("logout_all") === "true" : false;
+
+  if (logoutAll) {
+    await clearAllSessions();
+    revalidatePath("/", "layout");
+    redirect("/login");
+  }
+
+  if (targetAuid) {
+    const remaining = await removeAccountFromSession(targetAuid);
+    revalidatePath("/", "layout");
+    if (!remaining) {
+      redirect("/login");
+    }
+    redirect("/account");
+  }
+
+  const session = await getValidSession();
+  let redirectUrl: string = "/login";
+
+  if (session?.auid) {
+    try {
+      const samlConfig = await getSamlConfigByAuid(session.auid);
+      if (samlConfig && samlConfig.sloUrl) {
+        const email = formatSyntheticEmail(session.auid);
+        const idp = createIdentityProvider(session.auid);
+        const sp = createServiceProvider(samlConfig.entityId, samlConfig.acsUrl, samlConfig.sloUrl);
+        const logoutReq = await createSamlLogoutRequest(idp, sp, email);
+        redirectUrl = logoutReq.context;
+      }
+    } catch (e) {
+      console.error("Failed to generate SAML SLO request during logout:", e);
+    }
+
+    const remaining = await removeAccountFromSession(session.auid);
+    revalidatePath("/", "layout");
+
+    if (remaining) {
+      redirect("/account");
+    }
+  } else {
+    await clearAllSessions();
+    revalidatePath("/", "layout");
+  }
+
+  redirect(redirectUrl);
 }
 
 export async function consentAction(formData: FormData) {
@@ -181,17 +280,12 @@ export async function consentAction(formData: FormData) {
     redirect(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
-  const cookieStore = await cookies();
   const updatedSession: IdPSession = {
     ...session,
     consentedClients: [...new Set([...session.consentedClients, clientId])],
   };
 
-  cookieStore.set(
-    SESSION_COOKIE,
-    await serializeSession(updatedSession),
-    sessionCookieOptions,
-  );
+  await addAccountToSession(updatedSession);
 
   redirect(redirectUri);
 }
@@ -333,31 +427,6 @@ export async function createNestedAccountAction(
       ),
     };
   }
-}
-
-export async function logoutAction() {
-  const session = await getValidSession();
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
-
-  let redirectUrl: string = "/login";
-  if (session?.auid) {
-    try {
-      const samlConfig = await getSamlConfigByAuid(session.auid);
-      if (samlConfig && samlConfig.sloUrl) {
-        const email = formatSyntheticEmail(session.auid);
-
-        const idp = createIdentityProvider(session.auid);
-        const sp = createServiceProvider(samlConfig.entityId, samlConfig.acsUrl, samlConfig.sloUrl);
-        const logoutReq = await createSamlLogoutRequest(idp, sp, email);
-        redirectUrl = logoutReq.context;
-      }
-    } catch (e) {
-      console.error("Failed to generate SAML SLO request during logout:", e);
-    }
-  }
-
-  redirect(redirectUrl);
 }
 
 export async function changePasswordAction(

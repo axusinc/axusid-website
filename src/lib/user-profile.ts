@@ -55,6 +55,49 @@ export function formatSyntheticEmail(auid: string): string {
   return `${auid}@amail.com`;
 }
 
+export type AccountItemInfo = {
+  auid: string;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  displayName: string;
+  isActive: boolean;
+};
+
+export async function fetchAccountsDisplayInfo(
+  sessions: { auid: string; credentials: any }[],
+  activeAuid: string,
+  sdkGetter: (credentials: any) => AuthSdk,
+): Promise<AccountItemInfo[]> {
+  const items = await Promise.all(
+    sessions.map(async (sess) => {
+      try {
+        const sdk = sdkGetter(sess.credentials);
+        const info = await resolveUserDisplayInfo(sdk, sess.auid);
+        return {
+          auid: sess.auid,
+          firstName: info.firstName,
+          lastName: info.lastName,
+          username: info.username,
+          displayName: info.displayName,
+          isActive: sess.auid === activeAuid,
+        };
+      } catch {
+        return {
+          auid: sess.auid,
+          firstName: null,
+          lastName: null,
+          username: null,
+          displayName: sess.auid,
+          isActive: sess.auid === activeAuid,
+        };
+      }
+    }),
+  );
+
+  return items;
+}
+
 /**
  * Loads account profile data via granular queries. The backend `user` query
  * currently returns INTERNAL_ERROR, while usernames/defaultVariation/variations work.

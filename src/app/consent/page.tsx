@@ -8,8 +8,8 @@ import {
   validateScopes,
   getConsentPermissions,
 } from "@/lib/oauth/clients";
-import { getValidSession } from "@/lib/session-access";
-import { resolveUserDisplayInfo } from "@/lib/user-profile";
+import { getValidSession, getValidMultiSession } from "@/lib/session-access";
+import { resolveUserDisplayInfo, fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 
 type ConsentPageProps = {
@@ -20,10 +20,25 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   const params = await searchParams;
   const redirectUri = typeof params.redirect_uri === "string" ? params.redirect_uri : undefined;
 
+  const multiSession = await getValidMultiSession();
   const session = await getValidSession();
-  if (!session) {
+
+  if (!session || !multiSession) {
     redirect(`/login?redirect_uri=${encodeURIComponent(redirectUri ?? "/consent")}`);
   }
+
+  const accountInfos = await fetchAccountsDisplayInfo(
+    multiSession.accounts,
+    multiSession.activeAuid,
+    (credentials) =>
+      getAuthSdkForSession({
+        auid: "",
+        credentials,
+        oidcScopes: [],
+        axusPermissions: [],
+        consentedClients: [],
+      }),
+  );
 
   if (!redirectUri || !redirectUri.startsWith("/") || redirectUri.startsWith("//")) {
     redirect("/");
@@ -110,6 +125,8 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
       redirectHost={redirectHost}
       permissions={permissions}
       redirectUri={redirectUri}
+      accounts={accountInfos}
+      currentAuid={session.auid}
     />
   );
 }

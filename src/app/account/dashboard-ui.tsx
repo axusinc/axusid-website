@@ -42,12 +42,12 @@ type AvatarProps = {
   firstName?: string | null;
   lastName?: string | null;
   username?: string | null;
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
   className?: string;
 };
 
 export function Avatar({ username, size = "lg", className }: AvatarProps) {
-  const dims = size === "lg" ? "h-24 w-24" : "h-10 w-10";
+  const dims = size === "lg" ? "h-24 w-24" : size === "md" ? "h-10 w-10" : "h-8 w-8";
   const seed = username || "default";
   const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4,c0aade,d1d4f9,ffd5dc,ffdfbf`;
 
