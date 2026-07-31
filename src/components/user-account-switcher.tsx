@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition, useOptimistic } from "react";
+import { useRouter } from "next/navigation";
 import { logoutAction, logoutAllAction, switchAccountAction } from "@/app/actions/auth";
 import { Avatar } from "@/app/account/dashboard-ui";
 import { cardSurface, roundedRect } from "@/lib/design";
@@ -16,8 +17,15 @@ type UserAccountSwitcherProps = {
 export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
-  const activeAccount = accounts.find((acc) => acc.auid === currentAuid) || accounts[0];
+  const [optimisticAuid, setOptimisticAuid] = useOptimistic(
+    currentAuid,
+    (_state, newAuid: string) => newAuid,
+  );
+
+  const activeAccount = accounts.find((acc) => acc.auid === optimisticAuid) || accounts[0];
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -36,6 +44,18 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
 
   if (!activeAccount) return null;
 
+  const handleSwitchAccount = (targetAuid: string) => {
+    if (targetAuid === optimisticAuid) return;
+    setIsOpen(false);
+    startTransition(async () => {
+      setOptimisticAuid(targetAuid);
+      const formData = new FormData();
+      formData.set("auid", targetAuid);
+      await switchAccountAction(formData);
+      router.refresh();
+    });
+  };
+
   const activeUsernameText = activeAccount.username
     ? `@${activeAccount.username}`
     : activeAccount.displayName;
@@ -49,6 +69,7 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
           "group relative inline-flex items-center gap-2 border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs font-medium text-neutral-800 transition-all hover:bg-white hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 shadow-2xs",
           roundedRect,
           isOpen && "ring-2 ring-black/20 bg-white border-black/20 shadow-xs",
+          isPending && "opacity-80 cursor-wait",
         )}
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -71,21 +92,28 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
         <span className="text-xs font-medium text-black">
           {activeUsernameText}
         </span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className={cn(
-            "h-3.5 w-3.5 text-neutral-400 transition-transform duration-200",
-            isOpen && "rotate-180 text-black",
-          )}
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
-            clipRule="evenodd"
-          />
-        </svg>
+        {isPending ? (
+          <svg className="h-3.5 w-3.5 text-neutral-400 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className={cn(
+              "h-3.5 w-3.5 text-neutral-400 transition-transform duration-200",
+              isOpen && "rotate-180 text-black",
+            )}
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        )}
       </button>
 
       {/* Account Selector Dropdown Popover */}
@@ -146,31 +174,29 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
                       </div>
                     </div>
                   ) : (
-                    <form action={switchAccountAction} className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <input type="hidden" name="auid" value={account.auid} />
-                      <button
-                        type="submit"
-                        className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus:outline-none"
-                      >
-                        <Avatar
-                          firstName={account.firstName}
-                          lastName={account.lastName}
-                          username={account.username}
-                          size="sm"
-                          className="h-7 w-7 text-xs font-semibold shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-neutral-800 group-hover:text-black truncate">
-                            {account.displayName}
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchAccount(account.auid)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus:outline-none cursor-pointer"
+                    >
+                      <Avatar
+                        firstName={account.firstName}
+                        lastName={account.lastName}
+                        username={account.username}
+                        size="sm"
+                        className="h-7 w-7 text-xs font-semibold shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-neutral-800 group-hover:text-black truncate">
+                          {account.displayName}
+                        </p>
+                        {usernameDisplay && (
+                          <p className="text-[11px] text-neutral-500 truncate">
+                            {usernameDisplay}
                           </p>
-                          {usernameDisplay && (
-                            <p className="text-[11px] text-neutral-500 truncate">
-                              {usernameDisplay}
-                            </p>
-                          )}
-                        </div>
-                      </button>
-                    </form>
+                        )}
+                      </div>
+                    </button>
                   )}
 
                   {/* Individual Account Sign Out */}

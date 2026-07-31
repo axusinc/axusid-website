@@ -139,7 +139,7 @@ export async function loginAction(
   );
 }
 
-export async function switchAccountAction(formData: FormData) {
+export async function switchAccountAction(formData: FormData): Promise<AuthActionState> {
   const auid = String(formData.get("auid") ?? "").trim();
   const redirectUri = String(formData.get("redirect_uri") ?? "");
   const next = String(formData.get("next") ?? "");
@@ -148,7 +148,7 @@ export async function switchAccountAction(formData: FormData) {
     await switchActiveAccount(auid);
   }
 
-  revalidatePath("/", "layout");
+  revalidatePath("/account");
 
   if (redirectUri || next) {
     redirect(
@@ -157,9 +157,9 @@ export async function switchAccountAction(formData: FormData) {
         next: next || undefined,
       }),
     );
-  } else {
-    redirect("/account");
   }
+
+  return { success: "Account switched successfully." };
 }
 
 export async function logoutAccountAction(formData: FormData) {

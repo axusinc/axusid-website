@@ -98,27 +98,33 @@ export async function fetchAccountsDisplayInfo(
   return items;
 }
 
+import { cache } from "react";
+
 /**
  * Loads account profile data via granular queries. The backend `user` query
  * currently returns INTERNAL_ERROR, while usernames/defaultVariation/variations work.
+ * Cached per request so multiple calls for the same user in a single request avoid redundant GraphQL roundtrips.
  */
-export async function fetchUserProfileWithVariations(
-  sdk: AuthSdk,
-  auid: string,
-): Promise<UserProfileWithVariations> {
-  const [{ usernames }, { defaultVariation }, { variations }] =
-    await Promise.all([
-      sdk.Usernames({ auid }),
-      sdk.DefaultVariation({ auid }),
-      sdk.Variations({ auid }),
-    ]);
+export const fetchUserProfileWithVariations = cache(
+  async (
+    sdk: AuthSdk,
+    auid: string,
+  ): Promise<UserProfileWithVariations> => {
+    const [{ usernames }, { defaultVariation }, { variations }] =
+      await Promise.all([
+        sdk.Usernames({ auid }),
+        sdk.DefaultVariation({ auid }),
+        sdk.Variations({ auid }),
+      ]);
 
-  return {
-    user: {
-      identity: { auid },
-      usernames,
-      defaultVariation,
-    },
-    variations,
-  };
-}
+    return {
+      user: {
+        identity: { auid },
+        usernames,
+        defaultVariation,
+      },
+      variations,
+    };
+  },
+);
+
