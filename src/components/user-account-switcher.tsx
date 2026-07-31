@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useTransition, useOptimistic } from "react
 import { useRouter } from "next/navigation";
 import { logoutAction, logoutAllAction, switchAccountAction } from "@/app/actions/auth";
 import { Avatar } from "@/app/account/dashboard-ui";
-import { cardSurface, roundedRect } from "@/lib/design";
+import { popoverSurface, roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 import type { AccountItemInfo } from "@/lib/user-profile";
 
@@ -66,9 +66,9 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          "group relative inline-flex items-center gap-2 border border-black/10 bg-white/70 px-2.5 py-1.5 text-xs font-medium text-neutral-800 transition-all hover:bg-white hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 shadow-2xs",
+          "group relative inline-flex items-center gap-2 border border-black/10 bg-white/80 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-all hover:bg-white hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 shadow-2xs cursor-pointer",
           roundedRect,
-          isOpen && "ring-2 ring-black/20 bg-white border-black/20 shadow-xs",
+          isOpen && "ring-2 ring-black/15 bg-white border-black/20 shadow-xs",
           isPending && "opacity-80 cursor-wait",
         )}
         aria-expanded={isOpen}
@@ -81,15 +81,15 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
             lastName={activeAccount.lastName}
             username={activeAccount.username}
             size="sm"
-            className="h-5 w-5 ring-0 text-[10px]"
+            className="h-6 w-6 ring-0 text-[10px]"
           />
           {accounts.length > 1 && (
-            <span className="ml-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black text-[9px] font-bold text-white leading-none">
+            <span className="ml-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white leading-none">
               {accounts.length}
             </span>
           )}
         </div>
-        <span className="text-xs font-medium text-black">
+        <span className="text-xs font-semibold text-neutral-900 truncate max-w-[120px]">
           {activeUsernameText}
         </span>
         {isPending ? (
@@ -120,19 +120,22 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
       {isOpen && (
         <div
           className={cn(
-            "absolute right-0 z-50 mt-1.5 w-64 sm:w-72 origin-top-right p-2.5 shadow-xl animate-[fadeIn_0.15s_ease-out]",
-            cardSurface,
+            "absolute right-0 z-50 mt-2 w-72 sm:w-80 origin-top-right p-3 animate-[fadeIn_0.15s_ease-out]",
+            popoverSurface,
             roundedRect,
           )}
         >
-          <div className="px-2 pt-0.5 pb-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-              Signed-in Accounts ({accounts.length})
+          <div className="px-2 pt-0.5 pb-2 flex items-center justify-between border-b border-black/5 mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+              Signed-in Accounts
             </p>
+            <span className="text-[10px] font-semibold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
+              {accounts.length}
+            </span>
           </div>
 
-          {/* Uniform List of Accounts */}
-          <div className="space-y-1">
+          {/* Account List */}
+          <div className="space-y-1.5">
             {accounts.map((account) => {
               const isActive = account.auid === activeAccount.auid;
               const usernameDisplay = account.username ? `@${account.username}` : null;
@@ -141,11 +144,11 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
                 <div
                   key={account.auid}
                   className={cn(
-                    "group flex items-center justify-between p-2 transition-all border",
+                    "group flex items-center justify-between p-2.5 transition-all border",
                     roundedRect,
                     isActive
-                      ? "border-black/15 bg-black/5 shadow-2xs"
-                      : "border-transparent hover:bg-black/[0.03] hover:border-black/5",
+                      ? "border-black/15 bg-neutral-100/90 shadow-2xs"
+                      : "border-black/5 bg-white/50 hover:bg-neutral-50 hover:border-black/10",
                   )}
                 >
                   {isActive ? (
@@ -155,14 +158,14 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
                         lastName={account.lastName}
                         username={account.username}
                         size="sm"
-                        className="h-7 w-7 text-xs font-semibold shrink-0"
+                        className="h-8 w-8 text-xs font-bold shrink-0 ring-0"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs font-semibold text-black truncate">
                             {account.displayName}
                           </p>
-                          <span className="shrink-0 text-[9px] font-medium bg-black text-white px-1.5 py-0.5 rounded-full">
+                          <span className="shrink-0 text-[10px] font-semibold text-neutral-600 bg-black/[0.06] px-2 py-0.5 rounded-md">
                             Active
                           </span>
                         </div>
@@ -184,7 +187,7 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
                         lastName={account.lastName}
                         username={account.username}
                         size="sm"
-                        className="h-7 w-7 text-xs font-semibold shrink-0"
+                        className="h-8 w-8 text-xs font-semibold shrink-0 ring-0 opacity-90 group-hover:opacity-100"
                       />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-neutral-800 group-hover:text-black truncate">
@@ -200,15 +203,15 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
                   )}
 
                   {/* Individual Account Sign Out */}
-                  <form action={logoutAction} className="ml-1">
+                  <form action={logoutAction} className="ml-1.5 shrink-0">
                     <input type="hidden" name="auid" value={account.auid} />
                     <button
                       type="submit"
                       title="Sign out of this account"
-                      className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-md"
+                      className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg cursor-pointer"
                     >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
                     </button>
                   </form>
@@ -218,31 +221,33 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
           </div>
 
           {/* Action Options */}
-          <div className="mt-1.5 space-y-1 border-t border-black/5 pt-1.5">
+          <div className="mt-2.5 pt-2 border-t border-black/5 space-y-1.5">
             <Link
               href="/login?add_account=true"
               className={cn(
-                "flex w-full items-center justify-center gap-1.5 border border-black/5 bg-neutral-50/80 px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-100 hover:text-black",
+                "flex w-full items-center gap-2.5 px-3 py-2 border border-dashed border-black/15 bg-neutral-50/60 hover:bg-neutral-100/90 text-neutral-700 hover:text-black text-xs font-medium transition-all cursor-pointer",
                 roundedRect,
               )}
               onClick={() => setIsOpen(false)}
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add another account
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-black/5 text-neutral-700">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <span>Add another account</span>
             </Link>
 
             <form action={logoutAllAction}>
               <button
                 type="submit"
                 className={cn(
-                  "flex w-full items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors",
+                  "flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/80 transition-colors cursor-pointer",
                   roundedRect,
                 )}
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 Sign out of all accounts
               </button>
