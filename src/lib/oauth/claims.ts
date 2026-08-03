@@ -26,7 +26,7 @@ export async function fetchProfileClaims(
 
   const givenName = defaultVariation?.firstName ?? undefined;
   const familyName = defaultVariation?.lastName ?? undefined;
-  const name = [givenName, familyName].filter(Boolean).join(" ") || undefined;
+  const name = defaultVariation?.displayName?.trim() || undefined;
 
   return {
     sub: formatAuid(auid),

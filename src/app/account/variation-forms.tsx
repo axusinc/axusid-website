@@ -1,7 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, type KeyboardEvent, type RefObject } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
+import { GripVertical } from "lucide-react";
 import {
   changeUsernameAction,
   updateVariationFieldAction,
@@ -19,9 +27,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
+import type { NamePartType, NameSeparatorType } from "@/graphql/sdk";
+import {
+  buildSimpleNameElements,
+  namePartTypes,
+  nameSeparatorTypes,
+  readNamePart,
+  type ProfileName,
+  type ProfileNameElement,
+} from "@/lib/profile-name";
 
 type Variation = {
   id: string;
+  name: ProfileName | null;
+  displayName: string | null;
   firstName: string | null;
   lastName: string | null;
   status: string | null;
@@ -41,6 +60,78 @@ type EditableField = "name" | "username" | "status" | "description";
 const initialState: VariationActionState = {};
 
 const empty = <span className="text-neutral-400">—</span>;
+
+const namePartLabels: Record<NamePartType, string> = {
+  TITLE: "Title",
+  GIVEN_NAME: "Given name",
+  FAMILY_NAME: "Family name",
+  GENERATION: "Generation / suffix",
+  CREDENTIAL: "Credential",
+  UNSTRUCTURED: "Unstructured name",
+};
+
+const nameSeparatorLabels: Record<NameSeparatorType, string> = {
+  SPACE: "Space",
+  HYPHEN: "Hyphen (-)",
+  COMMA_SPACE: "Comma + space (, )",
+  APOSTROPHE: "Apostrophe (')",
+};
+
+type EditableNamePart = {
+  id: string;
+  partType: NamePartType;
+  value: string;
+  separatorBefore: NameSeparatorType;
+};
+
+function editableNameParts(
+  elements: readonly {
+    partType?: NamePartType | null;
+    separatorType?: NameSeparatorType | null;
+    value?: string | null;
+  }[],
+): EditableNamePart[] {
+  const parts: EditableNamePart[] = [];
+  let separatorBefore: NameSeparatorType = "SPACE";
+
+  for (const element of elements) {
+    if (element.separatorType) {
+      separatorBefore = element.separatorType;
+    } else if (element.partType) {
+      parts.push({
+        id: `initial-name-part-${parts.length}`,
+        partType: element.partType,
+        value: element.value ?? "",
+        separatorBefore,
+      });
+      separatorBefore = "SPACE";
+    }
+  }
+
+  return parts;
+}
+
+function serializeNameParts(parts: readonly EditableNamePart[]): ProfileNameElement[] {
+  return parts.flatMap((part, index) => [
+    ...(index > 0
+      ? [{ partType: null, separatorType: part.separatorBefore, value: null }]
+      : []),
+    { partType: part.partType, separatorType: null, value: part.value },
+  ]);
+}
+
+function hasComplexNameElements(elements: readonly ProfileNameElement[]): boolean {
+  if (!elements || elements.length === 0) return false;
+  return elements.some((el) => {
+    if (el.partType && el.partType !== "GIVEN_NAME" && el.partType !== "FAMILY_NAME") {
+      return true;
+    }
+    if (el.separatorType && el.separatorType !== "SPACE") {
+      return true;
+    }
+    return false;
+  });
+}
 
 function handleFormKeyDown(
   event: KeyboardEvent<HTMLFormElement>,
@@ -79,6 +170,36 @@ function EditableNameField({
   onCancel: () => void;
 }) {
   const formId = `edit-name-${variation.id}`;
+  const nextPartId = useRef(0);
+
+  const initialElements = variation.name?.elements ?? [];
+  const isComplex = hasComplexNameElements(initialElements);
+  const [isAdvanced, setIsAdvanced] = useState(isComplex);
+
+  const [firstName, setFirstName] = useState(
+    () => variation.firstName ?? readNamePart(initialElements, "GIVEN_NAME") ?? "",
+  );
+  const [lastName, setLastName] = useState(
+    () => variation.lastName ?? readNamePart(initialElements, "FAMILY_NAME") ?? "",
+  );
+
+  const [parts, setParts] = useState<EditableNamePart[]>(() => {
+    const existing = editableNameParts(initialElements);
+    return existing.length > 0
+      ? existing
+      : [
+          {
+            id: "initial-name-part-0",
+            partType: "GIVEN_NAME",
+            value: "",
+            separatorBefore: "SPACE",
+          },
+        ];
+  });
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<"top" | "bottom" | null>(null);
+
   const [state, submitAction, isSubmitting] = useActionState(
     updateVariationFieldAction,
     initialState,
@@ -90,10 +211,118 @@ function EditableNameField({
     }
   }, [state.success, onDone]);
 
+  const updatePart = (id: string, patch: Partial<EditableNamePart>) => {
+    setParts((current) =>
+      current.map((part) => (part.id === id ? { ...part, ...patch } : part)),
+    );
+  };
+
+  const movePart = (index: number, direction: -1 | 1) => {
+    setParts((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const reordered = [...current];
+      [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+      return reordered;
+    });
+  };
+
+  const reorderParts = (fromIndex: number, targetInsertionIndex: number) => {
+    if (fromIndex < 0 || targetInsertionIndex < 0) return;
+    setParts((current) => {
+      if (fromIndex >= current.length) return current;
+      const updated = [...current];
+      const [moved] = updated.splice(fromIndex, 1);
+      const insertAt =
+        fromIndex < targetInsertionIndex
+          ? Math.min(targetInsertionIndex - 1, updated.length)
+          : Math.min(targetInsertionIndex, updated.length);
+      updated.splice(insertAt, 0, moved);
+      return updated;
+    });
+  };
+
+  const handleDragStart = (
+    event: React.DragEvent<HTMLDivElement>,
+    index: number,
+  ) => {
+    const target = event.target as HTMLElement;
+    if (
+      target.tagName === "INPUT" ||
+      target.tagName === "SELECT" ||
+      target.closest("button")
+    ) {
+      event.preventDefault();
+      return;
+    }
+    setDraggedIndex(index);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const handleDragOver = (
+    event: React.DragEvent<HTMLDivElement>,
+    index: number,
+  ) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const position: "top" | "bottom" = event.clientY < midY ? "top" : "bottom";
+
+    if (dragOverIndex !== index || dragOverPosition !== position) {
+      setDragOverIndex(index);
+      setDragOverPosition(position);
+    }
+  };
+
+  const handleDrop = (
+    event: React.DragEvent<HTMLDivElement>,
+    index: number,
+  ) => {
+    event.preventDefault();
+    if (draggedIndex !== null && dragOverPosition !== null) {
+      const targetInsertionIndex = dragOverPosition === "top" ? index : index + 1;
+      reorderParts(draggedIndex, targetInsertionIndex);
+    }
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setDragOverPosition(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setDragOverPosition(null);
+  };
+
+  const removePart = (id: string) => {
+    setParts((current) => current.filter((part) => part.id !== id));
+  };
+
+  const addPart = () => {
+    const id = `new-name-part-${nextPartId.current}`;
+    nextPartId.current += 1;
+    setParts((current) => [
+      ...current,
+      {
+        id,
+        partType: "GIVEN_NAME",
+        value: "",
+        separatorBefore: "SPACE",
+      },
+    ]);
+  };
+
   return (
-    <DataRow
+    <DataBlock
       label="Name"
-      hint="Your display name"
+      hint={
+        isAdvanced
+          ? "Build your display name from ordered parts (drag handle to reorder)"
+          : "Enter your first and last name"
+      }
       action={
         <InlineEditActions
           formId={formId}
@@ -105,24 +334,224 @@ function EditableNameField({
       <form
         id={formId}
         action={submitAction}
-        onKeyDown={(event) => handleFormKeyDown(event, onCancel, { submitOnEnter: true })}
+        onKeyDown={(event) =>
+          handleFormKeyDown(event, onCancel, { submitOnEnter: !isAdvanced })
+        }
       >
         <input type="hidden" name="variationId" value={variation.id} />
         <input type="hidden" name="field" value="name" />
-        <div className="grid w-full grid-cols-2 gap-2">
-          <input
-            name="firstName"
-            placeholder="First name"
-            defaultValue={variation.firstName ?? ""}
-            className={inlineInputClassName}
-            autoFocus
-          />
-          <input
-            name="lastName"
-            placeholder="Last name"
-            defaultValue={variation.lastName ?? ""}
-            className={inlineInputClassName}
-          />
+        <input
+          type="hidden"
+          name="nameElements"
+          value={JSON.stringify(
+            isAdvanced
+              ? serializeNameParts(parts)
+              : buildSimpleNameElements(firstName, lastName),
+          )}
+        />
+
+        {!isAdvanced ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500">
+                First name
+              </label>
+              <input
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={inlineInputClassName}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500">
+                Last name
+              </label>
+              <input
+                type="text"
+                placeholder="Last name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className={inlineInputClassName}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+          {parts.map((part, index) => {
+            const isDragOverTop =
+              dragOverIndex === index &&
+              dragOverPosition === "top" &&
+              draggedIndex !== index;
+            const isDragOverBottom =
+              dragOverIndex === index &&
+              dragOverPosition === "bottom" &&
+              draggedIndex !== index;
+
+            return (
+              <div key={part.id} className="relative">
+                {isDragOverTop ? (
+                  <div className="absolute -top-1.5 left-0 right-0 z-10 flex items-center gap-1 pointer-events-none">
+                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
+                    <div className="h-0.5 flex-1 bg-blue-600 rounded-full shadow-sm" />
+                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
+                  </div>
+                ) : null}
+
+                <div
+                  draggable
+                  onDragStart={(event) => handleDragStart(event, index)}
+                  onDragOver={(event) => handleDragOver(event, index)}
+                  onDrop={(event) => handleDrop(event, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`grid gap-2 rounded-xl border p-2 transition-all sm:grid-cols-[auto_140px_160px_minmax(0,1fr)_auto] ${
+                    draggedIndex === index
+                      ? "border-dashed border-neutral-300 bg-neutral-100 opacity-40"
+                      : "border-black/[0.06] bg-neutral-50/70"
+                  }`}
+                >
+                  <div
+                    className="flex items-center justify-center text-neutral-400 hover:text-neutral-700 px-1 cursor-grab active:cursor-grabbing select-none"
+                    title="Drag to reorder"
+                    aria-label="Drag handle to reorder name part"
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </div>
+
+                  {index === 0 ? (
+                    <div className="hidden items-center px-2 text-xs text-neutral-400 sm:flex">
+                      Starts with
+                    </div>
+                  ) : (
+                    <select
+                      aria-label={`Separator before name part ${index + 1}`}
+                      value={part.separatorBefore}
+                      onChange={(event) =>
+                        updatePart(part.id, {
+                          separatorBefore: event.target.value as NameSeparatorType,
+                        })
+                      }
+                      className={inlineInputClassName}
+                    >
+                      {nameSeparatorTypes.map((separatorType) => (
+                        <option key={separatorType} value={separatorType}>
+                          {nameSeparatorLabels[separatorType]}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <select
+                    aria-label={`Type of name part ${index + 1}`}
+                    value={part.partType}
+                    onChange={(event) =>
+                      updatePart(part.id, {
+                        partType: event.target.value as NamePartType,
+                      })
+                    }
+                    className={inlineInputClassName}
+                  >
+                    {namePartTypes.map((partType) => (
+                      <option key={partType} value={partType}>
+                        {namePartLabels[partType]}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    aria-label={`Value of name part ${index + 1}`}
+                    placeholder={namePartLabels[part.partType]}
+                    value={part.value}
+                    onChange={(event) => updatePart(part.id, { value: event.target.value })}
+                    className={inlineInputClassName}
+                    required
+                    maxLength={200}
+                    autoFocus={index === 0}
+                  />
+
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => movePart(index, -1)}
+                      disabled={index === 0}
+                      aria-label={`Move name part ${index + 1} up`}
+                      className="h-8 w-8 rounded-lg text-neutral-500 hover:bg-black/[0.05] hover:text-black disabled:opacity-25"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => movePart(index, 1)}
+                      disabled={index === parts.length - 1}
+                      aria-label={`Move name part ${index + 1} down`}
+                      className="h-8 w-8 rounded-lg text-neutral-500 hover:bg-black/[0.05] hover:text-black disabled:opacity-25"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removePart(part.id)}
+                      aria-label={`Remove name part ${index + 1}`}
+                      className="h-8 w-8 rounded-lg text-neutral-500 hover:bg-red-50 hover:text-red-700"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+
+                {isDragOverBottom ? (
+                  <div className="absolute -bottom-1.5 left-0 right-0 z-10 flex items-center gap-1 pointer-events-none">
+                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
+                    <div className="h-0.5 flex-1 bg-blue-600 rounded-full shadow-sm" />
+                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          </div>
+        )}
+
+        <div className="mt-3 flex items-center justify-between gap-2">
+          {isAdvanced ? (
+            <>
+              <button
+                type="button"
+                onClick={addPart}
+                disabled={parts.length >= 16}
+                className="text-sm font-medium text-neutral-500 transition-colors hover:text-black disabled:opacity-40"
+              >
+                + Add name part
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const serialized = serializeNameParts(parts);
+                  setFirstName(readNamePart(serialized, "GIVEN_NAME") ?? "");
+                  setLastName(readNamePart(serialized, "FAMILY_NAME") ?? "");
+                  setIsAdvanced(false);
+                }}
+                className="text-xs text-neutral-400 hover:text-neutral-700 underline-offset-4 hover:underline"
+              >
+                Switch to simple field
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setParts(
+                  editableNameParts(buildSimpleNameElements(firstName, lastName)),
+                );
+                setIsAdvanced(true);
+              }}
+              className="text-xs text-neutral-400 hover:text-neutral-700 underline-offset-4 hover:underline"
+            >
+              + Advanced name builder
+            </button>
+          )}
         </div>
       </form>
       {state.error ? (
@@ -130,7 +559,7 @@ function EditableNameField({
           <FormError>{state.error}</FormError>
         </p>
       ) : null}
-    </DataRow>
+    </DataBlock>
   );
 }
 
@@ -354,9 +783,7 @@ export function VariationForms({
     }
   };
 
-  const fullName = [defaultVariation?.firstName, defaultVariation?.lastName]
-    .filter(Boolean)
-    .join(" ");
+  const fullName = defaultVariation?.displayName?.trim() || "";
 
   return (
     <Card>

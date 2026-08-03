@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { createNestedAccountAction, type AuthActionState } from "@/app/actions/auth";
 import { SubsectionTitle } from "@/app/account/dashboard-ui";
 import { Button } from "@/components/ui/button";
@@ -20,19 +20,39 @@ export function NestedAccountForm({ auid }: NestedAccountFormProps) {
     initialState,
   );
   const [customContext, setCustomContext] = useState(false);
+  const registrationKeyInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-6">
       <Card>
         <SubsectionTitle
-          title="Create Nested Account"
-          description="Register a sub-account created in the context of your user account."
+          title="Create Child / Nested Account"
+          description="Register an identity created inside another identity's context using native opaque tokens."
         />
 
-        <form action={formAction} className="mt-6 space-y-4">
-          <div className="rounded-lg border border-black/5 bg-neutral-50/80 p-3.5 text-xs text-neutral-600">
-            <span className="font-semibold text-black">Parent Context AUID:</span>{" "}
-            <code className="font-mono text-neutral-800">{auid}</code>
+        <form
+          action={formAction}
+          className="mt-6 space-y-4"
+          onSubmit={() => {
+            if (
+              registrationKeyInputRef.current &&
+              !registrationKeyInputRef.current.value
+            ) {
+              registrationKeyInputRef.current.value = crypto.randomUUID();
+            }
+          }}
+        >
+          <input
+            key={state.registrationKey || "new-registration"}
+            ref={registrationKeyInputRef}
+            type="hidden"
+            name="registrationKey"
+            defaultValue={state.registrationKey || ""}
+          />
+
+          <div className="rounded-lg border border-black/5 bg-neutral-50 p-3 text-xs text-neutral-600 dark:border-white/10 dark:bg-neutral-900/60">
+            <span className="font-semibold text-black dark:text-white">Parent Context:</span>{" "}
+            <code className="font-mono text-neutral-800 dark:text-neutral-200">{auid}</code>
           </div>
 
           {!customContext ? (
@@ -59,10 +79,10 @@ export function NestedAccountForm({ auid }: NestedAccountFormProps) {
 
           <Input
             name="username"
-            label="Nested Account Username"
-            placeholder="e.g. subuser_jane"
+            label="Nested Account Username (Optional)"
+            placeholder="Leave blank for random handle"
             autoComplete="off"
-            required
+            minLength={4}
           />
 
           <Input
@@ -92,7 +112,7 @@ export function NestedAccountForm({ auid }: NestedAccountFormProps) {
             className="w-full"
             disabled={pending}
           >
-            {pending ? "Creating nested account..." : "Create nested account"}
+            {pending ? "Creating child identity..." : "Create child identity"}
           </Button>
         </form>
       </Card>

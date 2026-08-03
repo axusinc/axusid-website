@@ -1,7 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
 import type { getSdk } from "@/graphql/sdk";
 import type { VariationsQuery } from "@/graphql/sdk";
+import type { AuthCredentials } from "@/lib/auth-graphql";
+import {
+  readNamePart,
+  type ProfileName,
+} from "@/lib/profile-name";
 
 type AuthSdk = ReturnType<typeof getSdk>;
 
@@ -17,7 +23,18 @@ export type UserProfileView = {
 
 export type UserProfileWithVariations = {
   user: UserProfileView;
-  variations: VariationsQuery["variations"];
+  variations: ProfileVariation[];
+};
+
+type BaseVariation = VariationsQuery["variations"][number];
+
+export type ProfileVariation = BaseVariation & {
+  name: ProfileName | null;
+  displayName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  status: string | null;
+  description: string | null;
 };
 
 export type UserDisplayInfo = {
@@ -40,14 +57,13 @@ export async function resolveUserDisplayInfo(
   );
   const firstName = defaultVariation?.firstName ?? null;
   const lastName = defaultVariation?.lastName ?? null;
-
-  const fullName = [firstName, lastName].filter(Boolean).join(" ");
+  const canonicalName = defaultVariation?.displayName?.trim() || null;
 
   return {
     firstName,
     lastName,
     username,
-    displayName: fullName || username || auid,
+    displayName: canonicalName || username || auid,
   };
 }
 
@@ -65,9 +81,9 @@ export type AccountItemInfo = {
 };
 
 export async function fetchAccountsDisplayInfo(
-  sessions: { auid: string; credentials: any }[],
+  sessions: { auid: string; credentials: AuthCredentials }[],
   activeAuid: string,
-  sdkGetter: (credentials: any) => AuthSdk,
+  sdkGetter: (credentials: AuthCredentials) => AuthSdk,
 ): Promise<AccountItemInfo[]> {
   const items = await Promise.all(
     sessions.map(async (sess) => {
@@ -98,7 +114,42 @@ export async function fetchAccountsDisplayInfo(
   return items;
 }
 
-import { cache } from "react";
+async function hydrateVariation(
+  sdk: AuthSdk,
+  variation: BaseVariation,
+): Promise<ProfileVariation> {
+  const [nameResult, descriptionResult, statusResult] = await Promise.allSettled([
+    sdk.Name({ variationId: variation.id }),
+    sdk.Description({ variationId: variation.id }),
+    sdk.Status({ variationId: variation.id }),
+  ]);
+  const name = nameResult.status === "fulfilled" ? nameResult.value.name : null;
+  const description =
+    descriptionResult.status === "fulfilled"
+      ? descriptionResult.value.description
+      : null;
+  const status = statusResult.status === "fulfilled" ? statusResult.value.status : null;
+  const profileName = name
+    ? {
+        displayName: name.displayName,
+        elements: name.elements,
+      }
+    : null;
+  const givenName = profileName ? readNamePart(profileName.elements, "GIVEN_NAME") : null;
+  const familyName = profileName
+    ? readNamePart(profileName.elements, "FAMILY_NAME")
+    : null;
+
+  return {
+    ...variation,
+    name: profileName,
+    displayName: profileName?.displayName ?? null,
+    firstName: givenName,
+    lastName: familyName,
+    status: status && !status.isExpired ? status.text : null,
+    description: description?.text ?? null,
+  };
+}
 
 /**
  * Loads account profile data via granular queries. The backend `user` query
@@ -109,13 +160,46 @@ export const fetchUserProfileWithVariations = cache(
   async (
     sdk: AuthSdk,
     auid: string,
+    retryCount = 3,
   ): Promise<UserProfileWithVariations> => {
-    const [{ usernames }, { defaultVariation }, { variations }] =
-      await Promise.all([
-        sdk.Usernames({ auid }),
-        sdk.DefaultVariation({ auid }),
-        sdk.Variations({ auid }),
-      ]);
+    let usernames = null;
+    let defaultVariation = null;
+    let baseVariations: VariationsQuery["variations"] = [];
+
+    for (let attempt = 0; attempt < retryCount; attempt++) {
+      try {
+        const [usernamesRes, defaultVarRes, variationsRes] = await Promise.allSettled([
+          sdk.Usernames({ auid }),
+          sdk.DefaultVariation({ auid }),
+          sdk.Variations({ auid }),
+        ]);
+
+        if (usernamesRes.status === "fulfilled") {
+          usernames = usernamesRes.value.usernames;
+        }
+
+        if (defaultVarRes.status === "fulfilled") {
+          defaultVariation = defaultVarRes.value.defaultVariation;
+        }
+
+        if (variationsRes.status === "fulfilled") {
+          baseVariations = variationsRes.value.variations ?? [];
+        }
+
+        if (defaultVariation || usernames || attempt === retryCount - 1) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      } catch {
+        if (attempt === retryCount - 1) break;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+
+    const variations = await Promise.all(
+      baseVariations.map((variation) => hydrateVariation(sdk, variation)),
+    );
 
     return {
       user: {
@@ -127,4 +211,3 @@ export const fetchUserProfileWithVariations = cache(
     };
   },
 );
-

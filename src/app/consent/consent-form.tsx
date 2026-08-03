@@ -39,9 +39,7 @@ export function ConsentForm({
   const [, startTransition] = useTransition();
 
   const hasPermissions = permissions.length > 0;
-  const fullName = applicationUser
-    ? [applicationUser.firstName, applicationUser.lastName].filter(Boolean).join(" ")
-    : "";
+  const fullName = applicationUser?.displayName.trim() ?? "";
   const hasDistinctName = Boolean(
     applicationUser &&
       fullName &&

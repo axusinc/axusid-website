@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AXUS ID",
   description: "Modern identity and OAuth2 authorization for AXUS.",
+  icons: {
+    icon: "/icon-tm.png",
+    shortcut: "/icon-tm.png",
+    apple: "/icon-tm.png",
+  },
 };
 
 export default function RootLayout({

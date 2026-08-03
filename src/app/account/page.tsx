@@ -1,40 +1,18 @@
 import { redirect } from "next/navigation";
-import { logoutAction } from "@/app/actions/auth";
 import { AccountDashboard } from "@/app/account/account-dashboard";
 import { DashboardShell } from "@/app/account/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormError } from "@/components/ui/form-message";
-import { Logo } from "@/components/ui/logo";
-import { UserAccountSwitcher } from "@/components/user-account-switcher";
-import { getAuthSdkForSession } from "@/lib/auth-graphql";
+import { getAuthSdkForSession, opaqueGraphqlBearer } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { listClientsByOwner } from "@/lib/oauth/client-store";
 import { getIssuer } from "@/lib/oauth/constants";
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
-import { fetchUserProfileWithVariations, fetchAccountsDisplayInfo, type AccountItemInfo } from "@/lib/user-profile";
-
-type TopBarProps = {
-  accounts: AccountItemInfo[];
-  currentAuid: string;
-};
-
-function TopBar({ accounts, currentAuid }: TopBarProps) {
-  return (
-    <header className="relative border-b border-black/5 bg-white/70 backdrop-blur-xl z-30">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-3">
-          <Logo size={36} />
-          <p className="text-sm font-medium text-black">Account</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <UserAccountSwitcher accounts={accounts} currentAuid={currentAuid} />
-        </div>
-      </div>
-    </header>
-  );
-}
+import { fetchUserProfileWithVariations, fetchAccountsDisplayInfo } from "@/lib/user-profile";
+import { getUserPasskeys } from "@/lib/passkey-graphql";
+import { getUserExternalIdentities } from "@/lib/google-oauth";
 
 export default async function AccountPage() {
   const multiSession = await getValidMultiSession();
@@ -58,9 +36,8 @@ export default async function AccountPage() {
   } catch (error) {
     return (
       <DashboardShell>
-        <TopBar accounts={accountInfos} currentAuid={session.auid} />
-        <main className="relative mx-auto max-w-5xl px-6 py-10">
-          <Card className="p-6 sm:p-8">
+        <main className="relative mx-auto flex min-h-full w-full max-w-xl flex-1 items-center px-4 py-8 sm:px-6 sm:py-12">
+          <Card className="w-full rounded-[24px] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.09),0_3px_12px_rgba(0,0,0,0.04)] sm:p-8">
             <FormError>
               {formatGraphqlError(
                 error,
@@ -86,24 +63,24 @@ export default async function AccountPage() {
   const defaultVariation = defaultVariationId
     ? (variations.find((v) => v.id === defaultVariationId) ?? variations[0] ?? null)
     : (variations[0] ?? null);
-
-  const fullName = [defaultVariation?.firstName, defaultVariation?.lastName]
-    .filter(Boolean)
-    .join(" ");
+  const fullName = defaultVariation?.displayName?.trim() || "";
   const username = user?.usernames?.defaultUsername ?? null;
-  const [clients, samlConfig] = await Promise.all([
+  const bearerToken = opaqueGraphqlBearer(session.credentials);
+  const [clients, samlConfig, initialPasskeys, initialExternalIdentities] = await Promise.all([
     listClientsByOwner(session.auid),
     getSamlConfigByAuid(session.auid),
+    getUserPasskeys(session.auid, bearerToken),
+    getUserExternalIdentities(session.auid, bearerToken),
   ]);
   const issuer = getIssuer();
 
   return (
     <DashboardShell>
-      <TopBar accounts={accountInfos} currentAuid={session.auid} />
-
-      <main className="relative mx-auto max-w-5xl px-6 py-10">
+      <main className="relative min-h-screen w-full">
         <AccountDashboard
           auid={session.auid}
+          accounts={accountInfos}
+          currentAuid={session.auid}
           defaultUsername={username}
           defaultVariation={defaultVariation}
           fullName={fullName}
@@ -111,6 +88,8 @@ export default async function AccountPage() {
           clients={clients}
           issuer={issuer}
           samlConfig={samlConfig}
+          initialPasskeys={initialPasskeys}
+          initialExternalIdentities={initialExternalIdentities}
         />
       </main>
     </DashboardShell>

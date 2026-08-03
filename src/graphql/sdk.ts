@@ -16,73 +16,144 @@ export type Scalars = {
   Float: { input: number; output: number; }
 };
 
-export type AuthCredentials = {
+export type SchemaAuthCredentials = {
   __typename?: 'AuthCredentials';
   accessToken: Scalars['String']['output'];
   accessTokenExpiresAt: Scalars['String']['output'];
+  auid: Scalars['ID']['output'];
   refreshToken: Scalars['String']['output'];
 };
 
-export type DefaultVariation = {
+export type SchemaAuthenticatedToken = {
+  __typename?: 'AuthenticatedToken';
+  auid: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+};
+
+export type SchemaCreatedUser = {
+  __typename?: 'CreatedUser';
+  auid: Scalars['ID']['output'];
+  token: SchemaToken;
+};
+
+export type SchemaDefaultVariation = {
   __typename?: 'DefaultVariation';
   auid: Scalars['ID']['output'];
   variationId: Scalars['ID']['output'];
 };
 
-export type Identity = {
+export type SchemaDescription = {
+  __typename?: 'Description';
+  text?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['String']['output'];
+  variationId: Scalars['ID']['output'];
+};
+
+export type SchemaExternalAuthenticationInput = {
+  providerId: Scalars['String']['input'];
+  token: Scalars['String']['input'];
+};
+
+export type SchemaExternalIdentity = {
+  __typename?: 'ExternalIdentity';
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  providerId: Scalars['String']['output'];
+};
+
+export type SchemaIdentity = {
   __typename?: 'Identity';
   auid: Scalars['ID']['output'];
   id: Scalars['ID']['output'];
 };
 
-export type Mutation = {
+export type SchemaMutation = {
   __typename?: 'Mutation';
-  addUsername: Usernames;
-  changeDefaultUsername: Usernames;
-  changePassword: Scalars['Boolean']['output'];
-  changeUsername: Usernames;
-  changeVariationDescription: Variation;
-  changeVariationFirstName: Variation;
-  changeVariationIcon: Variation;
-  changeVariationLastName: Variation;
-  changeVariationLocationId: Variation;
-  changeVariationStatus: Variation;
-  createUser: Identity;
-  createVariation: Variation;
-  generateToken: Token;
-  login: AuthCredentials;
-  loginWithTotp: AuthCredentials;
-  refreshCredentials: AuthCredentials;
-  removeUsername: Usernames;
+  acceptParent: SchemaParents;
+  addUsername: SchemaUsernames;
+  changeDefaultUsername: SchemaUsernames;
+  changeDescription: SchemaDescription;
+  changeName: SchemaName;
+  changeStatus: SchemaStatus;
+  changeUsername: SchemaUsernames;
+  changeVariationIcon: SchemaVariation;
+  changeVariationLocationId: SchemaVariation;
+  clearDescription: SchemaDescription;
+  clearStatus: SchemaStatus;
+  createUser: SchemaCreatedUser;
+  createVariation: SchemaVariation;
+  finishPasskeyRegistration: Scalars['Boolean']['output'];
+  linkExternalIdentity: SchemaExternalIdentity;
+  loginWithExternalIdentity: SchemaAuthenticatedToken;
+  loginWithPasskey: SchemaAuthenticatedToken;
+  loginWithPassword: SchemaToken;
+  loginWithToken: SchemaToken;
+  loginWithTotp: SchemaAuthenticatedToken;
+  refreshCredentials: SchemaAuthCredentials;
+  removeUsername: SchemaUsernames;
+  reorderParents: SchemaParents;
+  requestParent: SchemaParents;
   revokeCredentials: Scalars['Boolean']['output'];
-  setDefaultVariation: DefaultVariation;
-  startTotpEnrollment: TotpEnrollmentResponse;
+  setDefaultVariation: SchemaDefaultVariation;
+  setPassword: Scalars['Boolean']['output'];
+  startPasskeyLogin: SchemaPasskeyCeremony;
+  startPasskeyRegistration: SchemaPasskeyCeremony;
+  startTotpEnrollment: SchemaTotpEnrollmentResponse;
+  unlinkExternalIdentity: Scalars['Boolean']['output'];
   verifyTotpEnrollment: Scalars['Boolean']['output'];
+  wrapTokenInCredentials: SchemaAuthCredentials;
 };
 
 
-export type MutationAddUsernameArgs = {
+export type SchemaMutationAcceptParentArgs = {
+  auid: Scalars['ID']['input'];
+  parentAuid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationAddUsernameArgs = {
   auid: Scalars['ID']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
 
-export type MutationChangeDefaultUsernameArgs = {
+export type SchemaMutationChangeDefaultUsernameArgs = {
   auid: Scalars['ID']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
 
-export type MutationChangePasswordArgs = {
+export type SchemaMutationChangeDescriptionArgs = {
   auid: Scalars['ID']['input'];
-  newPassword: Scalars['String']['input'];
+  text?: InputMaybe<Scalars['String']['input']>;
   tokenId?: InputMaybe<Scalars['String']['input']>;
+  variationId: Scalars['ID']['input'];
 };
 
 
-export type MutationChangeUsernameArgs = {
+export type SchemaMutationChangeNameArgs = {
+  auid: Scalars['ID']['input'];
+  elements: Array<SchemaNameElementInput>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+  variationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaMutationChangeStatusArgs = {
+  auid: Scalars['ID']['input'];
+  durationMinutes?: InputMaybe<Scalars['Int']['input']>;
+  emoji?: InputMaybe<Scalars['String']['input']>;
+  expiresAt?: InputMaybe<Scalars['String']['input']>;
+  text?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+  variationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaMutationChangeUsernameArgs = {
   auid: Scalars['ID']['input'];
   newUsername: Scalars['String']['input'];
   oldUsername: Scalars['String']['input'];
@@ -90,23 +161,7 @@ export type MutationChangeUsernameArgs = {
 };
 
 
-export type MutationChangeVariationDescriptionArgs = {
-  auid: Scalars['ID']['input'];
-  description?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
-  variationId: Scalars['ID']['input'];
-};
-
-
-export type MutationChangeVariationFirstNameArgs = {
-  auid: Scalars['ID']['input'];
-  firstName?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
-  variationId: Scalars['ID']['input'];
-};
-
-
-export type MutationChangeVariationIconArgs = {
+export type SchemaMutationChangeVariationIconArgs = {
   auid: Scalars['ID']['input'];
   icon?: InputMaybe<Scalars['String']['input']>;
   tokenId?: InputMaybe<Scalars['String']['input']>;
@@ -114,15 +169,7 @@ export type MutationChangeVariationIconArgs = {
 };
 
 
-export type MutationChangeVariationLastNameArgs = {
-  auid: Scalars['ID']['input'];
-  lastName?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
-  variationId: Scalars['ID']['input'];
-};
-
-
-export type MutationChangeVariationLocationIdArgs = {
+export type SchemaMutationChangeVariationLocationIdArgs = {
   auid: Scalars['ID']['input'];
   locationId?: InputMaybe<Scalars['String']['input']>;
   tokenId?: InputMaybe<Scalars['String']['input']>;
@@ -130,170 +177,384 @@ export type MutationChangeVariationLocationIdArgs = {
 };
 
 
-export type MutationChangeVariationStatusArgs = {
+export type SchemaMutationClearDescriptionArgs = {
   auid: Scalars['ID']['input'];
-  status?: InputMaybe<Scalars['String']['input']>;
   tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
 
-export type MutationCreateUserArgs = {
+export type SchemaMutationClearStatusArgs = {
+  auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+  variationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaMutationCreateUserArgs = {
   contextAuid?: InputMaybe<Scalars['ID']['input']>;
-  password: Scalars['String']['input'];
+  registrationKey: Scalars['ID']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
-  username: Scalars['String']['input'];
 };
 
 
-export type MutationCreateVariationArgs = {
+export type SchemaMutationCreateVariationArgs = {
   auid: Scalars['ID']['input'];
   description?: InputMaybe<Scalars['String']['input']>;
-  firstName?: InputMaybe<Scalars['String']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
-  lastName?: InputMaybe<Scalars['String']['input']>;
   locationId?: InputMaybe<Scalars['String']['input']>;
-  status?: InputMaybe<Scalars['String']['input']>;
   tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
-export type MutationGenerateTokenArgs = {
+export type SchemaMutationFinishPasskeyRegistrationArgs = {
+  auid: Scalars['ID']['input'];
+  challengeId: Scalars['ID']['input'];
+  responseJson: Scalars['String']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationLinkExternalIdentityArgs = {
+  auid: Scalars['ID']['input'];
+  authentication: SchemaExternalAuthenticationInput;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationLoginWithExternalIdentityArgs = {
+  authentication: SchemaExternalAuthenticationInput;
+  permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+
+export type SchemaMutationLoginWithPasskeyArgs = {
+  challengeId: Scalars['ID']['input'];
+  responseJson: Scalars['String']['input'];
+};
+
+
+export type SchemaMutationLoginWithPasswordArgs = {
   auid: Scalars['ID']['input'];
   password: Scalars['String']['input'];
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 
-export type MutationLoginArgs = {
+export type SchemaMutationLoginWithTokenArgs = {
   auid: Scalars['ID']['input'];
-  password: Scalars['String']['input'];
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
-export type MutationLoginWithTotpArgs = {
+export type SchemaMutationLoginWithTotpArgs = {
   code: Scalars['String']['input'];
   totpToken: Scalars['String']['input'];
 };
 
 
-export type MutationRefreshCredentialsArgs = {
+export type SchemaMutationRefreshCredentialsArgs = {
   refreshToken: Scalars['String']['input'];
 };
 
 
-export type MutationRemoveUsernameArgs = {
+export type SchemaMutationRemoveUsernameArgs = {
   auid: Scalars['ID']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
 
-export type MutationRevokeCredentialsArgs = {
+export type SchemaMutationReorderParentsArgs = {
+  auid: Scalars['ID']['input'];
+  parentAuids: Array<Scalars['ID']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationRequestParentArgs = {
+  auid: Scalars['ID']['input'];
+  parentAuid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationRevokeCredentialsArgs = {
   refreshToken: Scalars['String']['input'];
 };
 
 
-export type MutationSetDefaultVariationArgs = {
+export type SchemaMutationSetDefaultVariationArgs = {
   auid: Scalars['ID']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
 
-export type MutationStartTotpEnrollmentArgs = {
+export type SchemaMutationSetPasswordArgs = {
+  auid: Scalars['ID']['input'];
+  password: Scalars['String']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationStartPasskeyLoginArgs = {
+  permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+
+export type SchemaMutationStartPasskeyRegistrationArgs = {
+  auid: Scalars['ID']['input'];
+  displayName?: InputMaybe<Scalars['String']['input']>;
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationStartTotpEnrollmentArgs = {
   auid: Scalars['ID']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
-export type MutationVerifyTotpEnrollmentArgs = {
+export type SchemaMutationUnlinkExternalIdentityArgs = {
+  auid: Scalars['ID']['input'];
+  externalIdentityId: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaMutationVerifyTotpEnrollmentArgs = {
   auid: Scalars['ID']['input'];
   code: Scalars['String']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
-export type Query = {
+
+export type SchemaMutationWrapTokenInCredentialsArgs = {
+  auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type SchemaName = {
+  __typename?: 'Name';
+  displayName: Scalars['String']['output'];
+  elements: Array<SchemaNameElement>;
+  variationId: Scalars['ID']['output'];
+};
+
+export type SchemaNameElement = {
+  __typename?: 'NameElement';
+  partType?: Maybe<SchemaNamePartType>;
+  separatorType?: Maybe<SchemaNameSeparatorType>;
+  value?: Maybe<Scalars['String']['output']>;
+};
+
+export type SchemaNameElementInput = {
+  partType?: InputMaybe<SchemaNamePartType>;
+  separatorType?: InputMaybe<SchemaNameSeparatorType>;
+  value?: InputMaybe<Scalars['String']['input']>;
+};
+
+export enum SchemaNamePartType {
+  Credential = 'CREDENTIAL',
+  FamilyName = 'FAMILY_NAME',
+  Generation = 'GENERATION',
+  GivenName = 'GIVEN_NAME',
+  Title = 'TITLE',
+  Unstructured = 'UNSTRUCTURED'
+}
+
+export enum SchemaNameSeparatorType {
+  Apostrophe = 'APOSTROPHE',
+  CommaSpace = 'COMMA_SPACE',
+  Hyphen = 'HYPHEN',
+  Space = 'SPACE'
+}
+
+export type SchemaPaginatedIdentities = {
+  __typename?: 'PaginatedIdentities';
+  items: Array<SchemaIdentity>;
+};
+
+export type SchemaParent = {
+  __typename?: 'Parent';
+  auid: Scalars['ID']['output'];
+  status: SchemaParentStatus;
+};
+
+export enum SchemaParentStatus {
+  Accepted = 'ACCEPTED',
+  Pending = 'PENDING'
+}
+
+export type SchemaParents = {
+  __typename?: 'Parents';
+  auid: Scalars['ID']['output'];
+  parents: Array<SchemaParent>;
+};
+
+export type SchemaPasskeyCeremony = {
+  __typename?: 'PasskeyCeremony';
+  challengeId: Scalars['ID']['output'];
+  optionsJson: Scalars['String']['output'];
+};
+
+export type SchemaQuery = {
   __typename?: 'Query';
-  defaultVariation?: Maybe<DefaultVariation>;
+  defaultVariation?: Maybe<SchemaDefaultVariation>;
+  description?: Maybe<SchemaDescription>;
+  externalIdentities: Array<SchemaExternalIdentity>;
+  identities: SchemaPaginatedIdentities;
+  name?: Maybe<SchemaName>;
   ownerByUsername?: Maybe<Scalars['ID']['output']>;
-  user?: Maybe<User>;
-  usernames?: Maybe<Usernames>;
-  variations: Array<Variation>;
+  parents?: Maybe<SchemaParents>;
+  status?: Maybe<SchemaStatus>;
+  user?: Maybe<SchemaUser>;
+  usernames?: Maybe<SchemaUsernames>;
+  variations: Array<SchemaVariation>;
 };
 
 
-export type QueryDefaultVariationArgs = {
+export type SchemaQueryDefaultVariationArgs = {
   auid: Scalars['ID']['input'];
 };
 
 
-export type QueryOwnerByUsernameArgs = {
+export type SchemaQueryDescriptionArgs = {
+  variationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryExternalIdentitiesArgs = {
+  auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaQueryIdentitiesArgs = {
+  contextAuid: Scalars['ID']['input'];
+  cursor?: InputMaybe<Scalars['ID']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  recursive?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type SchemaQueryNameArgs = {
+  variationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryOwnerByUsernameArgs = {
   username: Scalars['String']['input'];
 };
 
 
-export type QueryUserArgs = {
+export type SchemaQueryParentsArgs = {
   auid: Scalars['ID']['input'];
 };
 
 
-export type QueryUsernamesArgs = {
+export type SchemaQueryStatusArgs = {
+  variationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryUserArgs = {
   auid: Scalars['ID']['input'];
 };
 
 
-export type QueryVariationsArgs = {
+export type SchemaQueryUsernamesArgs = {
   auid: Scalars['ID']['input'];
 };
 
-export type Token = {
+
+export type SchemaQueryVariationsArgs = {
+  auid: Scalars['ID']['input'];
+};
+
+export type SchemaStatus = {
+  __typename?: 'Status';
+  emoji?: Maybe<Scalars['String']['output']>;
+  expiresAt?: Maybe<Scalars['String']['output']>;
+  isExpired: Scalars['Boolean']['output'];
+  text?: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['String']['output'];
+  variationId: Scalars['ID']['output'];
+};
+
+export type SchemaToken = {
   __typename?: 'Token';
   id: Scalars['ID']['output'];
 };
 
-export type TotpEnrollmentResponse = {
+export type SchemaTotpEnrollmentResponse = {
   __typename?: 'TotpEnrollmentResponse';
   otpauthUrl: Scalars['String']['output'];
   secret: Scalars['String']['output'];
 };
 
-export type User = {
+export type SchemaUser = {
   __typename?: 'User';
-  defaultVariation?: Maybe<DefaultVariation>;
-  identity: Identity;
-  usernames: Usernames;
+  defaultVariation?: Maybe<SchemaDefaultVariation>;
+  identity: SchemaIdentity;
+  usernames: SchemaUsernames;
 };
 
-export type Usernames = {
+export type SchemaUsernames = {
   __typename?: 'Usernames';
   auid: Scalars['ID']['output'];
   defaultUsername: Scalars['String']['output'];
   usernames: Array<Scalars['String']['output']>;
 };
 
-export type Variation = {
+export type SchemaVariation = {
   __typename?: 'Variation';
   auid: Scalars['ID']['output'];
   createdAt: Scalars['String']['output'];
-  description?: Maybe<Scalars['String']['output']>;
-  firstName?: Maybe<Scalars['String']['output']>;
   icon?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
-  lastName?: Maybe<Scalars['String']['output']>;
   locationId?: Maybe<Scalars['String']['output']>;
-  status?: Maybe<Scalars['String']['output']>;
 };
 
-export type LoginMutationVariables = Exact<{
+export type NameElementInput = {
+  partType?: NamePartType | null | undefined;
+  separatorType?: NameSeparatorType | null | undefined;
+  value?: string | null | undefined;
+};
+
+export type NamePartType =
+  | 'CREDENTIAL'
+  | 'FAMILY_NAME'
+  | 'GENERATION'
+  | 'GIVEN_NAME'
+  | 'TITLE'
+  | 'UNSTRUCTURED';
+
+export type NameSeparatorType =
+  | 'APOSTROPHE'
+  | 'COMMA_SPACE'
+  | 'HYPHEN'
+  | 'SPACE';
+
+export type LoginWithPasswordMutationVariables = Exact<{
   auid: string | number;
   password: string;
   permissions?: Array<string> | string | null | undefined;
 }>;
 
 
-export type LoginMutation = { login: { accessToken: string, refreshToken: string, accessTokenExpiresAt: string } };
+export type LoginWithPasswordMutation = { loginWithPassword: { id: string } };
+
+export type WrapTokenInCredentialsMutationVariables = Exact<{
+  auid: string | number;
+  tokenId?: string | null | undefined;
+}>;
+
+
+export type WrapTokenInCredentialsMutation = { wrapTokenInCredentials: { auid: string, accessToken: string, refreshToken: string, accessTokenExpiresAt: string } };
 
 export type RefreshCredentialsMutationVariables = Exact<{
   refreshToken: string;
@@ -312,21 +573,20 @@ export type RevokeCredentialsMutation = { revokeCredentials: boolean };
 export type CreateUserMutationVariables = Exact<{
   contextAuid?: string | number | null | undefined;
   tokenId?: string | null | undefined;
-  username: string;
+  registrationKey: string | number;
+}>;
+
+
+export type CreateUserMutation = { createUser: { auid: string, token: { id: string } } };
+
+export type SetPasswordMutationVariables = Exact<{
+  auid: string | number;
+  tokenId?: string | null | undefined;
   password: string;
 }>;
 
 
-export type CreateUserMutation = { createUser: { auid: string, id: string } };
-
-export type ChangePasswordMutationVariables = Exact<{
-  auid: string | number;
-  tokenId?: string | null | undefined;
-  newPassword: string;
-}>;
-
-
-export type ChangePasswordMutation = { changePassword: boolean };
+export type SetPasswordMutation = { setPassword: boolean };
 
 export type OwnerByUsernameQueryVariables = Exact<{
   username: string;
@@ -354,7 +614,28 @@ export type VariationsQueryVariables = Exact<{
 }>;
 
 
-export type VariationsQuery = { variations: Array<{ id: string, auid: string, firstName: string | null, lastName: string | null, status: string | null, description: string | null, locationId: string | null, icon: string | null, createdAt: string }> };
+export type VariationsQuery = { variations: Array<{ id: string, auid: string, locationId: string | null, icon: string | null, createdAt: string }> };
+
+export type NameQueryVariables = Exact<{
+  variationId: string | number;
+}>;
+
+
+export type NameQuery = { name: { variationId: string, displayName: string, elements: Array<{ partType: NamePartType | null, value: string | null, separatorType: NameSeparatorType | null }> } | null };
+
+export type DescriptionQueryVariables = Exact<{
+  variationId: string | number;
+}>;
+
+
+export type DescriptionQuery = { description: { variationId: string, text: string | null, updatedAt: string } | null };
+
+export type StatusQueryVariables = Exact<{
+  variationId: string | number;
+}>;
+
+
+export type StatusQuery = { status: { variationId: string, text: string | null, emoji: string | null, expiresAt: string | null, updatedAt: string, isExpired: boolean } | null };
 
 export type DefaultVariationQueryVariables = Exact<{
   auid: string | number;
@@ -365,6 +646,7 @@ export type DefaultVariationQuery = { defaultVariation: { auid: string, variatio
 
 export type AddUsernameMutationVariables = Exact<{
   auid: string | number;
+  tokenId?: string | null | undefined;
   username: string;
 }>;
 
@@ -398,52 +680,40 @@ export type ChangeUsernameMutation = { changeUsername: { auid: string, usernames
 
 export type CreateVariationMutationVariables = Exact<{
   auid: string | number;
-  firstName?: string | null | undefined;
-  lastName?: string | null | undefined;
-  status?: string | null | undefined;
   description?: string | null | undefined;
   locationId?: string | null | undefined;
   icon?: string | null | undefined;
 }>;
 
 
-export type CreateVariationMutation = { createVariation: { id: string, auid: string, firstName: string | null, lastName: string | null, status: string | null, description: string | null, locationId: string | null, icon: string | null, createdAt: string } };
+export type CreateVariationMutation = { createVariation: { id: string, auid: string, locationId: string | null, icon: string | null, createdAt: string } };
 
-export type ChangeVariationFirstNameMutationVariables = Exact<{
+export type ChangeNameMutationVariables = Exact<{
   auid: string | number;
   variationId: string | number;
-  firstName?: string | null | undefined;
+  elements: Array<NameElementInput> | NameElementInput;
 }>;
 
 
-export type ChangeVariationFirstNameMutation = { changeVariationFirstName: { id: string, firstName: string | null } };
+export type ChangeNameMutation = { changeName: { variationId: string, displayName: string, elements: Array<{ partType: NamePartType | null, value: string | null, separatorType: NameSeparatorType | null }> } };
 
-export type ChangeVariationLastNameMutationVariables = Exact<{
+export type ChangeStatusMutationVariables = Exact<{
   auid: string | number;
   variationId: string | number;
-  lastName?: string | null | undefined;
+  text?: string | null | undefined;
 }>;
 
 
-export type ChangeVariationLastNameMutation = { changeVariationLastName: { id: string, lastName: string | null } };
+export type ChangeStatusMutation = { changeStatus: { variationId: string, text: string | null, emoji: string | null, expiresAt: string | null, updatedAt: string, isExpired: boolean } };
 
-export type ChangeVariationStatusMutationVariables = Exact<{
+export type ChangeDescriptionMutationVariables = Exact<{
   auid: string | number;
   variationId: string | number;
-  status?: string | null | undefined;
+  text?: string | null | undefined;
 }>;
 
 
-export type ChangeVariationStatusMutation = { changeVariationStatus: { id: string, status: string | null } };
-
-export type ChangeVariationDescriptionMutationVariables = Exact<{
-  auid: string | number;
-  variationId: string | number;
-  description?: string | null | undefined;
-}>;
-
-
-export type ChangeVariationDescriptionMutation = { changeVariationDescription: { id: string, description: string | null } };
+export type ChangeDescriptionMutation = { changeDescription: { variationId: string, text: string | null, updatedAt: string } };
 
 export type SetDefaultVariationMutationVariables = Exact<{
   auid: string | number;
@@ -453,10 +723,35 @@ export type SetDefaultVariationMutationVariables = Exact<{
 
 export type SetDefaultVariationMutation = { setDefaultVariation: { auid: string, variationId: string } };
 
+export type ExternalIdentitiesQueryVariables = Exact<{
+  auid: string | number;
+  tokenId?: string | null | undefined;
+}>;
 
-export const LoginDocument = gql`
-    mutation Login($auid: ID!, $password: String!, $permissions: [String!]) {
-  login(auid: $auid, password: $password, permissions: $permissions) {
+
+export type ExternalIdentitiesQuery = { externalIdentities: Array<{ id: string, providerId: string, createdAt: string }> };
+
+export type UnlinkExternalIdentityMutationVariables = Exact<{
+  auid: string | number;
+  externalIdentityId: string | number;
+  tokenId?: string | null | undefined;
+}>;
+
+
+export type UnlinkExternalIdentityMutation = { unlinkExternalIdentity: boolean };
+
+
+export const LoginWithPasswordDocument = gql`
+    mutation LoginWithPassword($auid: ID!, $password: String!, $permissions: [String!]) {
+  loginWithPassword(auid: $auid, password: $password, permissions: $permissions) {
+    id
+  }
+}
+    `;
+export const WrapTokenInCredentialsDocument = gql`
+    mutation WrapTokenInCredentials($auid: ID!, $tokenId: String) {
+  wrapTokenInCredentials(auid: $auid, tokenId: $tokenId) {
+    auid
     accessToken
     refreshToken
     accessTokenExpiresAt
@@ -478,21 +773,22 @@ export const RevokeCredentialsDocument = gql`
 }
     `;
 export const CreateUserDocument = gql`
-    mutation CreateUser($contextAuid: ID, $tokenId: String, $username: String!, $password: String!) {
+    mutation CreateUser($contextAuid: ID, $tokenId: String, $registrationKey: ID!) {
   createUser(
     contextAuid: $contextAuid
     tokenId: $tokenId
-    username: $username
-    password: $password
+    registrationKey: $registrationKey
   ) {
     auid
-    id
+    token {
+      id
+    }
   }
 }
     `;
-export const ChangePasswordDocument = gql`
-    mutation ChangePassword($auid: ID!, $tokenId: String, $newPassword: String!) {
-  changePassword(auid: $auid, tokenId: $tokenId, newPassword: $newPassword)
+export const SetPasswordDocument = gql`
+    mutation SetPassword($auid: ID!, $tokenId: String, $password: String!) {
+  setPassword(auid: $auid, tokenId: $tokenId, password: $password)
 }
     `;
 export const OwnerByUsernameDocument = gql`
@@ -533,13 +829,43 @@ export const VariationsDocument = gql`
   variations(auid: $auid) {
     id
     auid
-    firstName
-    lastName
-    status
-    description
     locationId
     icon
     createdAt
+  }
+}
+    `;
+export const NameDocument = gql`
+    query Name($variationId: ID!) {
+  name(variationId: $variationId) {
+    variationId
+    displayName
+    elements {
+      partType
+      value
+      separatorType
+    }
+  }
+}
+    `;
+export const DescriptionDocument = gql`
+    query Description($variationId: ID!) {
+  description(variationId: $variationId) {
+    variationId
+    text
+    updatedAt
+  }
+}
+    `;
+export const StatusDocument = gql`
+    query Status($variationId: ID!) {
+  status(variationId: $variationId) {
+    variationId
+    text
+    emoji
+    expiresAt
+    updatedAt
+    isExpired
   }
 }
     `;
@@ -552,8 +878,8 @@ export const DefaultVariationDocument = gql`
 }
     `;
 export const AddUsernameDocument = gql`
-    mutation AddUsername($auid: ID!, $username: String!) {
-  addUsername(auid: $auid, username: $username) {
+    mutation AddUsername($auid: ID!, $tokenId: String, $username: String!) {
+  addUsername(auid: $auid, tokenId: $tokenId, username: $username) {
     auid
     usernames
     defaultUsername
@@ -592,69 +918,52 @@ export const ChangeUsernameDocument = gql`
 }
     `;
 export const CreateVariationDocument = gql`
-    mutation CreateVariation($auid: ID!, $firstName: String, $lastName: String, $status: String, $description: String, $locationId: String, $icon: String) {
+    mutation CreateVariation($auid: ID!, $description: String, $locationId: String, $icon: String) {
   createVariation(
     auid: $auid
-    firstName: $firstName
-    lastName: $lastName
-    status: $status
     description: $description
     locationId: $locationId
     icon: $icon
   ) {
     id
     auid
-    firstName
-    lastName
-    status
-    description
     locationId
     icon
     createdAt
   }
 }
     `;
-export const ChangeVariationFirstNameDocument = gql`
-    mutation ChangeVariationFirstName($auid: ID!, $variationId: ID!, $firstName: String) {
-  changeVariationFirstName(
-    auid: $auid
-    variationId: $variationId
-    firstName: $firstName
-  ) {
-    id
-    firstName
+export const ChangeNameDocument = gql`
+    mutation ChangeName($auid: ID!, $variationId: ID!, $elements: [NameElementInput!]!) {
+  changeName(auid: $auid, variationId: $variationId, elements: $elements) {
+    variationId
+    displayName
+    elements {
+      partType
+      value
+      separatorType
+    }
   }
 }
     `;
-export const ChangeVariationLastNameDocument = gql`
-    mutation ChangeVariationLastName($auid: ID!, $variationId: ID!, $lastName: String) {
-  changeVariationLastName(
-    auid: $auid
-    variationId: $variationId
-    lastName: $lastName
-  ) {
-    id
-    lastName
+export const ChangeStatusDocument = gql`
+    mutation ChangeStatus($auid: ID!, $variationId: ID!, $text: String) {
+  changeStatus(auid: $auid, variationId: $variationId, text: $text) {
+    variationId
+    text
+    emoji
+    expiresAt
+    updatedAt
+    isExpired
   }
 }
     `;
-export const ChangeVariationStatusDocument = gql`
-    mutation ChangeVariationStatus($auid: ID!, $variationId: ID!, $status: String) {
-  changeVariationStatus(auid: $auid, variationId: $variationId, status: $status) {
-    id
-    status
-  }
-}
-    `;
-export const ChangeVariationDescriptionDocument = gql`
-    mutation ChangeVariationDescription($auid: ID!, $variationId: ID!, $description: String) {
-  changeVariationDescription(
-    auid: $auid
-    variationId: $variationId
-    description: $description
-  ) {
-    id
-    description
+export const ChangeDescriptionDocument = gql`
+    mutation ChangeDescription($auid: ID!, $variationId: ID!, $text: String) {
+  changeDescription(auid: $auid, variationId: $variationId, text: $text) {
+    variationId
+    text
+    updatedAt
   }
 }
     `;
@@ -666,6 +975,24 @@ export const SetDefaultVariationDocument = gql`
   }
 }
     `;
+export const ExternalIdentitiesDocument = gql`
+    query ExternalIdentities($auid: ID!, $tokenId: String) {
+  externalIdentities(auid: $auid, tokenId: $tokenId) {
+    id
+    providerId
+    createdAt
+  }
+}
+    `;
+export const UnlinkExternalIdentityDocument = gql`
+    mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
+  unlinkExternalIdentity(
+    auid: $auid
+    externalIdentityId: $externalIdentityId
+    tokenId: $tokenId
+  )
+}
+    `;
 
 export type SdkFunctionWrapper = <T>(action: (requestHeaders?:Record<string, string>) => Promise<T>, operationName: string, operationType?: string, variables?: any) => Promise<T>;
 
@@ -674,8 +1001,11 @@ const defaultWrapper: SdkFunctionWrapper = (action, _operationName, _operationTy
 
 export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = defaultWrapper) {
   return {
-    Login(variables: LoginMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<LoginMutation>({ document: LoginDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Login', 'mutation', variables);
+    LoginWithPassword(variables: LoginWithPasswordMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithPasswordMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<LoginWithPasswordMutation>({ document: LoginWithPasswordDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithPassword', 'mutation', variables);
+    },
+    WrapTokenInCredentials(variables: WrapTokenInCredentialsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<WrapTokenInCredentialsMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<WrapTokenInCredentialsMutation>({ document: WrapTokenInCredentialsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'WrapTokenInCredentials', 'mutation', variables);
     },
     RefreshCredentials(variables: RefreshCredentialsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RefreshCredentialsMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<RefreshCredentialsMutation>({ document: RefreshCredentialsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RefreshCredentials', 'mutation', variables);
@@ -686,8 +1016,8 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     CreateUser(variables: CreateUserMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreateUserMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CreateUserMutation>({ document: CreateUserDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreateUser', 'mutation', variables);
     },
-    ChangePassword(variables: ChangePasswordMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangePasswordMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<ChangePasswordMutation>({ document: ChangePasswordDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangePassword', 'mutation', variables);
+    SetPassword(variables: SetPasswordMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SetPasswordMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<SetPasswordMutation>({ document: SetPasswordDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SetPassword', 'mutation', variables);
     },
     OwnerByUsername(variables: OwnerByUsernameQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<OwnerByUsernameQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<OwnerByUsernameQuery>({ document: OwnerByUsernameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'OwnerByUsername', 'query', variables);
@@ -700,6 +1030,15 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     Variations(variables: VariationsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<VariationsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<VariationsQuery>({ document: VariationsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Variations', 'query', variables);
+    },
+    Name(variables: NameQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<NameQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<NameQuery>({ document: NameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Name', 'query', variables);
+    },
+    Description(variables: DescriptionQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DescriptionQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DescriptionQuery>({ document: DescriptionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Description', 'query', variables);
+    },
+    Status(variables: StatusQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<StatusQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<StatusQuery>({ document: StatusDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Status', 'query', variables);
     },
     DefaultVariation(variables: DefaultVariationQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DefaultVariationQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<DefaultVariationQuery>({ document: DefaultVariationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'DefaultVariation', 'query', variables);
@@ -719,20 +1058,23 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     CreateVariation(variables: CreateVariationMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreateVariationMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CreateVariationMutation>({ document: CreateVariationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreateVariation', 'mutation', variables);
     },
-    ChangeVariationFirstName(variables: ChangeVariationFirstNameMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeVariationFirstNameMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<ChangeVariationFirstNameMutation>({ document: ChangeVariationFirstNameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeVariationFirstName', 'mutation', variables);
+    ChangeName(variables: ChangeNameMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeNameMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ChangeNameMutation>({ document: ChangeNameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeName', 'mutation', variables);
     },
-    ChangeVariationLastName(variables: ChangeVariationLastNameMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeVariationLastNameMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<ChangeVariationLastNameMutation>({ document: ChangeVariationLastNameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeVariationLastName', 'mutation', variables);
+    ChangeStatus(variables: ChangeStatusMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeStatusMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ChangeStatusMutation>({ document: ChangeStatusDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeStatus', 'mutation', variables);
     },
-    ChangeVariationStatus(variables: ChangeVariationStatusMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeVariationStatusMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<ChangeVariationStatusMutation>({ document: ChangeVariationStatusDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeVariationStatus', 'mutation', variables);
-    },
-    ChangeVariationDescription(variables: ChangeVariationDescriptionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeVariationDescriptionMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<ChangeVariationDescriptionMutation>({ document: ChangeVariationDescriptionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeVariationDescription', 'mutation', variables);
+    ChangeDescription(variables: ChangeDescriptionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeDescriptionMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ChangeDescriptionMutation>({ document: ChangeDescriptionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeDescription', 'mutation', variables);
     },
     SetDefaultVariation(variables: SetDefaultVariationMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SetDefaultVariationMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<SetDefaultVariationMutation>({ document: SetDefaultVariationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SetDefaultVariation', 'mutation', variables);
+    },
+    ExternalIdentities(variables: ExternalIdentitiesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ExternalIdentitiesQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ExternalIdentitiesQuery>({ document: ExternalIdentitiesDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ExternalIdentities', 'query', variables);
+    },
+    UnlinkExternalIdentity(variables: UnlinkExternalIdentityMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<UnlinkExternalIdentityMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<UnlinkExternalIdentityMutation>({ document: UnlinkExternalIdentityDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'UnlinkExternalIdentity', 'mutation', variables);
     }
   };
 }

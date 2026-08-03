@@ -1,0 +1,190 @@
+type Query {
+    user(auid: ID!): User
+    usernames(auid: ID!): Usernames
+    ownerByUsername(username: String!): ID
+    variations(auid: ID!): [Variation!]!
+    defaultVariation(auid: ID!): DefaultVariation
+    name(variationId: ID!): Name
+    description(variationId: ID!): Description
+    status(variationId: ID!): Status
+    parents(auid: ID!): Parents
+    identities(contextAuid: ID!, recursive: Boolean = false, cursor: ID, offset: Int = 0, limit: Int = 20): PaginatedIdentities!
+    externalIdentities(auid: ID!, tokenId: String): [ExternalIdentity!]!
+}
+
+type Mutation {
+    createUser(contextAuid: ID, tokenId: String, registrationKey: ID!): CreatedUser!
+    addUsername(auid: ID!, tokenId: String, username: String!): Usernames!
+    removeUsername(auid: ID!, tokenId: String, username: String!): Usernames!
+    changeDefaultUsername(auid: ID!, tokenId: String, username: String!): Usernames!
+    changeUsername(auid: ID!, tokenId: String, oldUsername: String!, newUsername: String!): Usernames!
+    createVariation(auid: ID!, tokenId: String, description: String, locationId: String, icon: String): Variation!
+    changeName(auid: ID!, tokenId: String, variationId: ID!, elements: [NameElementInput!]!): Name!
+    changeDescription(auid: ID!, tokenId: String, variationId: ID!, text: String): Description!
+    clearDescription(auid: ID!, tokenId: String, variationId: ID!): Description!
+    changeStatus(auid: ID!, tokenId: String, variationId: ID!, text: String, emoji: String, expiresAt: String, durationMinutes: Int): Status!
+    clearStatus(auid: ID!, tokenId: String, variationId: ID!): Status!
+    changeVariationLocationId(auid: ID!, tokenId: String, variationId: ID!, locationId: String): Variation!
+    changeVariationIcon(auid: ID!, tokenId: String, variationId: ID!, icon: String): Variation!
+    setDefaultVariation(auid: ID!, tokenId: String, variationId: ID!): DefaultVariation!
+    requestParent(auid: ID!, parentAuid: ID!, tokenId: String): Parents!
+    acceptParent(auid: ID!, parentAuid: ID!, tokenId: String): Parents!
+    reorderParents(auid: ID!, parentAuids: [ID!]!, tokenId: String): Parents!
+    setPassword(auid: ID!, tokenId: String, password: String!): Boolean!
+    loginWithPassword(auid: ID!, password: String!, permissions: [String!]): Token!
+    loginWithExternalIdentity(authentication: ExternalAuthenticationInput!, permissions: [String!]): AuthenticatedToken!
+    loginWithToken(auid: ID!, tokenId: String, permissions: [String!]): Token!
+    wrapTokenInCredentials(auid: ID!, tokenId: String): AuthCredentials!
+    linkExternalIdentity(auid: ID!, tokenId: String, authentication: ExternalAuthenticationInput!): ExternalIdentity!
+    unlinkExternalIdentity(auid: ID!, externalIdentityId: ID!, tokenId: String): Boolean!
+    refreshCredentials(refreshToken: String!): AuthCredentials!
+
+    revokeCredentials(refreshToken: String!): Boolean!
+    startTotpEnrollment(auid: ID!, tokenId: String): TotpEnrollmentResponse!
+    verifyTotpEnrollment(auid: ID!, tokenId: String, code: String!): Boolean!
+    loginWithTotp(totpToken: String!, code: String!): AuthenticatedToken!
+    startPasskeyRegistration(auid: ID!, tokenId: String, displayName: String): PasskeyCeremony!
+    finishPasskeyRegistration(auid: ID!, tokenId: String, challengeId: ID!, responseJson: String!): Boolean!
+    startPasskeyLogin(permissions: [String!]): PasskeyCeremony!
+    loginWithPasskey(challengeId: ID!, responseJson: String!): AuthenticatedToken!
+}
+
+type PasskeyCeremony {
+    challengeId: ID!
+    optionsJson: String!
+}
+
+type TotpEnrollmentResponse {
+    secret: String!
+    otpauthUrl: String!
+}
+
+type Identity {
+    auid: ID!
+    id: ID!
+}
+
+type CreatedUser {
+    auid: ID!
+    token: Token!
+}
+
+type PaginatedIdentities {
+    items: [Identity!]!
+}
+
+type User {
+    identity: Identity!
+    usernames: Usernames!
+    defaultVariation: DefaultVariation
+}
+
+type Usernames {
+    auid: ID!
+    usernames: [String!]!
+    defaultUsername: String!
+}
+
+type Variation {
+    id: ID!
+    auid: ID!
+    locationId: String
+    icon: String
+    createdAt: String!
+}
+
+type Description {
+    variationId: ID!
+    text: String
+    updatedAt: String!
+}
+
+type Status {
+    variationId: ID!
+    text: String
+    emoji: String
+    expiresAt: String
+    updatedAt: String!
+    isExpired: Boolean!
+}
+
+type Name {
+    variationId: ID!
+    elements: [NameElement!]!
+    displayName: String!
+}
+
+type NameElement {
+    partType: NamePartType
+    value: String
+    separatorType: NameSeparatorType
+}
+
+input NameElementInput {
+    partType: NamePartType
+    value: String
+    separatorType: NameSeparatorType
+}
+
+enum NamePartType {
+    TITLE
+    GIVEN_NAME
+    FAMILY_NAME
+    GENERATION
+    CREDENTIAL
+    UNSTRUCTURED
+}
+
+enum NameSeparatorType {
+    SPACE
+    COMMA_SPACE
+    HYPHEN
+    APOSTROPHE
+}
+
+type DefaultVariation {
+    auid: ID!
+    variationId: ID!
+}
+
+type Parents {
+    auid: ID!
+    parents: [Parent!]!
+}
+
+type Parent {
+    auid: ID!
+    status: ParentStatus!
+}
+
+enum ParentStatus {
+    PENDING
+    ACCEPTED
+}
+
+type Token {
+    id: ID!
+}
+
+type AuthenticatedToken {
+    id: ID!
+    auid: ID!
+}
+
+type AuthCredentials {
+    auid: ID!
+    accessToken: String!
+    refreshToken: String!
+    accessTokenExpiresAt: String!
+}
+
+input ExternalAuthenticationInput {
+    providerId: String!
+    token: String!
+}
+
+type ExternalIdentity {
+    id: ID!
+    providerId: String!
+    createdAt: String!
+}

@@ -16,6 +16,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const isOAuthFlow = !!redirectUri?.startsWith("/authorize");
   const registered = typeof params.registered === "string" ? params.registered : undefined;
   const addAccount = params.add_account === "true";
+  const authErrorCode = typeof params.auth_error === "string" ? params.auth_error : undefined;
+  const authError =
+    authErrorCode === "google_cancelled"
+      ? "Google sign-in was cancelled."
+      : authErrorCode === "google_unavailable"
+        ? "Google sign-in is not configured yet."
+        : authErrorCode === "google_not_linked"
+          ? "This Google account isn’t connected to an AXUS ID yet. Sign in with your username, then connect Google in Security."
+        : authErrorCode === "google_failed"
+          ? "We couldn’t sign you in with Google. Try again."
+          : undefined;
 
   const multiSession = await getValidMultiSession();
   const session = await getValidSession();
@@ -47,6 +58,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       next={next}
       existingAccounts={existingAccounts}
       isAddAccount={addAccount}
+      authError={authError}
     />
   );
 }

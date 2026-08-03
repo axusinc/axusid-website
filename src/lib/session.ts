@@ -33,6 +33,10 @@ type MultiSessionPayload = {
 
 const encoder = new TextEncoder();
 
+function isCanonicalAuid(value: unknown): value is string {
+  return typeof value === "string" && /^\d+(?:,\d+)*$/.test(value);
+}
+
 function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
@@ -115,7 +119,9 @@ export async function decodeMultiSession(token: string): Promise<MultiSession | 
 
     // Check if multi-session format
     if (raw.activeAuid && Array.isArray(raw.accounts)) {
-      const accounts = raw.accounts.map(parseAccountPayload);
+      const accounts = raw.accounts
+        .filter((account) => isCanonicalAuid(account.auid))
+        .map(parseAccountPayload);
       if (accounts.length === 0) {
         return null;
       }
@@ -129,7 +135,7 @@ export async function decodeMultiSession(token: string): Promise<MultiSession | 
     }
 
     // Fallback: legacy single session payload
-    if (raw.auid && raw.credentials) {
+    if (isCanonicalAuid(raw.auid) && raw.credentials) {
       const singleAccount = parseAccountPayload(raw as LegacySessionPayload);
       return {
         activeAuid: singleAccount.auid,

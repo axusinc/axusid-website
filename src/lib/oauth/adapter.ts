@@ -33,13 +33,26 @@ export async function loginWithBackend(
   permissions?: string[],
 ): Promise<AuthCredentials> {
   const sdk = getAuthSdk();
-  const result = await sdk.Login({
+  const credentialPermission = `identity.${auid}.credentials.issue`;
+  const loginPermissions = permissions?.length
+    ? [...new Set([...permissions, credentialPermission])]
+    : undefined;
+  const result = await sdk.LoginWithPassword({
     auid,
     password,
-    ...(permissions && permissions.length > 0 ? { permissions } : {}),
+    ...(loginPermissions ? { permissions: loginPermissions } : {}),
   });
 
-  return result.login;
+  return wrapTokenWithBackend(auid, result.loginWithPassword.id);
+}
+
+export async function wrapTokenWithBackend(
+  auid: string,
+  tokenId: string,
+): Promise<AuthCredentials & { auid: string }> {
+  const sdk = getAuthSdk();
+  const result = await sdk.WrapTokenInCredentials({ auid, tokenId });
+  return result.wrapTokenInCredentials;
 }
 
 export async function refreshWithBackend(

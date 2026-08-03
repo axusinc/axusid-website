@@ -12,7 +12,7 @@ type LogoProps = {
 export function Logo({ size = 40, className }: LogoProps) {
   return (
     <Image
-      src="/axusid-mark.png"
+      src="/icon-tm.png"
       alt="AXUS ID"
       width={MARK_WIDTH}
       height={MARK_HEIGHT}

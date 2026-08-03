@@ -1,12 +1,18 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
 
 const config: CodegenConfig = {
-  schema: process.env.AUTH_GRAPHQL_ENDPOINT ?? "http://localhost:8081/graphql",
+  schema: process.env.USE_REMOTE_GRAPHQL_SCHEMA === "true" && process.env.AUTH_GRAPHQL_ENDPOINT
+    ? process.env.AUTH_GRAPHQL_ENDPOINT
+    : "./schema_prod.graphql",
   documents: "src/graphql/operations/**/*.graphql",
   generates: {
     "src/graphql/sdk.ts": {
       plugins: [
-        "typescript",
+        {
+          typescript: {
+            typesPrefix: "Schema",
+          },
+        },
         "typescript-operations",
         "typescript-graphql-request",
       ],

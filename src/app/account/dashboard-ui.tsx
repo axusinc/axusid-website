@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ambientBackground, roundedRect } from "@/lib/design";
+import { roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 
 /* ── Layout ─────────────────────────────────────────────── */
@@ -8,15 +8,7 @@ export function AmbientBackground() {
   return (
     <>
       <div
-        className={cn("pointer-events-none absolute inset-0", ambientBackground)}
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -left-24 top-16 h-72 w-72 rounded-full bg-black/[0.03] blur-3xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-16 bottom-10 h-64 w-64 rounded-full bg-brand/[0.06] blur-3xl"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(182,28,28,0.08),transparent_30%),radial-gradient(circle_at_82%_88%,rgba(0,0,0,0.05),transparent_28%),linear-gradient(180deg,#ffffff_0%,#f4f4f4_100%)]"
         aria-hidden
       />
     </>
@@ -29,7 +21,7 @@ type DashboardShellProps = {
 
 export function DashboardShell({ children }: DashboardShellProps) {
   return (
-    <div className="relative min-h-full overflow-hidden bg-white">
+    <div className="relative flex min-h-full flex-1 overflow-x-hidden bg-white">
       <AmbientBackground />
       {children}
     </div>
@@ -119,15 +111,25 @@ export function PanelHeader({ title, subtitle, action }: PanelHeaderProps) {
 }
 
 type SectionIntroProps = {
+  eyebrow?: string;
   title: string;
   description: string;
 };
 
-export function SectionIntro({ title, description }: SectionIntroProps) {
+export function SectionIntro({ eyebrow, title, description }: SectionIntroProps) {
   return (
-    <div className="mb-4">
-      <h2 className="text-2xl font-semibold tracking-tight text-black">{title}</h2>
-      <p className="mt-2 text-sm leading-relaxed text-neutral-500">{description}</p>
+    <div className="mb-7 border-b border-black/[0.06] pb-7">
+      {eyebrow ? (
+        <p className="mb-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+          {eyebrow}
+        </p>
+      ) : null}
+      <h2 className="text-3xl font-semibold leading-tight tracking-[-0.035em] text-black sm:text-[2.25rem]">
+        {title}
+      </h2>
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-500">
+        {description}
+      </p>
     </div>
   );
 }
@@ -265,9 +267,20 @@ export function CopyChip({ value, copied, onCopy }: CopyChipProps) {
 
 /* ── Status badge ───────────────────────────────────────── */
 
-export function StatusBadge({ children }: { children: React.ReactNode }) {
+export function StatusBadge({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <span className="inline-flex rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600">
+    <span
+      className={cn(
+        "inline-flex rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-600",
+        className,
+      )}
+    >
       {children}
     </span>
   );

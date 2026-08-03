@@ -12,9 +12,16 @@ import type { AccountItemInfo } from "@/lib/user-profile";
 type UserAccountSwitcherProps = {
   accounts: AccountItemInfo[];
   currentAuid: string;
+  direction?: "up" | "down";
+  align?: "left" | "right";
 };
 
-export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitcherProps) {
+export function UserAccountSwitcher({
+  accounts,
+  currentAuid,
+  direction = "down",
+  align = "right",
+}: UserAccountSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -109,7 +116,11 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
           >
             <path
               fillRule="evenodd"
-              d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+              d={
+                direction === "up"
+                  ? "M14.78 11.78a.75.75 0 0 1-1.06 0L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z"
+                  : "M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+              }
               clipRule="evenodd"
             />
           </svg>
@@ -120,9 +131,15 @@ export function UserAccountSwitcher({ accounts, currentAuid }: UserAccountSwitch
       {isOpen && (
         <div
           className={cn(
-            "absolute right-0 z-50 mt-2 w-72 sm:w-80 origin-top-right p-3 animate-[fadeIn_0.15s_ease-out]",
+            "absolute z-50 w-72 sm:w-80 p-3 animate-[fadeIn_0.15s_ease-out]",
             popoverSurface,
             roundedRect,
+            direction === "up" ? "bottom-full mb-2" : "top-full mt-2",
+            align === "left" ? "left-0" : "right-0",
+            direction === "up" && align === "left" && "origin-bottom-left",
+            direction === "up" && align === "right" && "origin-bottom-right",
+            direction === "down" && align === "left" && "origin-top-left",
+            direction === "down" && align === "right" && "origin-top-right",
           )}
         >
           <div className="px-2 pt-0.5 pb-2 flex items-center justify-between border-b border-black/5 mb-2">

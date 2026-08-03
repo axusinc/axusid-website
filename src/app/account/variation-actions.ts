@@ -5,6 +5,10 @@ import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
+import {
+  buildSimpleNameElements,
+  parseNameElementsJson,
+} from "@/lib/profile-name";
 
 export type VariationActionState = {
   error?: string;
@@ -31,13 +35,29 @@ export async function createVariationAction(
 
   try {
     const sdk = getAuthSdkForSession(session);
-    await sdk.CreateVariation({
+    const firstName = optionalString(formData.get("firstName"));
+    const lastName = optionalString(formData.get("lastName"));
+    const status = optionalString(formData.get("status"));
+    const result = await sdk.CreateVariation({
       auid: session.auid,
-      firstName: optionalString(formData.get("firstName")),
-      lastName: optionalString(formData.get("lastName")),
-      status: optionalString(formData.get("status")),
       description: optionalString(formData.get("description")),
     });
+    const variationId = result.createVariation.id;
+
+    if (firstName || lastName) {
+      await sdk.ChangeName({
+        auid: session.auid,
+        variationId,
+        elements: buildSimpleNameElements(firstName, lastName),
+      });
+    }
+    if (status) {
+      await sdk.ChangeStatus({
+        auid: session.auid,
+        variationId,
+        text: status,
+      });
+    }
     revalidatePath("/account");
     return { success: "Variation created." };
   } catch (error) {
@@ -51,11 +71,9 @@ export async function createVariationAction(
   }
 }
 
-type ProfileField = "firstName" | "lastName" | "status" | "description" | "name";
+type ProfileField = "status" | "description" | "name";
 
 const fieldSuccessMessages: Record<ProfileField, string> = {
-  firstName: "First name updated.",
-  lastName: "Last name updated.",
   name: "Name updated.",
   status: "Status updated.",
   description: "Bio updated.",
@@ -85,39 +103,31 @@ export async function updateVariationFieldAction(
     const auid = session.auid;
 
     if (field === "name") {
-      await sdk.ChangeVariationFirstName({
+      let elements;
+      try {
+        elements = parseNameElementsJson(formData.get("nameElements"));
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "Name details are invalid.",
+        };
+      }
+
+      await sdk.ChangeName({
         auid,
         variationId,
-        firstName: optionalString(formData.get("firstName")),
-      });
-      await sdk.ChangeVariationLastName({
-        auid,
-        variationId,
-        lastName: optionalString(formData.get("lastName")),
-      });
-    } else if (field === "firstName") {
-      await sdk.ChangeVariationFirstName({
-        auid,
-        variationId,
-        firstName: optionalString(formData.get("firstName")),
-      });
-    } else if (field === "lastName") {
-      await sdk.ChangeVariationLastName({
-        auid,
-        variationId,
-        lastName: optionalString(formData.get("lastName")),
+        elements,
       });
     } else if (field === "status") {
-      await sdk.ChangeVariationStatus({
+      await sdk.ChangeStatus({
         auid,
         variationId,
-        status: optionalString(formData.get("status")),
+        text: optionalString(formData.get("status")),
       });
     } else if (field === "description") {
-      await sdk.ChangeVariationDescription({
+      await sdk.ChangeDescription({
         auid,
         variationId,
-        description: optionalString(formData.get("description")),
+        text: optionalString(formData.get("description")),
       });
     }
 

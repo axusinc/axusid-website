@@ -128,7 +128,7 @@ async function handleSsoRequest(
 
     const firstName = defaultVariation?.firstName || "";
     const lastName = defaultVariation?.lastName || "";
-    const displayName = [firstName, lastName].filter(Boolean).join(" ") || username;
+    const displayName = defaultVariation?.displayName?.trim() || username;
 
     const userAttributes: SamlUserAttributes = {
       auid: session.auid,

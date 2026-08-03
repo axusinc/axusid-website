@@ -1,101 +1,29 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { Code2, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DeveloperSection } from "@/app/account/developer-section";
 import { Avatar, SectionIntro } from "@/app/account/dashboard-ui";
-import { cardSurface, roundedRect } from "@/lib/design";
+import { Logo } from "@/components/ui/logo";
+import { UserAccountSwitcher } from "@/components/user-account-switcher";
 import type { OAuthClient } from "@/lib/oauth/constants";
+import type { PasskeyCredential } from "@/lib/passkey-graphql";
 import { cn } from "@/lib/utils";
+import type { AccountItemInfo } from "@/lib/user-profile";
+import type { ProfileName } from "@/lib/profile-name";
 import { AccountForms } from "./account-forms";
 import { NestedAccountForm } from "./nested-account-form";
 import { VariationForms } from "./variation-forms";
 
+import type { ExternalIdentity } from "@/lib/google-oauth";
+
 type SectionId = "profile" | "security" | "nested-accounts" | "developer";
-
-type SectionIconProps = {
-  className?: string;
-};
-
-function AccountsIcon({ className }: SectionIconProps) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function ProfileIcon({ className }: SectionIconProps) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M20 21a8 8 0 0 0-16 0" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function SecurityIcon({ className }: SectionIconProps) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-}
-
-function DeveloperIcon({ className }: SectionIconProps) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M16 18 22 12 16 6" />
-      <path d="M8 6 2 12 8 18" />
-    </svg>
-  );
-}
 
 type Variation = {
   id: string;
+  name: ProfileName | null;
+  displayName: string | null;
   firstName: string | null;
   lastName: string | null;
   status: string | null;
@@ -111,6 +39,8 @@ type SamlConfig = {
 
 type AccountDashboardProps = {
   auid: string;
+  accounts: AccountItemInfo[];
+  currentAuid: string;
   defaultUsername: string | null;
   defaultVariation: Variation | null;
   fullName: string;
@@ -118,17 +48,19 @@ type AccountDashboardProps = {
   clients: OAuthClient[];
   issuer: string;
   samlConfig?: SamlConfig;
+  initialPasskeys?: PasskeyCredential[];
+  initialExternalIdentities?: ExternalIdentity[];
 };
 
 const sections: {
   id: SectionId;
   label: string;
-  Icon: ({ className }: SectionIconProps) => React.JSX.Element;
+  Icon: typeof UserRound;
 }[] = [
-  { id: "profile", label: "Profile", Icon: ProfileIcon },
-  { id: "security", label: "Security", Icon: SecurityIcon },
-  { id: "nested-accounts", label: "Nested Accounts", Icon: AccountsIcon },
-  { id: "developer", label: "Developer", Icon: DeveloperIcon },
+  { id: "profile", label: "Profile", Icon: UserRound },
+  { id: "security", label: "Security", Icon: ShieldCheck },
+  { id: "nested-accounts", label: "Nested accounts", Icon: UsersRound },
+  { id: "developer", label: "Developer", Icon: Code2 },
 ];
 
 function parseSection(value: string | null): SectionId {
@@ -149,7 +81,7 @@ const sectionMeta: Record<SectionId, { title: string; description: string }> = {
     description: "Manage how you sign in to your AXUS ID account.",
   },
   "nested-accounts": {
-    title: "Nested Accounts",
+    title: "Nested accounts",
     description:
       "Create sub-accounts in the context of your user account.",
   },
@@ -162,6 +94,8 @@ const sectionMeta: Record<SectionId, { title: string; description: string }> = {
 
 export function AccountDashboard({
   auid,
+  accounts,
+  currentAuid,
   defaultUsername,
   defaultVariation,
   fullName,
@@ -169,6 +103,8 @@ export function AccountDashboard({
   clients,
   issuer,
   samlConfig,
+  initialPasskeys = [],
+  initialExternalIdentities = [],
 }: AccountDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -213,12 +149,7 @@ export function AccountDashboard({
 
   const sectionNav = (
     <nav
-      className={cn(
-        "flex w-full flex-col gap-1 p-2",
-        cardSurface,
-        roundedRect,
-        "max-lg:sticky max-lg:top-[73px] max-lg:z-40 max-lg:-mx-6 max-lg:px-6 max-lg:py-2 max-lg:bg-white/70 max-lg:backdrop-blur-xl",
-      )}
+      className="flex w-full gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
       aria-label="Account sections"
     >
       {sections.map(({ id, label, Icon }) => (
@@ -227,15 +158,21 @@ export function AccountDashboard({
           type="button"
           onClick={() => handleSectionChange(id)}
           className={cn(
-            "inline-flex w-full items-center justify-start gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10",
-            roundedRect,
+            "group inline-flex shrink-0 items-center justify-start gap-2.5 rounded-[12px] border px-3.5 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5 lg:w-full lg:px-4",
             active === id
-              ? "bg-neutral-100 text-black"
-              : "text-neutral-500 hover:bg-neutral-50 hover:text-black",
+              ? "border-black/[0.07] bg-white text-black shadow-sm"
+              : "border-transparent text-neutral-500 hover:bg-black/[0.035] hover:text-black",
           )}
           aria-current={active === id ? "page" : undefined}
         >
-          <Icon className="h-4 w-4 shrink-0" />
+          <Icon
+            className={cn(
+              "h-4 w-4 shrink-0 transition-colors",
+              active === id ? "text-brand" : "text-neutral-400 group-hover:text-neutral-600",
+            )}
+            strokeWidth={1.8}
+            aria-hidden
+          />
           {label}
         </button>
       ))}
@@ -243,63 +180,95 @@ export function AccountDashboard({
   );
 
   return (
-    <div className="flex w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-14 xl:gap-20">
-      <aside className="flex shrink-0 flex-col lg:sticky lg:top-28 lg:w-52 lg:items-center lg:text-center xl:w-56">
-        <div className="flex items-center gap-4 lg:flex-col lg:items-center">
+    <section className="relative min-h-screen w-full bg-white/85 backdrop-blur-2xl lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="relative z-30 isolate overflow-visible border-b border-black/[0.06] bg-neutral-50/80 px-5 py-5 sm:px-7 sm:py-7 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r lg:px-7 lg:py-8">
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand/[0.07] blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-black/[0.04] blur-3xl" />
+        </div>
+
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Logo size={42} />
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+              AXUS ID
+            </span>
+          </div>
+          <div className="lg:hidden">
+            <UserAccountSwitcher accounts={accounts} currentAuid={currentAuid} />
+          </div>
+        </div>
+
+        <div className="relative mt-8 flex items-center gap-4 lg:mt-14 lg:block">
           <Avatar
             firstName={defaultVariation?.firstName}
             lastName={defaultVariation?.lastName}
             username={username}
             size="md"
-            className="lg:h-24 lg:w-24 lg:text-3xl"
+            className="h-14 w-14 ring-[3px] ring-black/[0.04] lg:h-20 lg:w-20"
           />
 
-          <div className="min-w-0 text-left lg:mt-6 lg:text-center">
-            <h1 className="text-xl font-semibold tracking-tight text-black lg:text-3xl">
+          <div className="min-w-0 lg:mt-5">
+            <p className="mb-1.5 hidden text-[11px] font-semibold uppercase tracking-[0.16em] text-brand lg:block">
+              Your account
+            </p>
+            <h1 className="truncate text-xl font-semibold tracking-[-0.025em] text-black lg:text-2xl">
               {fullName || "Your account"}
             </h1>
             {username ? (
-              <p className="mt-1 text-sm text-neutral-500">@{username}</p>
+              <p className="mt-1 truncate text-sm text-neutral-500">@{username}</p>
             ) : null}
           </div>
         </div>
 
-        <div className="mt-6 lg:mt-8 lg:w-full">{sectionNav}</div>
+        <div className="relative mt-6 lg:mt-9">{sectionNav}</div>
+
+        <div className="relative mt-auto hidden border-t border-black/[0.06] pt-6 lg:block">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
+            Signed in as
+          </p>
+          <UserAccountSwitcher accounts={accounts} currentAuid={currentAuid} direction="up" align="left" />
+        </div>
       </aside>
 
-      <div className="min-w-0 flex-1">
-        <SectionIntro
-          title={sectionMeta[active].title}
-          description={sectionMeta[active].description}
-        />
+      <div className="min-w-0 px-5 py-7 sm:px-7 sm:py-9 lg:px-10 lg:py-10 xl:px-12 xl:py-12">
+        <div className="mx-auto w-full max-w-4xl">
+          <SectionIntro
+            eyebrow="Account settings"
+            title={sectionMeta[active].title}
+            description={sectionMeta[active].description}
+          />
 
-        <div key={active} className="animate-[fadeIn_0.3s_ease-out]">
-          {active === "profile" ? (
-            <VariationForms
-              defaultVariation={defaultVariation}
-              defaultUsername={defaultUsername}
-              auid={auid}
-              onEditingChange={handleEditingChange}
-              cancelRef={profileCancelRef}
-            />
-          ) : active === "security" ? (
-            <AccountForms
-              auid={auid}
-              onEditingChange={handleEditingChange}
-              cancelRef={securityCancelRef}
-            />
-          ) : active === "nested-accounts" ? (
-            <NestedAccountForm auid={auid} />
-          ) : (
-            <DeveloperSection
-              auid={auid}
-              issuer={issuer}
-              clients={clients}
-              samlConfig={samlConfig}
-            />
-          )}
+          <div key={active} className="animate-[fadeIn_0.3s_ease-out]">
+            {active === "profile" ? (
+              <VariationForms
+                defaultVariation={defaultVariation}
+                defaultUsername={defaultUsername}
+                auid={auid}
+                onEditingChange={handleEditingChange}
+                cancelRef={profileCancelRef}
+              />
+            ) : active === "security" ? (
+              <AccountForms
+                auid={auid}
+                initialPasskeys={initialPasskeys}
+                initialExternalIdentities={initialExternalIdentities}
+                onEditingChange={handleEditingChange}
+                cancelRef={securityCancelRef}
+              />
+            ) : active === "nested-accounts" ? (
+              <NestedAccountForm auid={auid} />
+            ) : (
+              <DeveloperSection
+                auid={auid}
+                issuer={issuer}
+                clients={clients}
+                samlConfig={samlConfig}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

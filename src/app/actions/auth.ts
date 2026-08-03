@@ -5,8 +5,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
-import { formatGraphqlError } from "@/lib/graphql-errors";
-import { loginWithBackend } from "@/lib/oauth/adapter";
+import {
+  DOMAIN_ERROR_CODES,
+  formatGraphqlError,
+  getPrimaryDomainError,
+} from "@/lib/graphql-errors";
+import { loginWithBackend, wrapTokenWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
 import {
   getOAuthClient,
@@ -40,10 +44,89 @@ import { formatSyntheticEmail } from "@/lib/user-profile";
 export type AuthActionState = {
   error?: string;
   success?: string;
+  auid?: string;
+  registrationKey?: string;
 };
 
 async function getActionSession(): Promise<IdPSession | null> {
   return getValidSession();
+}
+
+export async function checkUsernameAction(
+  username: string,
+): Promise<{ exists: boolean; error?: string }> {
+  const normalizedUsername = username.trim().replace(/^@/, "");
+
+  if (!normalizedUsername) {
+    return { exists: false, error: "Enter your username." };
+  }
+
+  try {
+    await resolveLoginAuid(normalizedUsername);
+    return { exists: true };
+  } catch {
+    return {
+      exists: false,
+      error: "We couldn’t find an AXUS ID with that username.",
+    };
+  }
+}
+
+export async function checkUsernameAvailabilityAction(
+  username: string,
+): Promise<{
+  available: boolean;
+  reason?: "taken" | "error";
+  error?: string;
+}> {
+  const normalizedUsername = username.trim().replace(/^@/, "");
+
+  if (!normalizedUsername) {
+    return { available: true };
+  }
+
+  if (normalizedUsername.length < 4) {
+    return {
+      available: false,
+      reason: "error",
+      error: "Username must be at least 4 characters long.",
+    };
+  }
+
+  try {
+    const result = await getAuthSdk().OwnerByUsername({
+      username: normalizedUsername,
+    });
+
+    if (result.ownerByUsername) {
+      return {
+        available: false,
+        reason: "taken",
+        error: "That username is already in use. Try another one.",
+      };
+    }
+
+    return { available: true };
+  } catch (error) {
+    const domainError = getPrimaryDomainError(error);
+    if (
+      domainError?.code === DOMAIN_ERROR_CODES.USERNAME_NOT_FOUND ||
+      domainError?.code === DOMAIN_ERROR_CODES.USERNAMES_NOT_FOUND ||
+      domainError?.code === DOMAIN_ERROR_CODES.IDENTITY_NOT_FOUND
+    ) {
+      return { available: true };
+    }
+
+    return {
+      available: false,
+      reason: "error",
+      error: formatGraphqlError(
+        error,
+        undefined,
+        "We couldn’t check that username. Try again.",
+      ),
+    };
+  }
 }
 
 export async function loginAction(
@@ -342,31 +425,83 @@ export async function denyConsentAction(formData: FormData) {
   redirect(clientUrl.toString());
 }
 
+async function ensureRegistrationUsername(
+  sdk: ReturnType<typeof getAuthSdk>,
+  params: { auid: string; tokenId: string; username: string },
+) {
+  try {
+    await sdk.AddUsername(params);
+  } catch (error) {
+    const domainError = getPrimaryDomainError(error);
+    if (domainError?.code !== DOMAIN_ERROR_CODES.USERNAME_ALREADY_EXISTS) {
+      throw error;
+    }
+
+    const owner = await sdk.OwnerByUsername({ username: params.username });
+    if (owner.ownerByUsername !== params.auid) {
+      throw error;
+    }
+  }
+}
+
 export async function registerAction(
   _prevState: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const redirectUri = String(formData.get("redirect_uri") ?? "");
+  const next = String(formData.get("next") ?? "");
   const contextAuid = String(formData.get("contextAuid") ?? "").trim();
+  const requestedUsername = String(formData.get("username") ?? "").trim();
+  const rawKey = String(formData.get("registrationKey") ?? "").trim();
+  const registrationKey = rawKey || crypto.randomUUID();
 
-  if (!username || !password) {
-    return { error: "Username and password are required." };
+  if (!requestedUsername) {
+    return { error: "Username is required.", registrationKey };
+  }
+
+  if (requestedUsername.length < 4) {
+    return {
+      error: "Username must be at least 4 characters long.",
+      registrationKey,
+    };
+  }
+
+  if (!password) {
+    return { error: "Password is required.", registrationKey };
   }
 
   if (password !== confirmPassword) {
-    return { error: "Passwords do not match." };
+    return { error: "Passwords do not match.", registrationKey };
   }
 
   try {
     const sdk = getAuthSdk();
-    await sdk.CreateUser({
-      username,
-      password,
+    const result = await sdk.CreateUser({
+      registrationKey,
       contextAuid: contextAuid || undefined,
     });
+    const auid = result.createUser.auid;
+    const tokenId = result.createUser.token.id;
+
+    await ensureRegistrationUsername(sdk, {
+      auid,
+      tokenId,
+      username: requestedUsername,
+    });
+    await sdk.SetPassword({ auid, tokenId, password });
+
+    const credentials = await wrapTokenWithBackend(auid, tokenId);
+    const session: IdPSession = {
+      auid,
+      credentials,
+      oidcScopes: ["openid"],
+      axusPermissions: [],
+      consentedClients: [],
+    };
+
+    await addAccountToSession(session);
   } catch (error) {
     return {
       error: formatGraphqlError(
@@ -374,13 +509,16 @@ export async function registerAction(
         undefined,
         "Unable to create account. Try again.",
       ),
+      registrationKey,
     };
   }
 
-  const dest = redirectUri
-    ? `/login?registered=${encodeURIComponent(username)}&redirect_uri=${encodeURIComponent(redirectUri)}`
-    : `/login?registered=${encodeURIComponent(username)}`;
-  redirect(dest);
+  redirect(
+    resolveAuthenticatedRedirect({
+      redirectUri: redirectUri || undefined,
+      next: next || undefined,
+    }),
+  );
 }
 
 export async function createNestedAccountAction(
@@ -392,31 +530,51 @@ export async function createNestedAccountAction(
     return { error: "Your session has expired. Sign in again." };
   }
 
-  const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const customContextAuid = String(formData.get("contextAuid") ?? "").trim();
   const contextAuid = customContextAuid || session.auid;
+  const rawKey = String(formData.get("registrationKey") ?? "").trim();
+  const registrationKey = rawKey || crypto.randomUUID();
+  const requestedUsername = String(formData.get("username") ?? "").trim();
 
-  if (!username || !password) {
-    return { error: "Username and password are required." };
+  if (requestedUsername && requestedUsername.length < 4) {
+    return {
+      error: "Username must be at least 4 characters long.",
+      registrationKey,
+    };
+  }
+
+  if (!password) {
+    return { error: "Password is required.", registrationKey };
   }
 
   if (password !== confirmPassword) {
-    return { error: "Passwords do not match." };
+    return { error: "Passwords do not match.", registrationKey };
   }
 
   try {
     const sdk = getAuthSdkForSession(session);
     const result = await sdk.CreateUser({
-      username,
-      password,
       contextAuid,
+      registrationKey,
     });
+
+    const auid = result.createUser.auid;
+    const tokenId = result.createUser.token.id;
+
+    await ensureRegistrationUsername(sdk, {
+      auid,
+      tokenId,
+      username: requestedUsername || registrationKey,
+    });
+    await sdk.SetPassword({ auid, tokenId, password });
 
     revalidatePath("/account");
     return {
-      success: `Nested account created successfully: @${username} (AUID: ${result.createUser.auid}).`,
+      success: `Nested account created successfully (AUID: ${auid}).`,
+      auid,
+      registrationKey,
     };
   } catch (error) {
     return {
@@ -425,6 +583,7 @@ export async function createNestedAccountAction(
         "account",
         "Unable to create nested account. Try again.",
       ),
+      registrationKey,
     };
   }
 }
@@ -451,7 +610,7 @@ export async function changePasswordAction(
 
   try {
     const sdk = getAuthSdkForSession(session);
-    await sdk.ChangePassword({ auid: session.auid, newPassword });
+    await sdk.SetPassword({ auid: session.auid, password: newPassword });
     return { success: "Password updated successfully." };
   } catch (error) {
     return {
