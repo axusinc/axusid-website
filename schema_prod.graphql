@@ -10,6 +10,7 @@ type Query {
     parents(auid: ID!): Parents
     identities(contextAuid: ID!, recursive: Boolean = false, cursor: ID, offset: Int = 0, limit: Int = 20): PaginatedIdentities!
     externalIdentities(auid: ID!, tokenId: String): [ExternalIdentity!]!
+    passkeys(auid: ID!, tokenId: String): [PasskeyCredential!]!
 }
 
 type Mutation {
@@ -44,9 +45,22 @@ type Mutation {
     verifyTotpEnrollment(auid: ID!, tokenId: String, code: String!): Boolean!
     loginWithTotp(totpToken: String!, code: String!): AuthenticatedToken!
     startPasskeyRegistration(auid: ID!, tokenId: String, displayName: String): PasskeyCeremony!
-    finishPasskeyRegistration(auid: ID!, tokenId: String, challengeId: ID!, responseJson: String!): Boolean!
+    finishPasskeyRegistration(auid: ID!, tokenId: String, challengeId: ID!, responseJson: String!, name: String): Boolean!
+    updatePasskeyName(auid: ID!, credentialId: ID!, name: String!, tokenId: String): Boolean!
+    deletePasskey(auid: ID!, credentialId: ID!, tokenId: String): Boolean!
     startPasskeyLogin(permissions: [String!]): PasskeyCeremony!
     loginWithPasskey(challengeId: ID!, responseJson: String!): AuthenticatedToken!
+}
+
+type PasskeyCredential {
+    credentialId: ID!
+    auid: ID!
+    name: String
+    transports: [String!]
+    backupEligible: Boolean!
+    backedUp: Boolean!
+    createdAt: String!
+    lastUsedAt: String
 }
 
 type PasskeyCeremony {

@@ -49,3 +49,32 @@ mutation SetPassword(
 ) {
   setPassword(auid: $auid, tokenId: $tokenId, password: $password)
 }
+
+mutation LoginWithExternalIdentity(
+  $authentication: ExternalAuthenticationInput!
+  $permissions: [String!]
+) {
+  loginWithExternalIdentity(
+    authentication: $authentication
+    permissions: $permissions
+  ) {
+    id
+    auid
+  }
+}
+
+mutation LinkExternalIdentity(
+  $auid: ID!
+  $tokenId: String
+  $authentication: ExternalAuthenticationInput!
+) {
+  linkExternalIdentity(
+    auid: $auid
+    tokenId: $tokenId
+    authentication: $authentication
+  ) {
+    id
+    providerId
+    createdAt
+  }
+}

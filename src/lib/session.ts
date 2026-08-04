@@ -90,6 +90,7 @@ export async function encodeMultiSession(multiSession: MultiSession): Promise<st
   const payload: MultiSessionPayload = {
     activeAuid: multiSession.activeAuid,
     accounts: multiSession.accounts,
+    // 24 hours refresh token / session lifetime
     exp: Date.now() + 24 * 60 * 60 * 1000,
   };
 
@@ -181,7 +182,7 @@ export const sessionCookieOptions = {
   httpOnly: true,
   sameSite: "lax" as const,
   secure: process.env.NODE_ENV === "production",
-  maxAge: 60 * 60 * 24,
+  maxAge: 60 * 60 * 24, // 24 hours
 };
 
 export const clearSessionCookieOptions = {

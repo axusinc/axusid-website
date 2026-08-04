@@ -82,6 +82,7 @@ export type SchemaMutation = {
   clearStatus: SchemaStatus;
   createUser: SchemaCreatedUser;
   createVariation: SchemaVariation;
+  deletePasskey: Scalars['Boolean']['output'];
   finishPasskeyRegistration: Scalars['Boolean']['output'];
   linkExternalIdentity: SchemaExternalIdentity;
   loginWithExternalIdentity: SchemaAuthenticatedToken;
@@ -100,6 +101,7 @@ export type SchemaMutation = {
   startPasskeyRegistration: SchemaPasskeyCeremony;
   startTotpEnrollment: SchemaTotpEnrollmentResponse;
   unlinkExternalIdentity: Scalars['Boolean']['output'];
+  updatePasskeyName: Scalars['Boolean']['output'];
   verifyTotpEnrollment: Scalars['Boolean']['output'];
   wrapTokenInCredentials: SchemaAuthCredentials;
 };
@@ -207,9 +209,17 @@ export type SchemaMutationCreateVariationArgs = {
 };
 
 
+export type SchemaMutationDeletePasskeyArgs = {
+  auid: Scalars['ID']['input'];
+  credentialId: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
 export type SchemaMutationFinishPasskeyRegistrationArgs = {
   auid: Scalars['ID']['input'];
   challengeId: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
   responseJson: Scalars['String']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
 };
@@ -324,6 +334,14 @@ export type SchemaMutationUnlinkExternalIdentityArgs = {
 };
 
 
+export type SchemaMutationUpdatePasskeyNameArgs = {
+  auid: Scalars['ID']['input'];
+  credentialId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
 export type SchemaMutationVerifyTotpEnrollmentArgs = {
   auid: Scalars['ID']['input'];
   code: Scalars['String']['input'];
@@ -400,6 +418,18 @@ export type SchemaPasskeyCeremony = {
   optionsJson: Scalars['String']['output'];
 };
 
+export type SchemaPasskeyCredential = {
+  __typename?: 'PasskeyCredential';
+  auid: Scalars['ID']['output'];
+  backedUp: Scalars['Boolean']['output'];
+  backupEligible: Scalars['Boolean']['output'];
+  createdAt: Scalars['String']['output'];
+  credentialId: Scalars['ID']['output'];
+  lastUsedAt?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  transports?: Maybe<Array<Scalars['String']['output']>>;
+};
+
 export type SchemaQuery = {
   __typename?: 'Query';
   defaultVariation?: Maybe<SchemaDefaultVariation>;
@@ -409,6 +439,7 @@ export type SchemaQuery = {
   name?: Maybe<SchemaName>;
   ownerByUsername?: Maybe<Scalars['ID']['output']>;
   parents?: Maybe<SchemaParents>;
+  passkeys: Array<SchemaPasskeyCredential>;
   status?: Maybe<SchemaStatus>;
   user?: Maybe<SchemaUser>;
   usernames?: Maybe<SchemaUsernames>;
@@ -453,6 +484,12 @@ export type SchemaQueryOwnerByUsernameArgs = {
 
 export type SchemaQueryParentsArgs = {
   auid: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryPasskeysArgs = {
+  auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -517,6 +554,11 @@ export type SchemaVariation = {
   icon?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   locationId?: Maybe<Scalars['String']['output']>;
+};
+
+export type ExternalAuthenticationInput = {
+  providerId: string;
+  token: string;
 };
 
 export type NameElementInput = {
@@ -587,6 +629,85 @@ export type SetPasswordMutationVariables = Exact<{
 
 
 export type SetPasswordMutation = { setPassword: boolean };
+
+export type LoginWithExternalIdentityMutationVariables = Exact<{
+  authentication: ExternalAuthenticationInput;
+  permissions?: Array<string> | string | null | undefined;
+}>;
+
+
+export type LoginWithExternalIdentityMutation = { loginWithExternalIdentity: { id: string, auid: string } };
+
+export type LinkExternalIdentityMutationVariables = Exact<{
+  auid: string | number;
+  tokenId?: string | null | undefined;
+  authentication: ExternalAuthenticationInput;
+}>;
+
+
+export type LinkExternalIdentityMutation = { linkExternalIdentity: { id: string, providerId: string, createdAt: string } };
+
+export type PasskeysQueryVariables = Exact<{
+  auid: string | number;
+  tokenId?: string | null | undefined;
+}>;
+
+
+export type PasskeysQuery = { passkeys: Array<{ credentialId: string, auid: string, name: string | null, transports: Array<string> | null, backupEligible: boolean, backedUp: boolean, createdAt: string, lastUsedAt: string | null }> };
+
+export type StartPasskeyRegistrationMutationVariables = Exact<{
+  auid: string | number;
+  tokenId?: string | null | undefined;
+  displayName?: string | null | undefined;
+}>;
+
+
+export type StartPasskeyRegistrationMutation = { startPasskeyRegistration: { challengeId: string, optionsJson: string } };
+
+export type FinishPasskeyRegistrationMutationVariables = Exact<{
+  auid: string | number;
+  tokenId?: string | null | undefined;
+  challengeId: string | number;
+  responseJson: string;
+  name?: string | null | undefined;
+}>;
+
+
+export type FinishPasskeyRegistrationMutation = { finishPasskeyRegistration: boolean };
+
+export type UpdatePasskeyNameMutationVariables = Exact<{
+  auid: string | number;
+  credentialId: string | number;
+  name: string;
+  tokenId?: string | null | undefined;
+}>;
+
+
+export type UpdatePasskeyNameMutation = { updatePasskeyName: boolean };
+
+export type DeletePasskeyMutationVariables = Exact<{
+  auid: string | number;
+  credentialId: string | number;
+  tokenId?: string | null | undefined;
+}>;
+
+
+export type DeletePasskeyMutation = { deletePasskey: boolean };
+
+export type StartPasskeyLoginMutationVariables = Exact<{
+  permissions?: Array<string> | string | null | undefined;
+}>;
+
+
+export type StartPasskeyLoginMutation = { startPasskeyLogin: { challengeId: string, optionsJson: string } };
+
+export type LoginWithPasskeyMutationVariables = Exact<{
+  challengeId: string | number;
+  responseJson: string;
+}>;
+
+
+export type LoginWithPasskeyMutation = { loginWithPasskey: { id: string, auid: string } };
 
 export type OwnerByUsernameQueryVariables = Exact<{
   username: string;
@@ -789,6 +910,98 @@ export const CreateUserDocument = gql`
 export const SetPasswordDocument = gql`
     mutation SetPassword($auid: ID!, $tokenId: String, $password: String!) {
   setPassword(auid: $auid, tokenId: $tokenId, password: $password)
+}
+    `;
+export const LoginWithExternalIdentityDocument = gql`
+    mutation LoginWithExternalIdentity($authentication: ExternalAuthenticationInput!, $permissions: [String!]) {
+  loginWithExternalIdentity(
+    authentication: $authentication
+    permissions: $permissions
+  ) {
+    id
+    auid
+  }
+}
+    `;
+export const LinkExternalIdentityDocument = gql`
+    mutation LinkExternalIdentity($auid: ID!, $tokenId: String, $authentication: ExternalAuthenticationInput!) {
+  linkExternalIdentity(
+    auid: $auid
+    tokenId: $tokenId
+    authentication: $authentication
+  ) {
+    id
+    providerId
+    createdAt
+  }
+}
+    `;
+export const PasskeysDocument = gql`
+    query Passkeys($auid: ID!, $tokenId: String) {
+  passkeys(auid: $auid, tokenId: $tokenId) {
+    credentialId
+    auid
+    name
+    transports
+    backupEligible
+    backedUp
+    createdAt
+    lastUsedAt
+  }
+}
+    `;
+export const StartPasskeyRegistrationDocument = gql`
+    mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String) {
+  startPasskeyRegistration(
+    auid: $auid
+    tokenId: $tokenId
+    displayName: $displayName
+  ) {
+    challengeId
+    optionsJson
+  }
+}
+    `;
+export const FinishPasskeyRegistrationDocument = gql`
+    mutation FinishPasskeyRegistration($auid: ID!, $tokenId: String, $challengeId: ID!, $responseJson: String!, $name: String) {
+  finishPasskeyRegistration(
+    auid: $auid
+    tokenId: $tokenId
+    challengeId: $challengeId
+    responseJson: $responseJson
+    name: $name
+  )
+}
+    `;
+export const UpdatePasskeyNameDocument = gql`
+    mutation UpdatePasskeyName($auid: ID!, $credentialId: ID!, $name: String!, $tokenId: String) {
+  updatePasskeyName(
+    auid: $auid
+    credentialId: $credentialId
+    name: $name
+    tokenId: $tokenId
+  )
+}
+    `;
+export const DeletePasskeyDocument = gql`
+    mutation DeletePasskey($auid: ID!, $credentialId: ID!, $tokenId: String) {
+  deletePasskey(auid: $auid, credentialId: $credentialId, tokenId: $tokenId)
+}
+    `;
+export const StartPasskeyLoginDocument = gql`
+    mutation StartPasskeyLogin($permissions: [String!]) {
+  startPasskeyLogin(permissions: $permissions) {
+    challengeId
+    optionsJson
+  }
+}
+    `;
+export const LoginWithPasskeyDocument = gql`
+    mutation LoginWithPasskey($challengeId: ID!, $responseJson: String!) {
+  loginWithPasskey(challengeId: $challengeId, responseJson: $responseJson) {
+    id
+    auid
+  }
 }
     `;
 export const OwnerByUsernameDocument = gql`
@@ -1018,6 +1231,33 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     SetPassword(variables: SetPasswordMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SetPasswordMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<SetPasswordMutation>({ document: SetPasswordDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SetPassword', 'mutation', variables);
+    },
+    LoginWithExternalIdentity(variables: LoginWithExternalIdentityMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithExternalIdentityMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<LoginWithExternalIdentityMutation>({ document: LoginWithExternalIdentityDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithExternalIdentity', 'mutation', variables);
+    },
+    LinkExternalIdentity(variables: LinkExternalIdentityMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LinkExternalIdentityMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<LinkExternalIdentityMutation>({ document: LinkExternalIdentityDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LinkExternalIdentity', 'mutation', variables);
+    },
+    Passkeys(variables: PasskeysQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<PasskeysQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<PasskeysQuery>({ document: PasskeysDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Passkeys', 'query', variables);
+    },
+    StartPasskeyRegistration(variables: StartPasskeyRegistrationMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<StartPasskeyRegistrationMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<StartPasskeyRegistrationMutation>({ document: StartPasskeyRegistrationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'StartPasskeyRegistration', 'mutation', variables);
+    },
+    FinishPasskeyRegistration(variables: FinishPasskeyRegistrationMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<FinishPasskeyRegistrationMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<FinishPasskeyRegistrationMutation>({ document: FinishPasskeyRegistrationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'FinishPasskeyRegistration', 'mutation', variables);
+    },
+    UpdatePasskeyName(variables: UpdatePasskeyNameMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<UpdatePasskeyNameMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<UpdatePasskeyNameMutation>({ document: UpdatePasskeyNameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'UpdatePasskeyName', 'mutation', variables);
+    },
+    DeletePasskey(variables: DeletePasskeyMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DeletePasskeyMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DeletePasskeyMutation>({ document: DeletePasskeyDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'DeletePasskey', 'mutation', variables);
+    },
+    StartPasskeyLogin(variables?: StartPasskeyLoginMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<StartPasskeyLoginMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<StartPasskeyLoginMutation>({ document: StartPasskeyLoginDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'StartPasskeyLogin', 'mutation', variables);
+    },
+    LoginWithPasskey(variables: LoginWithPasskeyMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithPasskeyMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<LoginWithPasskeyMutation>({ document: LoginWithPasskeyDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithPasskey', 'mutation', variables);
     },
     OwnerByUsername(variables: OwnerByUsernameQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<OwnerByUsernameQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<OwnerByUsernameQuery>({ document: OwnerByUsernameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'OwnerByUsername', 'query', variables);

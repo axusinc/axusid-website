@@ -1,13 +1,18 @@
 import "server-only";
 
-import gql from "graphql-tag";
-import { createAuthGraphqlClient, type AuthCredentials } from "@/lib/auth-graphql";
-import { wrapTokenWithBackend } from "@/lib/oauth/adapter";
+import { getAuthSdk, type AuthCredentials } from "@/lib/auth-graphql";
+import { wrapTokenWithBackend, refreshWithBackend } from "@/lib/oauth/adapter";
+import { isGraphqlClientError } from "@/lib/graphql-errors";
 
 export type PasskeyCredential = {
   id: string;
-  name: string | null;
+  credentialId: string;
+  name?: string | null;
+  transports?: string[];
+  backupEligible?: boolean;
+  backedUp?: boolean;
   createdAt: string;
+  lastUsedAt?: string | null;
 };
 
 export type PasskeyEnrollmentResponse = {
@@ -20,65 +25,18 @@ export type PasskeyLoginResponse = {
   optionsJson: string;
 };
 
-const START_PASSKEY_REGISTRATION = gql`
-  mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String) {
-    startPasskeyRegistration(auid: $auid, tokenId: $tokenId, displayName: $displayName) {
-      challengeId
-      optionsJson
-    }
-  }
-`;
-
-const FINISH_PASSKEY_REGISTRATION = gql`
-  mutation FinishPasskeyRegistration($auid: ID!, $tokenId: String, $challengeId: ID!, $responseJson: String!) {
-    finishPasskeyRegistration(auid: $auid, tokenId: $tokenId, challengeId: $challengeId, responseJson: $responseJson)
-  }
-`;
-
-const START_PASSKEY_LOGIN = gql`
-  mutation StartPasskeyLogin($permissions: [String!]) {
-    startPasskeyLogin(permissions: $permissions) {
-      challengeId
-      optionsJson
-    }
-  }
-`;
-
-const LOGIN_WITH_PASSKEY = gql`
-  mutation LoginWithPasskey($challengeId: ID!, $responseJson: String!) {
-    loginWithPasskey(challengeId: $challengeId, responseJson: $responseJson) {
-      id
-      auid
-    }
-  }
-`;
-
-const PASSKEYS_QUERY = gql`
-  query Passkeys($auid: ID!) {
-    passkeys(auid: $auid) {
-      id
-      name
-      createdAt
-    }
-  }
-`;
-
-const DELETE_PASSKEY = gql`
-  mutation DeletePasskey($auid: ID!, $tokenId: String, $passkeyId: ID!) {
-    deletePasskey(auid: $auid, tokenId: $tokenId, passkeyId: $passkeyId)
-  }
-`;
-
 export async function startPasskeyEnrollment(
   auid: string,
   displayName?: string,
   bearerToken?: string,
+  tokenId?: string,
 ): Promise<PasskeyEnrollmentResponse> {
-  const client = createAuthGraphqlClient(bearerToken);
-  const data = await client.request<{ startPasskeyRegistration: PasskeyEnrollmentResponse }>(
-    START_PASSKEY_REGISTRATION,
-    { auid, displayName },
-  );
+  const sdk = getAuthSdk(bearerToken);
+  const data = await sdk.StartPasskeyRegistration({
+    auid,
+    displayName,
+    tokenId,
+  });
   return data.startPasskeyRegistration;
 }
 
@@ -86,24 +44,28 @@ export async function verifyPasskeyEnrollment(
   auid: string,
   challengeId: string,
   responseJson: string,
+  name?: string,
   bearerToken?: string,
+  tokenId?: string,
 ): Promise<boolean> {
-  const client = createAuthGraphqlClient(bearerToken);
-  const data = await client.request<{ finishPasskeyRegistration: boolean }>(
-    FINISH_PASSKEY_REGISTRATION,
-    { auid, challengeId, responseJson },
-  );
+  const sdk = getAuthSdk(bearerToken);
+  const data = await sdk.FinishPasskeyRegistration({
+    auid,
+    challengeId,
+    responseJson,
+    name: name?.trim() || undefined,
+    tokenId,
+  });
   return data.finishPasskeyRegistration;
 }
 
 export async function startPasskeyLogin(
   permissions?: string[],
 ): Promise<PasskeyLoginResponse> {
-  const client = createAuthGraphqlClient();
-  const data = await client.request<{ startPasskeyLogin: PasskeyLoginResponse }>(
-    START_PASSKEY_LOGIN,
-    { permissions: permissions && permissions.length > 0 ? permissions : undefined },
-  );
+  const sdk = getAuthSdk();
+  const data = await sdk.StartPasskeyLogin({
+    permissions: permissions && permissions.length > 0 ? permissions : undefined,
+  });
   return data.startPasskeyLogin;
 }
 
@@ -112,11 +74,8 @@ export async function loginWithPasskey(
   responseJson: string,
   fallbackAuid?: string,
 ): Promise<AuthCredentials & { auid: string }> {
-  const client = createAuthGraphqlClient();
-  const data = await client.request<{ loginWithPasskey: { id: string; auid?: string } }>(
-    LOGIN_WITH_PASSKEY,
-    { challengeId, responseJson },
-  );
+  const sdk = getAuthSdk();
+  const data = await sdk.LoginWithPasskey({ challengeId, responseJson });
   const resolvedAuid = data.loginWithPasskey.auid || fallbackAuid || "";
   return wrapTokenWithBackend(resolvedAuid, data.loginWithPasskey.id);
 }
@@ -124,16 +83,70 @@ export async function loginWithPasskey(
 export async function getUserPasskeys(
   auid: string,
   bearerToken?: string,
+  tokenId?: string,
+  refreshToken?: string,
 ): Promise<PasskeyCredential[]> {
-  const client = createAuthGraphqlClient(bearerToken);
+  let sdk = getAuthSdk(bearerToken);
   try {
-    const data = await client.request<{ passkeys: PasskeyCredential[] }>(
-      PASSKEYS_QUERY,
-      { auid },
-    );
-    return data.passkeys ?? [];
-  } catch {
+    const data = await sdk.Passkeys({ auid, tokenId });
+    return (data.passkeys ?? []).map((p) => ({
+      id: p.credentialId,
+      credentialId: p.credentialId,
+      name: p.name ?? null,
+      transports: p.transports ?? [],
+      backupEligible: p.backupEligible,
+      backedUp: p.backedUp,
+      createdAt: p.createdAt,
+      lastUsedAt: p.lastUsedAt ?? null,
+    }));
+  } catch (error) {
+    if (refreshToken && isGraphqlClientError(error)) {
+      const msg = error.response.errors?.[0]?.message ?? "";
+      const code = error.response.errors?.[0]?.extensions?.code;
+      if (msg.toLowerCase().includes("expired") || code === "INVALID_CREDENTIALS" || code === "NOT_AUTHORIZED") {
+        try {
+          const freshCredentials = await refreshWithBackend(refreshToken);
+          sdk = getAuthSdk(freshCredentials.accessToken);
+          const data = await sdk.Passkeys({ auid, tokenId });
+          return (data.passkeys ?? []).map((p) => ({
+            id: p.credentialId,
+            credentialId: p.credentialId,
+            name: p.name ?? null,
+            transports: p.transports ?? [],
+            backupEligible: p.backupEligible,
+            backedUp: p.backedUp,
+            createdAt: p.createdAt,
+            lastUsedAt: p.lastUsedAt ?? null,
+          }));
+        } catch (refreshError) {
+          console.error("[getUserPasskeys refresh error]:", refreshError);
+        }
+      }
+    }
+    console.error("[getUserPasskeys error]:", error);
     return [];
+  }
+}
+
+export async function updatePasskeyName(
+  auid: string,
+  passkeyId: string,
+  name: string,
+  bearerToken?: string,
+  tokenId?: string,
+): Promise<boolean> {
+  const sdk = getAuthSdk(bearerToken);
+  try {
+    const data = await sdk.UpdatePasskeyName({
+      auid,
+      credentialId: passkeyId,
+      name,
+      tokenId,
+    });
+    return data.updatePasskeyName;
+  } catch (error) {
+    console.error("[updatePasskeyName error]:", error);
+    return false;
   }
 }
 
@@ -141,15 +154,18 @@ export async function deletePasskey(
   auid: string,
   passkeyId: string,
   bearerToken?: string,
+  tokenId?: string,
 ): Promise<boolean> {
-  const client = createAuthGraphqlClient(bearerToken);
+  const sdk = getAuthSdk(bearerToken);
   try {
-    const data = await client.request<{ deletePasskey: boolean }>(
-      DELETE_PASSKEY,
-      { auid, passkeyId },
-    );
+    const data = await sdk.DeletePasskey({
+      auid,
+      credentialId: passkeyId,
+      tokenId,
+    });
     return data.deletePasskey;
-  } catch {
-    return true;
+  } catch (error) {
+    console.error("[deletePasskey error]:", error);
+    return false;
   }
 }

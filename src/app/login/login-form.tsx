@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
 import { roundedRect } from "@/lib/design";
-import { cn } from "@/lib/utils";
+import { cn, isRedirectError } from "@/lib/utils";
 import { getPasskeyCredential } from "@/lib/webauthn";
 import type { AccountItemInfo } from "@/lib/user-profile";
 
@@ -107,6 +107,12 @@ export function LoginForm({
           setPasskeyError(result.error);
         }
       } catch (error) {
+        if (isRedirectError(error)) {
+          throw error;
+        }
+        if (error instanceof Error && error.name === "NotAllowedError") {
+          return;
+        }
         setPasskeyError(
           error instanceof Error ? error.message : "Passkey sign in failed.",
         );

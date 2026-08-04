@@ -7,6 +7,7 @@ export type WrappedRefreshPayload = {
   clientId: string;
   scopes: string[];
   backendRefreshToken: string;
+  exp?: number;
 };
 
 export async function wrapRefreshToken(
@@ -27,6 +28,10 @@ export async function unwrapRefreshToken(
     !data.backendRefreshToken
   ) {
     throw new Error("Invalid refresh token payload");
+  }
+
+  if (data.exp && data.exp <= Date.now()) {
+    throw new Error("Refresh token has expired");
   }
 
   return data;

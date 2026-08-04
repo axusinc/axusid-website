@@ -2,7 +2,7 @@ import { roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 
 type ButtonProps = React.ComponentProps<"button"> & {
-  variant?: "default" | "brand" | "ghost" | "outline";
+  variant?: "default" | "brand" | "ghost" | "outline" | "soft";
 };
 
 const variants = {
@@ -14,6 +14,8 @@ const variants = {
     "bg-transparent text-black hover:bg-black/5 focus-visible:ring-black/10",
   outline:
     "border border-black/10 bg-white/60 text-black hover:bg-white focus-visible:ring-black/10",
+  soft:
+    "bg-black/[0.04] text-neutral-700 hover:bg-black/[0.07] hover:text-black focus-visible:ring-black/10",
 };
 
 export function Button({

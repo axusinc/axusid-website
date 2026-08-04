@@ -114,6 +114,7 @@ export function AccountDashboard({
   const [isEditing, setIsEditing] = useState(false);
   const profileCancelRef = useRef<(() => void) | null>(null);
   const securityCancelRef = useRef<(() => void) | null>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -141,6 +142,7 @@ export function AccountDashboard({
 
     setActive(section);
     router.replace(`/account?section=${section}`, { scroll: false });
+    mainContentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleEditingChange = (editing: boolean) => {
@@ -180,14 +182,14 @@ export function AccountDashboard({
   );
 
   return (
-    <section className="relative min-h-screen w-full bg-white/85 backdrop-blur-2xl lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="relative z-30 isolate overflow-visible border-b border-black/[0.06] bg-neutral-50/80 px-5 py-5 sm:px-7 sm:py-7 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r lg:px-7 lg:py-8">
+    <section className="relative min-h-screen w-full bg-white/85 backdrop-blur-2xl lg:h-screen lg:overflow-hidden lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="relative z-30 isolate border-b border-black/[0.06] bg-neutral-50/80 px-5 py-5 sm:px-7 sm:py-7 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-7 lg:py-8 custom-scrollbar">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand/[0.07] blur-3xl" />
           <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-black/[0.04] blur-3xl" />
         </div>
 
-        <div className="relative flex items-center justify-between gap-4">
+        <div className="relative flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
             <Logo size={42} />
             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
@@ -199,7 +201,7 @@ export function AccountDashboard({
           </div>
         </div>
 
-        <div className="relative mt-8 flex items-center gap-4 lg:mt-14 lg:block">
+        <div className="relative mt-8 flex items-center gap-4 shrink-0 lg:mt-14 lg:block">
           <Avatar
             firstName={defaultVariation?.firstName}
             lastName={defaultVariation?.lastName}
@@ -221,9 +223,9 @@ export function AccountDashboard({
           </div>
         </div>
 
-        <div className="relative mt-6 lg:mt-9">{sectionNav}</div>
+        <div className="relative mt-6 shrink-0 lg:mt-9">{sectionNav}</div>
 
-        <div className="relative mt-auto hidden border-t border-black/[0.06] pt-6 lg:block">
+        <div className="relative mt-auto hidden shrink-0 border-t border-black/[0.06] pt-6 lg:block">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
             Signed in as
           </p>
@@ -231,7 +233,7 @@ export function AccountDashboard({
         </div>
       </aside>
 
-      <div className="min-w-0 px-5 py-7 sm:px-7 sm:py-9 lg:px-10 lg:py-10 xl:px-12 xl:py-12">
+      <div ref={mainContentRef} className="min-w-0 px-5 py-7 sm:px-7 sm:py-9 lg:h-screen lg:overflow-y-auto lg:px-10 lg:py-10 xl:px-12 xl:py-12 custom-scrollbar">
         <div className="mx-auto w-full max-w-4xl">
           <SectionIntro
             eyebrow="Account settings"

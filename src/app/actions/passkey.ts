@@ -12,6 +12,7 @@ import { getOAuthClient, normalizeScopes, partitionScopes, validateScopes } from
 import {
   startPasskeyEnrollment,
   verifyPasskeyEnrollment,
+  updatePasskeyName,
   startPasskeyLogin,
   loginWithPasskey,
   deletePasskey,
@@ -188,6 +189,7 @@ export async function startPasskeyEnrollmentAction(
 export async function verifyPasskeyEnrollmentAction(
   challengeId: string,
   credentialResponse: string,
+  name?: string,
 ): Promise<PasskeyActionState> {
   const session = await getValidSession();
   if (!session) {
@@ -200,6 +202,7 @@ export async function verifyPasskeyEnrollmentAction(
       session.auid,
       challengeId,
       credentialResponse,
+      name,
       bearer,
     );
 
@@ -208,6 +211,36 @@ export async function verifyPasskeyEnrollmentAction(
   } catch (error) {
     return {
       error: formatGraphqlError(error, undefined, "Unable to register passkey."),
+    };
+  }
+}
+
+export async function updatePasskeyNameAction(
+  passkeyId: string,
+  name: string,
+): Promise<PasskeyActionState> {
+  const session = await getValidSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    return { error: "Passkey name cannot be empty." };
+  }
+
+  try {
+    const bearer = opaqueGraphqlBearer(session.credentials);
+    const success = await updatePasskeyName(session.auid, passkeyId, trimmedName, bearer);
+    if (!success) {
+      return { error: "Failed to update passkey name." };
+    }
+
+    revalidatePath("/account");
+    return { success: "Passkey name updated successfully." };
+  } catch (error) {
+    return {
+      error: formatGraphqlError(error, undefined, "Unable to update passkey name."),
     };
   }
 }

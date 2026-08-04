@@ -1,0 +1,45 @@
+query Passkeys($auid: ID!, $tokenId: String) {
+  passkeys(auid: $auid, tokenId: $tokenId) {
+    credentialId
+    auid
+    name
+    transports
+    backupEligible
+    backedUp
+    createdAt
+    lastUsedAt
+  }
+}
+
+mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String) {
+  startPasskeyRegistration(auid: $auid, tokenId: $tokenId, displayName: $displayName) {
+    challengeId
+    optionsJson
+  }
+}
+
+mutation FinishPasskeyRegistration($auid: ID!, $tokenId: String, $challengeId: ID!, $responseJson: String!, $name: String) {
+  finishPasskeyRegistration(auid: $auid, tokenId: $tokenId, challengeId: $challengeId, responseJson: $responseJson, name: $name)
+}
+
+mutation UpdatePasskeyName($auid: ID!, $credentialId: ID!, $name: String!, $tokenId: String) {
+  updatePasskeyName(auid: $auid, credentialId: $credentialId, name: $name, tokenId: $tokenId)
+}
+
+mutation DeletePasskey($auid: ID!, $credentialId: ID!, $tokenId: String) {
+  deletePasskey(auid: $auid, credentialId: $credentialId, tokenId: $tokenId)
+}
+
+mutation StartPasskeyLogin($permissions: [String!]) {
+  startPasskeyLogin(permissions: $permissions) {
+    challengeId
+    optionsJson
+  }
+}
+
+mutation LoginWithPasskey($challengeId: ID!, $responseJson: String!) {
+  loginWithPasskey(challengeId: $challengeId, responseJson: $responseJson) {
+    id
+    auid
+  }
+}

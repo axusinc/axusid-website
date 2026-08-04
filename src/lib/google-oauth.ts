@@ -1,8 +1,7 @@
 import "server-only";
 
-import gql from "graphql-tag";
 import {
-  createAuthGraphqlClient,
+  getAuthSdk,
   opaqueGraphqlBearer,
   type AuthCredentials,
 } from "@/lib/auth-graphql";
@@ -31,34 +30,6 @@ export type GoogleOAuthState = {
 type GoogleTokenResponse = {
   id_token?: string;
 };
-
-const LOGIN_WITH_EXTERNAL_IDENTITY = gql`
-  mutation LoginWithExternalIdentity(
-    $authentication: ExternalAuthenticationInput!
-    $permissions: [String!]
-  ) {
-    loginWithExternalIdentity(
-      authentication: $authentication
-      permissions: $permissions
-    ) {
-      id
-      auid
-    }
-  }
-`;
-
-const LINK_EXTERNAL_IDENTITY = gql`
-  mutation LinkGoogleIdentity(
-    $auid: ID!
-    $authentication: ExternalAuthenticationInput!
-  ) {
-    linkExternalIdentity(auid: $auid, authentication: $authentication) {
-      id
-      providerId
-      createdAt
-    }
-  }
-`;
 
 function base64Url(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64url");
@@ -219,20 +190,16 @@ export async function loginWithGoogleIdentity(
   idToken: string,
   permissions: string[],
 ): Promise<AuthCredentials & { auid: string }> {
-  const client = createAuthGraphqlClient();
-  const authenticate = (requestedPermissions?: string[]) => client.request<{
-    loginWithExternalIdentity: { id: string; auid: string };
-  }>(LOGIN_WITH_EXTERNAL_IDENTITY, {
-    authentication: {
-      providerId: getGoogleProviderId(),
-      token: idToken,
-    },
-    permissions: requestedPermissions?.length ? requestedPermissions : undefined,
-  });
+  const sdk = getAuthSdk();
+  const authenticate = (requestedPermissions?: string[]) =>
+    sdk.LoginWithExternalIdentity({
+      authentication: {
+        providerId: getGoogleProviderId(),
+        token: idToken,
+      },
+      permissions: requestedPermissions?.length ? requestedPermissions : undefined,
+    });
 
-  // The first authentication resolves the AXUS identity linked to the Google
-  // subject. A second token can then request that identity's credential-issue
-  // permission without trusting identity data from the browser.
   const identityResult = await authenticate();
   const auid = identityResult.loginWithExternalIdentity.auid;
   const credentialPermission = `identity.${auid}.credentials.issue`;
@@ -249,8 +216,8 @@ export async function linkGoogleIdentity(
   session: IdPSession,
   idToken: string,
 ): Promise<void> {
-  const client = createAuthGraphqlClient(opaqueGraphqlBearer(session.credentials));
-  await client.request(LINK_EXTERNAL_IDENTITY, {
+  const sdk = getAuthSdk(opaqueGraphqlBearer(session.credentials));
+  await sdk.LinkExternalIdentity({
     auid: session.auid,
     authentication: {
       providerId: getGoogleProviderId(),
@@ -265,33 +232,18 @@ export type ExternalIdentity = {
   createdAt: string;
 };
 
-const EXTERNAL_IDENTITIES_QUERY = gql`
-  query ExternalIdentities($auid: ID!) {
-    externalIdentities(auid: $auid) {
-      id
-      providerId
-      createdAt
-    }
-  }
-`;
-
-const UNLINK_EXTERNAL_IDENTITY = gql`
-  mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!) {
-    unlinkExternalIdentity(auid: $auid, externalIdentityId: $externalIdentityId)
-  }
-`;
-
 export async function getUserExternalIdentities(
   auid: string,
   bearerToken?: string,
 ): Promise<ExternalIdentity[]> {
-  const client = createAuthGraphqlClient(bearerToken);
+  const sdk = getAuthSdk(bearerToken);
   try {
-    const data = await client.request<{ externalIdentities: ExternalIdentity[] }>(
-      EXTERNAL_IDENTITIES_QUERY,
-      { auid },
-    );
-    return data.externalIdentities ?? [];
+    const data = await sdk.ExternalIdentities({ auid });
+    return (data.externalIdentities ?? []).map((item) => ({
+      id: item.id,
+      providerId: item.providerId,
+      createdAt: item.createdAt,
+    }));
   } catch {
     return [];
   }
@@ -302,15 +254,11 @@ export async function unlinkExternalIdentity(
   externalIdentityId: string,
   bearerToken?: string,
 ): Promise<boolean> {
-  const client = createAuthGraphqlClient(bearerToken);
+  const sdk = getAuthSdk(bearerToken);
   try {
-    const data = await client.request<{ unlinkExternalIdentity: boolean }>(
-      UNLINK_EXTERNAL_IDENTITY,
-      { auid, externalIdentityId },
-    );
+    const data = await sdk.UnlinkExternalIdentity({ auid, externalIdentityId });
     return data.unlinkExternalIdentity;
   } catch {
     return false;
   }
 }
-

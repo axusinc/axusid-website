@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect, useTransition, useOptimistic } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { logoutAction, logoutAllAction, switchAccountAction } from "@/app/actions/auth";
 import { Avatar } from "@/app/account/dashboard-ui";
@@ -23,7 +24,16 @@ export function UserAccountSwitcher({
   align = "right",
 }: UserAccountSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  } | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -32,12 +42,46 @@ export function UserAccountSwitcher({
     (_state, newAuid: string) => newAuid,
   );
 
-  const activeAccount = accounts.find((acc) => acc.auid === optimisticAuid) || accounts[0];
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  const updateCoords = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    updateCoords();
+    window.addEventListener("resize", updateCoords);
+    window.addEventListener("scroll", updateCoords, true);
+
+    return () => {
+      window.removeEventListener("resize", updateCoords);
+      window.removeEventListener("scroll", updateCoords, true);
+    };
+  }, [isOpen]);
 
   // Close popover when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
@@ -48,6 +92,8 @@ export function UserAccountSwitcher({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
+
+  const activeAccount = accounts.find((acc) => acc.auid === optimisticAuid) || accounts[0];
 
   if (!activeAccount) return null;
 
@@ -67,11 +113,187 @@ export function UserAccountSwitcher({
     ? `@${activeAccount.username}`
     : activeAccount.displayName;
 
+  const toggleOpen = () => {
+    if (!isOpen) {
+      updateCoords();
+    }
+    setIsOpen((prev) => !prev);
+  };
+
+  const getPopoverStyle = (): React.CSSProperties => {
+    if (!coords) return { position: "fixed", opacity: 0, pointerEvents: "none" };
+
+    const style: React.CSSProperties = {
+      position: "fixed",
+      zIndex: 9999,
+    };
+
+    if (direction === "up") {
+      style.bottom = `${window.innerHeight - coords.top + 8}px`;
+    } else {
+      style.top = `${coords.bottom + 8}px`;
+    }
+
+    if (align === "left") {
+      style.left = `${coords.left}px`;
+    } else {
+      style.right = `${window.innerWidth - coords.right}px`;
+    }
+
+    return style;
+  };
+
+  const popoverContent = isOpen && (
+    <div
+      ref={dropdownRef}
+      style={getPopoverStyle()}
+      className={cn(
+        "w-72 sm:w-80 max-w-[calc(100vw-24px)] p-3 animate-[fadeIn_0.15s_ease-out]",
+        popoverSurface,
+        roundedRect,
+        direction === "up" && align === "left" && "origin-bottom-left",
+        direction === "up" && align === "right" && "origin-bottom-right",
+        direction === "down" && align === "left" && "origin-top-left",
+        direction === "down" && align === "right" && "origin-top-right",
+      )}
+    >
+      <div className="px-2 pt-0.5 pb-2 flex items-center justify-between border-b border-black/5 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+          Signed-in Accounts
+        </p>
+        <span className="text-[10px] font-semibold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
+          {accounts.length}
+        </span>
+      </div>
+
+      {/* Account List */}
+      <div className="space-y-1.5">
+        {accounts.map((account) => {
+          const isActive = account.auid === activeAccount.auid;
+          const usernameDisplay = account.username ? `@${account.username}` : null;
+
+          return (
+            <div
+              key={account.auid}
+              className={cn(
+                "group flex items-center justify-between p-2.5 transition-all border",
+                roundedRect,
+                isActive
+                  ? "border-black/15 bg-neutral-100/90 shadow-2xs"
+                  : "border-black/5 bg-white/50 hover:bg-neutral-50 hover:border-black/10",
+              )}
+            >
+              {isActive ? (
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <Avatar
+                    firstName={account.firstName}
+                    lastName={account.lastName}
+                    username={account.username}
+                    size="sm"
+                    className="h-8 w-8 text-xs font-bold shrink-0 ring-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-black truncate">
+                        {account.displayName}
+                      </p>
+                      <span className="shrink-0 text-[10px] font-semibold text-neutral-600 bg-black/[0.06] px-2 py-0.5 rounded-md">
+                        Active
+                      </span>
+                    </div>
+                    {usernameDisplay && (
+                      <p className="text-[11px] text-neutral-500 truncate">
+                        {usernameDisplay}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSwitchAccount(account.auid)}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus:outline-none cursor-pointer"
+                >
+                  <Avatar
+                    firstName={account.firstName}
+                    lastName={account.lastName}
+                    username={account.username}
+                    size="sm"
+                    className="h-8 w-8 text-xs font-semibold shrink-0 ring-0 opacity-90 group-hover:opacity-100"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-neutral-800 group-hover:text-black truncate">
+                      {account.displayName}
+                    </p>
+                    {usernameDisplay && (
+                      <p className="text-[11px] text-neutral-500 truncate">
+                        {usernameDisplay}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              )}
+
+              {/* Individual Account Sign Out */}
+              <form action={logoutAction} className="ml-1.5 shrink-0">
+                <input type="hidden" name="auid" value={account.auid} />
+                <button
+                  type="submit"
+                  title="Sign out of this account"
+                  className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg cursor-pointer"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
+              </form>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Action Options */}
+      <div className="mt-2.5 pt-2 border-t border-black/5 space-y-1.5">
+        <Link
+          href="/login?add_account=true"
+          className={cn(
+            "flex w-full items-center gap-2.5 px-3 py-2 border border-dashed border-black/15 bg-neutral-50/60 hover:bg-neutral-100/90 text-neutral-700 hover:text-black text-xs font-medium transition-all cursor-pointer",
+            roundedRect,
+          )}
+          onClick={() => setIsOpen(false)}
+        >
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-black/5 text-neutral-700">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+          <span>Add another account</span>
+        </Link>
+
+        <form action={logoutAllAction}>
+          <button
+            type="submit"
+            className={cn(
+              "flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/80 transition-colors cursor-pointer",
+              roundedRect,
+            )}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sign out of all accounts
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
+    <div className="relative inline-block text-left">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={toggleOpen}
         className={cn(
           "group relative inline-flex items-center gap-2 border border-black/10 bg-white/80 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-all hover:bg-white hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 shadow-2xs cursor-pointer",
           roundedRect,
@@ -127,151 +349,8 @@ export function UserAccountSwitcher({
         )}
       </button>
 
-      {/* Account Selector Dropdown Popover */}
-      {isOpen && (
-        <div
-          className={cn(
-            "absolute z-50 w-72 sm:w-80 p-3 animate-[fadeIn_0.15s_ease-out]",
-            popoverSurface,
-            roundedRect,
-            direction === "up" ? "bottom-full mb-2" : "top-full mt-2",
-            align === "left" ? "left-0" : "right-0",
-            direction === "up" && align === "left" && "origin-bottom-left",
-            direction === "up" && align === "right" && "origin-bottom-right",
-            direction === "down" && align === "left" && "origin-top-left",
-            direction === "down" && align === "right" && "origin-top-right",
-          )}
-        >
-          <div className="px-2 pt-0.5 pb-2 flex items-center justify-between border-b border-black/5 mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-              Signed-in Accounts
-            </p>
-            <span className="text-[10px] font-semibold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
-              {accounts.length}
-            </span>
-          </div>
-
-          {/* Account List */}
-          <div className="space-y-1.5">
-            {accounts.map((account) => {
-              const isActive = account.auid === activeAccount.auid;
-              const usernameDisplay = account.username ? `@${account.username}` : null;
-
-              return (
-                <div
-                  key={account.auid}
-                  className={cn(
-                    "group flex items-center justify-between p-2.5 transition-all border",
-                    roundedRect,
-                    isActive
-                      ? "border-black/15 bg-neutral-100/90 shadow-2xs"
-                      : "border-black/5 bg-white/50 hover:bg-neutral-50 hover:border-black/10",
-                  )}
-                >
-                  {isActive ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <Avatar
-                        firstName={account.firstName}
-                        lastName={account.lastName}
-                        username={account.username}
-                        size="sm"
-                        className="h-8 w-8 text-xs font-bold shrink-0 ring-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-semibold text-black truncate">
-                            {account.displayName}
-                          </p>
-                          <span className="shrink-0 text-[10px] font-semibold text-neutral-600 bg-black/[0.06] px-2 py-0.5 rounded-md">
-                            Active
-                          </span>
-                        </div>
-                        {usernameDisplay && (
-                          <p className="text-[11px] text-neutral-500 truncate">
-                            {usernameDisplay}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchAccount(account.auid)}
-                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus:outline-none cursor-pointer"
-                    >
-                      <Avatar
-                        firstName={account.firstName}
-                        lastName={account.lastName}
-                        username={account.username}
-                        size="sm"
-                        className="h-8 w-8 text-xs font-semibold shrink-0 ring-0 opacity-90 group-hover:opacity-100"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-neutral-800 group-hover:text-black truncate">
-                          {account.displayName}
-                        </p>
-                        {usernameDisplay && (
-                          <p className="text-[11px] text-neutral-500 truncate">
-                            {usernameDisplay}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Individual Account Sign Out */}
-                  <form action={logoutAction} className="ml-1.5 shrink-0">
-                    <input type="hidden" name="auid" value={account.auid} />
-                    <button
-                      type="submit"
-                      title="Sign out of this account"
-                      className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg cursor-pointer"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                    </button>
-                  </form>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Action Options */}
-          <div className="mt-2.5 pt-2 border-t border-black/5 space-y-1.5">
-            <Link
-              href="/login?add_account=true"
-              className={cn(
-                "flex w-full items-center gap-2.5 px-3 py-2 border border-dashed border-black/15 bg-neutral-50/60 hover:bg-neutral-100/90 text-neutral-700 hover:text-black text-xs font-medium transition-all cursor-pointer",
-                roundedRect,
-              )}
-              onClick={() => setIsOpen(false)}
-            >
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-black/5 text-neutral-700">
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <span>Add another account</span>
-            </Link>
-
-            <form action={logoutAllAction}>
-              <button
-                type="submit"
-                className={cn(
-                  "flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/80 transition-colors cursor-pointer",
-                  roundedRect,
-                )}
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                Sign out of all accounts
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {mounted && popoverContent ? createPortal(popoverContent, document.body) : null}
     </div>
   );
 }
+

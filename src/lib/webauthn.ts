@@ -71,6 +71,18 @@ export type PasskeyAccountName = {
   displayName?: string;
 };
 
+function getValidRpId(backendRpId?: string): string | undefined {
+  if (typeof window === "undefined") return backendRpId;
+  const currentHost = window.location.hostname;
+  if (!backendRpId) return currentHost;
+
+  const isMatch =
+    currentHost === backendRpId ||
+    currentHost.endsWith("." + backendRpId);
+
+  return isMatch ? backendRpId : currentHost;
+}
+
 /**
  * Executes browser WebAuthn passkey registration (creation).
  */
@@ -95,9 +107,7 @@ export async function createPasskeyCredential(
   }
 
   const challengeBuffer = base64UrlToBuffer(parsedOptions.challenge);
-
-  const currentHost = window.location.hostname;
-  const rpId = parsedOptions.rp?.id || currentHost;
+  const rpId = getValidRpId(parsedOptions.rp?.id);
 
   const publicKey: PublicKeyCredentialCreationOptions = {
     challenge: challengeBuffer.buffer as ArrayBuffer,
@@ -182,9 +192,7 @@ export async function getPasskeyCredential(
   }
 
   const challengeBuffer = base64UrlToBuffer(parsedOptions.challenge);
-
-  const currentHost = window.location.hostname;
-  const rpId = parsedOptions.rpId || currentHost;
+  const rpId = getValidRpId(parsedOptions.rpId);
 
   const publicKey: PublicKeyCredentialRequestOptions = {
     challenge: challengeBuffer.buffer as ArrayBuffer,

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Plus } from "lucide-react";
 import {
   useActionState,
   useEffect,
@@ -75,7 +76,7 @@ function GoogleConnectionCard({
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3.5">
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white shadow-sm">
             <Image
               src="/google-g.svg"
@@ -92,29 +93,28 @@ function GoogleConnectionCard({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           {isConnected ? (
-            <StatusBadge className="bg-emerald-50 text-emerald-700 border-emerald-200/60">
+            <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-emerald-50 px-3 text-xs font-medium text-emerald-700 leading-none">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
               Connected
-            </StatusBadge>
+            </span>
           ) : (
-            <StatusBadge className="bg-neutral-100 text-neutral-600">
+            <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-neutral-100 px-3 text-xs font-medium text-neutral-600 leading-none">
               Not connected
-            </StatusBadge>
+            </span>
           )}
 
           <a
             href="/auth/google?mode=link"
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-[12px] border border-black/10 bg-white/60 px-4 text-sm font-medium text-black transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10"
+            className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-xs font-medium text-neutral-700 transition-colors hover:bg-black/[0.07] hover:text-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10 leading-none"
           >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             {isConnected ? "Connect another" : "Connect Google"}
           </a>
         </div>
       </div>
 
-      <p className="mt-4 text-sm leading-relaxed text-neutral-500">
-        Choose the Google account you want to use. A Google account can only be connected to one AXUS ID.
-      </p>
 
       {error ? (
         <div className="mt-4">

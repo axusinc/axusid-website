@@ -66,10 +66,11 @@ export default async function AccountPage() {
   const fullName = defaultVariation?.displayName?.trim() || "";
   const username = user?.usernames?.defaultUsername ?? null;
   const bearerToken = opaqueGraphqlBearer(session.credentials);
+  const refreshToken = session.credentials.refreshToken;
   const [clients, samlConfig, initialPasskeys, initialExternalIdentities] = await Promise.all([
     listClientsByOwner(session.auid),
     getSamlConfigByAuid(session.auid),
-    getUserPasskeys(session.auid, bearerToken),
+    getUserPasskeys(session.auid, bearerToken, undefined, refreshToken),
     getUserExternalIdentities(session.auid, bearerToken),
   ]);
   const issuer = getIssuer();
