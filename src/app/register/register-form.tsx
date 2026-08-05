@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
@@ -14,6 +16,7 @@ import {
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   checkUsernameAvailabilityAction,
+  clearPendingGoogleRegistrationAction,
   registerAction,
   type AuthActionState,
 } from "@/app/actions/auth";
@@ -31,6 +34,12 @@ type RegisterFormProps = {
   next?: string;
   contextAuid?: string;
   isAddAccount?: boolean;
+  authError?: string;
+  pendingGoogle?: {
+    email?: string;
+    name?: string;
+    picture?: string;
+  } | null;
 };
 
 type RegistrationStage = "identity" | "security";
@@ -116,11 +125,57 @@ function buildLoginHref({
   return query ? `/login?${query}` : "/login";
 }
 
+function buildGoogleInitHref({
+  redirectUri,
+  next,
+}: {
+  redirectUri?: string;
+  next?: string;
+}) {
+  const params = new URLSearchParams();
+  if (redirectUri) params.set("redirect_uri", redirectUri);
+  if (next) params.set("next", next);
+
+  const query = params.toString();
+  return query ? `/auth/google?${query}` : "/auth/google";
+}
+
+function PendingGoogleAvatar({
+  picture,
+  name,
+}: {
+  picture?: string;
+  name?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  if (picture && !imgError) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={picture}
+        alt={name || "Google avatar"}
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
+        className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-black/5"
+      />
+    );
+  }
+
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-xs ring-2 ring-black/5">
+      <Image src="/google-g.svg" width={20} height={20} alt="" aria-hidden />
+    </span>
+  );
+}
+
 export function RegisterForm({
   redirectUri,
   next,
   contextAuid,
   isAddAccount = false,
+  authError,
+  pendingGoogle,
 }: RegisterFormProps) {
   const [state, formAction, pending] = useActionState(
     registerAction,
@@ -135,6 +190,8 @@ export function RegisterForm({
   const [confirmTouched, setConfirmTouched] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isUsernamePending, startUsernameTransition] = useTransition();
+  const [isClearGooglePending, startClearGoogleTransition] = useTransition();
+  const router = useRouter();
   const [usernameAvailability, setUsernameAvailability] =
     useState<UsernameAvailability>({ username: "", status: "idle" });
   const availabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,6 +214,22 @@ export function RegisterForm({
       ? "Passwords don’t match."
       : undefined;
   const signInHref = buildLoginHref({ redirectUri, next, addAccount: isAddAccount });
+  const googleInitHref = buildGoogleInitHref({ redirectUri, next });
+
+  const authErrorMessage =
+    authError === "google_unavailable"
+      ? "Google account creation is currently unavailable. Try again later."
+      : authError === "google_cancelled"
+        ? "Google sign up was cancelled."
+        : authError === "google_failed"
+          ? "Google sign up failed. Try again."
+          : authError === "already_linked"
+            ? "That Google account is already linked to another AXUS ID."
+            : authError === "username_taken"
+              ? "That username is already in use. Please choose another username."
+              : authError === "invalid_username"
+                ? "Please choose a valid username."
+                : authError;
 
   const performUsernameAvailabilityCheck = (
     username: string,
@@ -225,9 +298,63 @@ export function RegisterForm({
         signInStep={1}
         maxWidthClass="max-w-[920px]"
         title={contextAuid ? "Create another identity" : "Create your AXUS ID"}
-        description="Choose how people will find you. You’ll secure your account with a password next."
+        description={
+          pendingGoogle
+            ? "Choose how people will find you. Your Google account will be linked automatically."
+            : "Choose how people will find you. You’ll secure your account next."
+        }
         footer={footer}
       >
+        {pendingGoogle ? (
+          <div
+            className={cn(
+              "mb-6 flex items-center justify-between border border-black/10 bg-neutral-50/90 p-4 shadow-xs",
+              roundedRect,
+            )}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <PendingGoogleAvatar picture={pendingGoogle.picture} name={pendingGoogle.name} />
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  Connected with Google
+                </p>
+                <p className="truncate text-sm font-semibold text-black">
+                  {pendingGoogle.name || pendingGoogle.email || "Google Account"}
+                </p>
+                {pendingGoogle.email && pendingGoogle.name ? (
+                  <p className="truncate text-xs text-neutral-500">{pendingGoogle.email}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                startClearGoogleTransition(async () => {
+                  await clearPendingGoogleRegistrationAction();
+                  const params = new URLSearchParams();
+                  if (redirectUri) params.set("redirect_uri", redirectUri);
+                  if (next) params.set("next", next);
+                  if (isAddAccount) params.set("add_account", "true");
+                  if (contextAuid) params.set("contextAuid", contextAuid);
+                  const query = params.toString();
+                  router.push(query ? `/register?${query}` : "/register");
+                });
+              }}
+              className="ml-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-black/[0.06] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:opacity-50"
+              aria-label="Cancel Google signup"
+              title="Cancel Google signup"
+              disabled={isClearGooglePending}
+            >
+              {isClearGooglePending ? (
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin text-neutral-500" />
+              ) : (
+                <X aria-hidden="true" className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        ) : null}
+
         <div className="mb-7">
           <h2 className="text-xl font-semibold tracking-tight text-black">
             Choose your username
@@ -238,11 +365,26 @@ export function RegisterForm({
         </div>
 
         <form
+          action={pendingGoogle ? formAction : undefined}
           className="space-y-5"
           aria-busy={
-            isUsernamePending || usernameAvailability.status === "checking"
+            isUsernamePending || usernameAvailability.status === "checking" || pending
           }
           onSubmit={(event) => {
+            if (pendingGoogle) {
+              if (!normalizedUsername) {
+                event.preventDefault();
+                setUsernameError("Enter a username.");
+                return;
+              }
+              if (normalizedUsername.length < 4) {
+                event.preventDefault();
+                setUsernameError("Username must be at least 4 characters long.");
+                return;
+              }
+              return;
+            }
+
             event.preventDefault();
 
             const continueToSecurity = () => {
@@ -288,6 +430,16 @@ export function RegisterForm({
             );
           }}
         >
+          {pendingGoogle ? (
+            <>
+              <input type="hidden" name="registrationKey" value={registrationKey || crypto.randomUUID()} />
+              <input type="hidden" name="username" value={normalizedUsername} />
+              {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
+              {next ? <input type="hidden" name="next" value={next} /> : null}
+              {contextAuid ? <input type="hidden" name="contextAuid" value={contextAuid} /> : null}
+            </>
+          ) : null}
+
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
             <div className="relative">
               <Input
@@ -391,6 +543,9 @@ export function RegisterForm({
             </div>
           </div>
 
+          {state.error ? <FormError>{state.error}</FormError> : null}
+          {authErrorMessage ? <FormError>{authErrorMessage}</FormError> : null}
+
           <Button
             type="submit"
             variant="brand"
@@ -398,21 +553,59 @@ export function RegisterForm({
             disabled={
               isUsernamePending ||
               usernameAvailability.status === "checking" ||
-              usernameAvailability.status === "taken"
+              usernameAvailability.status === "taken" ||
+              pending
             }
           >
-            {isUsernamePending || usernameAvailability.status === "checking" ? (
+            {pending ? (
               <>
-                <LoaderCircle
-                  aria-hidden="true"
-                  className="mr-2 h-4 w-4 animate-spin"
-                />
+                <LoaderCircle aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
+                Creating account with Google…
+              </>
+            ) : isUsernamePending || usernameAvailability.status === "checking" ? (
+              <>
+                <LoaderCircle aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
                 Checking username…
               </>
+            ) : pendingGoogle ? (
+              contextAuid ? "Create identity with Google" : "Create AXUS ID with Google"
             ) : (
               "Continue"
             )}
           </Button>
+
+          {!pendingGoogle ? (
+            <>
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center" aria-hidden>
+                  <span className="w-full border-t border-black/[0.07]" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400">
+                    Or
+                  </span>
+                </div>
+              </div>
+
+              <a
+                href={googleInitHref}
+                className={cn(
+                  "inline-flex h-11 w-full items-center justify-center gap-3 border border-black/10 bg-white/70 px-4 text-sm font-semibold text-black transition-all hover:-translate-y-px hover:border-black/15 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:translate-y-0",
+                  roundedRect,
+                )}
+              >
+                <Image
+                  src="/google-g.svg"
+                  width={18}
+                  height={18}
+                  alt=""
+                  aria-hidden
+                  className="h-[18px] w-[18px]"
+                />
+                Continue with Google
+              </a>
+            </>
+          ) : null}
         </form>
       </AuthShell>
     );
@@ -424,7 +617,7 @@ export function RegisterForm({
       signInStep={2}
       maxWidthClass="max-w-[920px]"
       title="Secure your account"
-      description="Create a password for your new AXUS ID. Make it unique to this account."
+      description="Create a password for your new AXUS ID."
       footer={footer}
     >
       <button
@@ -554,6 +747,7 @@ export function RegisterForm({
         ) : null}
 
         {state.error ? <FormError>{state.error}</FormError> : null}
+        {authErrorMessage ? <FormError>{authErrorMessage}</FormError> : null}
 
         <div className="flex gap-3">
           <Button
@@ -581,6 +775,35 @@ export function RegisterForm({
                 : "Create AXUS ID"}
           </Button>
         </div>
+
+        <div className="relative py-1">
+          <div className="absolute inset-0 flex items-center" aria-hidden>
+            <span className="w-full border-t border-black/[0.07]" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-white px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400">
+              Or
+            </span>
+          </div>
+        </div>
+
+        <a
+          href={googleInitHref}
+          className={cn(
+            "inline-flex h-11 w-full items-center justify-center gap-3 border border-black/10 bg-white/70 px-4 text-sm font-semibold text-black transition-all hover:-translate-y-px hover:border-black/15 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:translate-y-0",
+            roundedRect,
+          )}
+        >
+          <Image
+            src="/google-g.svg"
+            width={18}
+            height={18}
+            alt=""
+            aria-hidden
+            className="h-[18px] w-[18px]"
+          />
+          Continue with Google
+        </a>
       </form>
     </AuthShell>
   );

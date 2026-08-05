@@ -1,5 +1,4 @@
-import "server-only";
-
+import { cookies } from "next/headers";
 import {
   getAuthSdk,
   opaqueGraphqlBearer,
@@ -17,11 +16,97 @@ import type { IdPSession } from "@/lib/session";
 export const GOOGLE_OAUTH_COOKIE = "axusid_google_oauth";
 export const GOOGLE_OAUTH_COOKIE_MAX_AGE = 10 * 60;
 
+export const GOOGLE_PENDING_REGISTRATION_COOKIE = "axusid_google_pending_reg";
+export const GOOGLE_PENDING_REGISTRATION_COOKIE_MAX_AGE = 15 * 60;
+
+export type PendingGoogleRegistration = {
+  refreshToken: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+  createdAt: number;
+};
+
+export function encodePendingGoogleRegistration(value: PendingGoogleRegistration): string {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+export function decodePendingGoogleRegistration(value?: string): PendingGoogleRegistration | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Partial<PendingGoogleRegistration>;
+    const createdAt = parsed.createdAt;
+    const age = typeof createdAt === "number" ? Date.now() - createdAt : -1;
+    const isFresh =
+      age >= 0 && age <= GOOGLE_PENDING_REGISTRATION_COOKIE_MAX_AGE * 1000;
+
+    if (typeof parsed.refreshToken !== "string" || typeof createdAt !== "number" || !isFresh) {
+      return null;
+    }
+
+    return {
+      refreshToken: parsed.refreshToken,
+      email: typeof parsed.email === "string" ? parsed.email : undefined,
+      name: typeof parsed.name === "string" ? parsed.name : undefined,
+      picture: typeof parsed.picture === "string" ? parsed.picture : undefined,
+      createdAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getPendingGoogleRegistration(): Promise<PendingGoogleRegistration | null> {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(GOOGLE_PENDING_REGISTRATION_COOKIE)?.value;
+  return decodePendingGoogleRegistration(raw);
+}
+
+export async function clearPendingGoogleRegistration(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(GOOGLE_PENDING_REGISTRATION_COOKIE);
+}
+
+export async function fetchGoogleProfileFromAccessToken(
+  accessToken: string,
+): Promise<ExternalIdentityUserInfo | null> {
+  try {
+    const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+
+    if (res.ok) {
+      const info = (await res.json()) as {
+        email?: string;
+        name?: string;
+        picture?: string;
+      };
+      return {
+        email: info.email,
+        name: info.name,
+        picture: info.picture,
+      };
+    }
+  } catch {
+    // Ignore error
+  }
+  return null;
+}
+
 export type GoogleOAuthState = {
   state: string;
   codeVerifier: string;
-  intent: "login" | "link";
+  intent: "login" | "link" | "register";
   linkAuid?: string;
+  username?: string;
+  contextAuid?: string;
+  addAccount?: boolean;
   redirectUri?: string;
   next?: string;
   createdAt: number;
@@ -113,7 +198,12 @@ export function decodeGoogleOAuthState(value?: string): GoogleOAuthState | null 
       return null;
     }
 
-    const intent = parsed.intent === "link" ? "link" : "login";
+    const intent =
+      parsed.intent === "link"
+        ? "link"
+        : parsed.intent === "register"
+          ? "register"
+          : "login";
     const linkAuid =
       intent === "link" && typeof parsed.linkAuid === "string"
         ? parsed.linkAuid
@@ -122,11 +212,20 @@ export function decodeGoogleOAuthState(value?: string): GoogleOAuthState | null 
       return null;
     }
 
+    const username =
+      typeof parsed.username === "string" ? parsed.username : undefined;
+    const contextAuid =
+      typeof parsed.contextAuid === "string" ? parsed.contextAuid : undefined;
+    const addAccount = parsed.addAccount === true;
+
     return {
       state: parsed.state,
       codeVerifier: parsed.codeVerifier,
       intent,
       linkAuid,
+      username,
+      contextAuid,
+      addAccount,
       redirectUri: normalizeInternalDestination(parsed.redirectUri ?? null),
       next: normalizeInternalDestination(parsed.next ?? null),
       createdAt,

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getValidSession } from "@/lib/session-access";
+import { getPendingGoogleRegistration } from "@/lib/google-oauth";
 import { RegisterForm } from "./register-form";
 
 type RegisterPageProps = {
@@ -14,9 +15,12 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   const addAccount = params.add_account === "true";
   const contextAuidParam = params.contextAuid ?? params.context;
   const contextAuid = typeof contextAuidParam === "string" ? contextAuidParam : undefined;
+  const authError = typeof params.auth_error === "string" ? params.auth_error : undefined;
 
   const session = await getValidSession();
-  if (session && !addAccount) {
+  const pendingGoogle = await getPendingGoogleRegistration();
+
+  if (session && !addAccount && !pendingGoogle && !contextAuid) {
     redirect(resolveAuthenticatedRedirect({ redirectUri, next }));
   }
 
@@ -26,6 +30,16 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
       next={next}
       contextAuid={contextAuid}
       isAddAccount={addAccount}
+      authError={authError}
+      pendingGoogle={
+        pendingGoogle
+          ? {
+              email: pendingGoogle.email,
+              name: pendingGoogle.name,
+              picture: pendingGoogle.picture,
+            }
+          : null
+      }
     />
   );
 }

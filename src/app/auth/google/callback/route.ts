@@ -1,17 +1,26 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { ensureRegistrationUsername } from "@/app/actions/auth";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
+import { getAuthSdk } from "@/lib/auth-graphql";
 import {
   GOOGLE_OAUTH_COOKIE,
+  GOOGLE_PENDING_REGISTRATION_COOKIE,
+  GOOGLE_PENDING_REGISTRATION_COOKIE_MAX_AGE,
   decodeGoogleOAuthState,
+  encodePendingGoogleRegistration,
   exchangeGoogleCode,
+  fetchGoogleProfileFromAccessToken,
+  getGoogleClientId,
+  getGoogleProviderId,
   getGoogleRedirectUri,
   linkGoogleIdentity,
   loginWithGoogleIdentity,
   resolveExternalLoginScopes,
   type GoogleOAuthState,
 } from "@/lib/google-oauth";
-import { getPrimaryDomainError } from "@/lib/graphql-errors";
+import { DOMAIN_ERROR_CODES, getPrimaryDomainError } from "@/lib/graphql-errors";
+import { wrapTokenWithBackend } from "@/lib/oauth/adapter";
 import { addAccountToSession, getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
 
@@ -23,6 +32,22 @@ function loginRedirect(
   const url = new URL("/login", request.url);
   url.searchParams.set("auth_error", authError);
   url.searchParams.set("add_account", "true");
+  if (oauthState?.redirectUri) {
+    url.searchParams.set("redirect_uri", oauthState.redirectUri);
+  }
+  if (oauthState?.next) {
+    url.searchParams.set("next", oauthState.next);
+  }
+  return NextResponse.redirect(url);
+}
+
+function registerRedirect(
+  request: NextRequest,
+  authError: string,
+  oauthState?: GoogleOAuthState | null,
+): NextResponse {
+  const url = new URL("/register", request.url);
+  url.searchParams.set("auth_error", authError);
   if (oauthState?.redirectUri) {
     url.searchParams.set("redirect_uri", oauthState.redirectUri);
   }
@@ -53,6 +78,9 @@ function flowErrorRedirect(
       authError === "google_cancelled" ? "cancelled" : "failed",
     );
   }
+  if (oauthState?.intent === "register") {
+    return registerRedirect(request, authError, oauthState);
+  }
   return loginRedirect(request, authError, oauthState);
 }
 
@@ -78,11 +106,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { refreshToken } = await exchangeGoogleCode({
+    const { refreshToken, accessToken } = await exchangeGoogleCode({
       code,
       codeVerifier: oauthState.codeVerifier,
       redirectUri: getGoogleRedirectUri(request.url),
     });
+
+    const googleProfile = accessToken
+      ? await fetchGoogleProfileFromAccessToken(accessToken)
+      : null;
 
     if (oauthState.intent === "link") {
       const session = await getValidSession();
@@ -102,26 +134,121 @@ export async function GET(request: NextRequest) {
     const { oidcScopes, axusPermissions } = await resolveExternalLoginScopes(
       oauthState.redirectUri,
     );
-    const credentials = await loginWithGoogleIdentity(refreshToken, axusPermissions);
-    const session: IdPSession = {
-      auid: credentials.auid,
-      credentials,
-      oidcScopes,
-      axusPermissions,
-      consentedClients: [],
-    };
 
-    await addAccountToSession(session);
+    // First try logging into an existing account linked with this Google identity
+    try {
+      const credentials = await loginWithGoogleIdentity(refreshToken, axusPermissions);
+      const session: IdPSession = {
+        auid: credentials.auid,
+        credentials,
+        oidcScopes,
+        axusPermissions,
+        consentedClients: [],
+      };
 
-    return NextResponse.redirect(
-      new URL(
-        resolveAuthenticatedRedirect({
-          redirectUri: oauthState.redirectUri,
-          next: oauthState.next,
+      await addAccountToSession(session);
+
+      return NextResponse.redirect(
+        new URL(
+          resolveAuthenticatedRedirect({
+            redirectUri: oauthState.redirectUri,
+            next: oauthState.next,
+          }),
+          request.url,
+        ),
+      );
+    } catch (loginError) {
+      const domainError = getPrimaryDomainError(loginError);
+      if (domainError?.code !== "INVALID_EXTERNAL_IDENTITY") {
+        throw loginError;
+      }
+
+      // Google identity is NOT linked to an existing account.
+      // If a username was specified in registration state, finish creating the account now:
+      if (oauthState.intent === "register" && oauthState.username) {
+        const sdk = getAuthSdk();
+        const registrationKey = crypto.randomUUID();
+
+        const result = await sdk.CreateUser({
+          registrationKey,
+          contextAuid: oauthState.contextAuid || undefined,
+        });
+
+        const auid = result.createUser.auid;
+        const tokenId = result.createUser.token.id;
+
+        await ensureRegistrationUsername(sdk, {
+          auid,
+          tokenId,
+          username: oauthState.username,
+        });
+
+        await sdk.LinkExternalIdentity({
+          auid,
+          tokenId,
+          authentication: {
+            providerId: getGoogleProviderId(),
+            refreshToken,
+            clientId: getGoogleClientId(),
+          },
+        });
+
+        const credentials = await wrapTokenWithBackend(auid, tokenId);
+        const session: IdPSession = {
+          auid,
+          credentials,
+          oidcScopes,
+          axusPermissions,
+          consentedClients: [],
+        };
+
+        await addAccountToSession(session);
+
+        return NextResponse.redirect(
+          new URL(
+            resolveAuthenticatedRedirect({
+              redirectUri: oauthState.redirectUri,
+              next: oauthState.next,
+            }),
+            request.url,
+          ),
+        );
+      }
+
+      // No username provided yet: store pending Google registration details in cookie and redirect to /register
+      cookieStore.set(
+        GOOGLE_PENDING_REGISTRATION_COOKIE,
+        encodePendingGoogleRegistration({
+          refreshToken,
+          email: googleProfile?.email,
+          name: googleProfile?.name,
+          picture: googleProfile?.picture,
+          createdAt: Date.now(),
         }),
-        request.url,
-      ),
-    );
+        {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: GOOGLE_PENDING_REGISTRATION_COOKIE_MAX_AGE,
+        },
+      );
+
+      const registerUrl = new URL("/register", request.url);
+      if (oauthState.redirectUri) {
+        registerUrl.searchParams.set("redirect_uri", oauthState.redirectUri);
+      }
+      if (oauthState.next) {
+        registerUrl.searchParams.set("next", oauthState.next);
+      }
+      if (oauthState.addAccount) {
+        registerUrl.searchParams.set("add_account", "true");
+      }
+      if (oauthState.contextAuid) {
+        registerUrl.searchParams.set("contextAuid", oauthState.contextAuid);
+      }
+      return NextResponse.redirect(registerUrl);
+    }
   } catch (error) {
     console.error("[Google OAuth Callback Error]", error);
     if (oauthState.intent === "link") {
@@ -132,6 +259,16 @@ export async function GET(request: NextRequest) {
           ? "already_linked"
           : "failed",
       );
+    }
+    if (oauthState.intent === "register") {
+      const domainError = getPrimaryDomainError(error);
+      const authError =
+        domainError?.code === "EXTERNAL_IDENTITY_ALREADY_LINKED"
+          ? "already_linked"
+          : domainError?.code === DOMAIN_ERROR_CODES.USERNAME_ALREADY_EXISTS
+            ? "username_taken"
+            : "google_failed";
+      return registerRedirect(request, authError, oauthState);
     }
     const domainError = getPrimaryDomainError(error);
     return loginRedirect(

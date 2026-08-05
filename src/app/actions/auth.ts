@@ -40,6 +40,12 @@ import {
   createSamlLogoutRequest,
 } from "@/lib/saml/saml-idp";
 import { formatSyntheticEmail } from "@/lib/user-profile";
+import {
+  clearPendingGoogleRegistration,
+  getGoogleClientId,
+  getGoogleProviderId,
+  getPendingGoogleRegistration,
+} from "@/lib/google-oauth";
 
 export type AuthActionState = {
   error?: string;
@@ -425,23 +431,47 @@ export async function denyConsentAction(formData: FormData) {
   redirect(clientUrl.toString());
 }
 
-async function ensureRegistrationUsername(
+export async function ensureRegistrationUsername(
   sdk: ReturnType<typeof getAuthSdk>,
   params: { auid: string; tokenId: string; username: string },
 ) {
-  try {
-    await sdk.AddUsername(params);
-  } catch (error) {
-    const domainError = getPrimaryDomainError(error);
-    if (domainError?.code !== DOMAIN_ERROR_CODES.USERNAME_ALREADY_EXISTS) {
-      throw error;
+  const maxAttempts = 5;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 300 * Math.pow(2, attempt - 1)));
     }
 
-    const owner = await sdk.OwnerByUsername({ username: params.username });
-    if (owner.ownerByUsername !== params.auid) {
+    try {
+      await sdk.AddUsername(params);
+      return;
+    } catch (error) {
+      const domainError = getPrimaryDomainError(error);
+
+      if (domainError?.code === DOMAIN_ERROR_CODES.USERNAME_ALREADY_EXISTS) {
+        const owner = await sdk.OwnerByUsername({ username: params.username });
+        if (owner.ownerByUsername !== params.auid) {
+          throw error;
+        }
+        return;
+      }
+
+      if (domainError?.code === DOMAIN_ERROR_CODES.USERNAMES_NOT_FOUND) {
+        lastError = error;
+        continue;
+      }
+
       throw error;
     }
   }
+
+  throw lastError;
+}
+
+export async function clearPendingGoogleRegistrationAction(): Promise<AuthActionState> {
+  await clearPendingGoogleRegistration();
+  return { success: "Google signup cleared." };
 }
 
 export async function registerAction(
@@ -466,6 +496,64 @@ export async function registerAction(
       error: "Username must be at least 4 characters long.",
       registrationKey,
     };
+  }
+
+  const pendingGoogle = await getPendingGoogleRegistration();
+
+  if (pendingGoogle) {
+    try {
+      const sdk = getAuthSdk();
+      const result = await sdk.CreateUser({
+        registrationKey,
+        contextAuid: contextAuid || undefined,
+      });
+      const auid = result.createUser.auid;
+      const tokenId = result.createUser.token.id;
+
+      await ensureRegistrationUsername(sdk, {
+        auid,
+        tokenId,
+        username: requestedUsername,
+      });
+
+      await sdk.LinkExternalIdentity({
+        auid,
+        tokenId,
+        authentication: {
+          providerId: getGoogleProviderId(),
+          refreshToken: pendingGoogle.refreshToken,
+          clientId: getGoogleClientId(),
+        },
+      });
+
+      const credentials = await wrapTokenWithBackend(auid, tokenId);
+      const session: IdPSession = {
+        auid,
+        credentials,
+        oidcScopes: ["openid"],
+        axusPermissions: [],
+        consentedClients: [],
+      };
+
+      await addAccountToSession(session);
+      await clearPendingGoogleRegistration();
+    } catch (error) {
+      return {
+        error: formatGraphqlError(
+          error,
+          undefined,
+          "Unable to create account with Google. Try again.",
+        ),
+        registrationKey,
+      };
+    }
+
+    redirect(
+      resolveAuthenticatedRedirect({
+        redirectUri: redirectUri || undefined,
+        next: next || undefined,
+      }),
+    );
   }
 
   if (!password) {

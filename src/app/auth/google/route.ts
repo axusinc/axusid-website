@@ -13,12 +13,18 @@ import { getValidSession } from "@/lib/session-access";
 
 function configurationErrorRedirect(
   request: NextRequest,
-  intent: "login" | "link",
+  intent: "login" | "link" | "register",
 ): NextResponse {
   if (intent === "link") {
     const url = new URL("/account", request.url);
     url.searchParams.set("section", "security");
     url.searchParams.set("google", "failed");
+    return NextResponse.redirect(url);
+  }
+
+  if (intent === "register") {
+    const url = new URL("/register", request.url);
+    url.searchParams.set("auth_error", "google_unavailable");
     return NextResponse.redirect(url);
   }
 
@@ -29,7 +35,13 @@ function configurationErrorRedirect(
 }
 
 export async function GET(request: NextRequest) {
-  const intent = request.nextUrl.searchParams.get("mode") === "link" ? "link" : "login";
+  const modeParam = request.nextUrl.searchParams.get("mode");
+  const intent: "login" | "link" | "register" =
+    modeParam === "link"
+      ? "link"
+      : modeParam === "register"
+        ? "register"
+        : "login";
 
   try {
     const linkSession = intent === "link" ? await getValidSession() : null;
@@ -38,6 +50,16 @@ export async function GET(request: NextRequest) {
       loginUrl.searchParams.set("next", "/account?section=security");
       return NextResponse.redirect(loginUrl);
     }
+
+    const username =
+      request.nextUrl.searchParams.get("username")?.trim().replace(/^@/, "") ||
+      undefined;
+    const contextAuid =
+      request.nextUrl.searchParams.get("contextAuid")?.trim() ||
+      request.nextUrl.searchParams.get("context")?.trim() ||
+      undefined;
+    const addAccount =
+      request.nextUrl.searchParams.get("add_account") === "true";
 
     const state = createRandomOAuthValue();
     const codeVerifier = createRandomOAuthValue();
@@ -69,6 +91,9 @@ export async function GET(request: NextRequest) {
         codeVerifier,
         intent,
         linkAuid: linkSession?.auid,
+        username,
+        contextAuid,
+        addAccount,
         redirectUri: continuation,
         next,
         createdAt: Date.now(),
