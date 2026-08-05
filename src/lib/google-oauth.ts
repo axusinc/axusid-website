@@ -29,6 +29,11 @@ export type GoogleOAuthState = {
 
 type GoogleTokenResponse = {
   id_token?: string;
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  scope?: string;
+  token_type?: string;
 };
 
 function base64Url(bytes: Uint8Array): string {
@@ -131,11 +136,17 @@ export function decodeGoogleOAuthState(value?: string): GoogleOAuthState | null 
   }
 }
 
+export type ExchangeGoogleCodeResult = {
+  refreshToken: string;
+  idToken?: string;
+  accessToken?: string;
+};
+
 export async function exchangeGoogleCode(params: {
   code: string;
   codeVerifier: string;
   redirectUri: string;
-}): Promise<string> {
+}): Promise<ExchangeGoogleCodeResult> {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -156,11 +167,15 @@ export async function exchangeGoogleCode(params: {
   }
 
   const result = (await response.json()) as GoogleTokenResponse;
-  if (!result.id_token) {
-    throw new Error("Google did not return an identity token");
+  if (!result.refresh_token) {
+    throw new Error("Google did not return a refresh token");
   }
 
-  return result.id_token;
+  return {
+    refreshToken: result.refresh_token,
+    idToken: result.id_token,
+    accessToken: result.access_token,
+  };
 }
 
 export async function resolveExternalLoginScopes(redirectUri?: string): Promise<{
@@ -187,7 +202,7 @@ export async function resolveExternalLoginScopes(redirectUri?: string): Promise<
 }
 
 export async function loginWithGoogleIdentity(
-  idToken: string,
+  refreshToken: string,
   permissions: string[],
 ): Promise<AuthCredentials & { auid: string }> {
   const sdk = getAuthSdk();
@@ -195,7 +210,8 @@ export async function loginWithGoogleIdentity(
     sdk.LoginWithExternalIdentity({
       authentication: {
         providerId: getGoogleProviderId(),
-        token: idToken,
+        refreshToken: refreshToken,
+        clientId: getGoogleClientId(),
       },
       permissions: requestedPermissions?.length ? requestedPermissions : undefined,
     });
@@ -214,23 +230,45 @@ export async function loginWithGoogleIdentity(
 
 export async function linkGoogleIdentity(
   session: IdPSession,
-  idToken: string,
+  refreshToken: string,
 ): Promise<void> {
   const sdk = getAuthSdk(opaqueGraphqlBearer(session.credentials));
   await sdk.LinkExternalIdentity({
     auid: session.auid,
     authentication: {
       providerId: getGoogleProviderId(),
-      token: idToken,
+      refreshToken: refreshToken,
+      clientId: getGoogleClientId(),
     },
   });
 }
+
+export type ExternalIdentityUserInfo = {
+  email?: string;
+  name?: string;
+  picture?: string;
+};
 
 export type ExternalIdentity = {
   id: string;
   providerId: string;
   createdAt: string;
+  userInfo?: ExternalIdentityUserInfo | null;
 };
+
+export async function getExternalIdentityAccessToken(
+  auid: string,
+  externalIdentityId: string,
+  bearerToken?: string,
+): Promise<{ accessToken: string; tokenType?: string | null; expiresIn?: number | null; scopes: string[] } | null> {
+  const sdk = getAuthSdk(bearerToken);
+  try {
+    const data = await sdk.ExternalIdentityAccessToken({ auid, externalIdentityId });
+    return data.externalIdentityAccessToken;
+  } catch {
+    return null;
+  }
+}
 
 export async function getUserExternalIdentities(
   auid: string,
@@ -239,11 +277,57 @@ export async function getUserExternalIdentities(
   const sdk = getAuthSdk(bearerToken);
   try {
     const data = await sdk.ExternalIdentities({ auid });
-    return (data.externalIdentities ?? []).map((item) => ({
-      id: item.id,
-      providerId: item.providerId,
-      createdAt: item.createdAt,
-    }));
+    const items = data.externalIdentities ?? [];
+
+    const enriched = await Promise.all(
+      items.map(async (item) => {
+        let userInfo: ExternalIdentityUserInfo | null = null;
+
+        if (item.providerId.toLowerCase() === "google") {
+          try {
+            const tokenRes = await getExternalIdentityAccessToken(
+              auid,
+              item.id,
+              bearerToken,
+            );
+
+            if (tokenRes?.accessToken) {
+              const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                headers: {
+                  Authorization: `Bearer ${tokenRes.accessToken}`,
+                },
+                cache: "no-store",
+                signal: AbortSignal.timeout(5_000),
+              });
+
+              if (res.ok) {
+                const info = (await res.json()) as {
+                  email?: string;
+                  name?: string;
+                  picture?: string;
+                };
+                userInfo = {
+                  email: info.email,
+                  name: info.name,
+                  picture: info.picture,
+                };
+              }
+            }
+          } catch {
+            // Ignore error fetching external user info
+          }
+        }
+
+        return {
+          id: item.id,
+          providerId: item.providerId,
+          createdAt: item.createdAt,
+          userInfo,
+        };
+      }),
+    );
+
+    return enriched;
   } catch {
     return [];
   }

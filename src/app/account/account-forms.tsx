@@ -39,6 +39,44 @@ type AccountFormsProps = {
 
 const initialState: AuthActionState = {};
 
+function GoogleAccountAvatar({
+  picture,
+  name,
+  email,
+}: {
+  picture?: string;
+  name?: string;
+  email?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  if (picture && !imgError) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={picture}
+        alt={name || email || "Google Avatar"}
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
+        className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-black/10"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 ring-1 ring-black/10">
+      <Image
+        src="/google-g.svg"
+        width={18}
+        height={18}
+        alt=""
+        aria-hidden
+        className="h-4.5 w-4.5"
+      />
+    </div>
+  );
+}
+
 function GoogleConnectionCard({
   initialExternalIdentities = [],
 }: {
@@ -159,18 +197,20 @@ function GoogleConnectionCard({
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5">
-                  <Image
-                    src="/google-g.svg"
-                    width={16}
-                    height={16}
-                    alt=""
-                    aria-hidden
-                    className="h-4 w-4"
-                  />
-                </div>
+                <GoogleAccountAvatar
+                  picture={account.userInfo?.picture}
+                  name={account.userInfo?.name}
+                  email={account.userInfo?.email}
+                />
                 <div>
-                  <p className="font-semibold text-black">Google Account</p>
+                  <p className="font-semibold text-black">
+                    {account.userInfo?.name || account.userInfo?.email || "Google Account"}
+                  </p>
+                  {account.userInfo?.name && account.userInfo?.email ? (
+                    <p className="text-[11px] font-medium text-neutral-600">
+                      {account.userInfo.email}
+                    </p>
+                  ) : null}
                   <p className="text-[11px] text-neutral-500">
                     Connected on {new Date(account.createdAt).toLocaleDateString()}
                   </p>

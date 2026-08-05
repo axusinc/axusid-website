@@ -36,6 +36,7 @@ export async function issueTokenResponse(params: {
   clientId: string;
   scopes: string[];
   credentials: AuthCredentials;
+  nonce?: string;
 }): Promise<DualTokenResponse> {
   const { oidcScopes, axusPermissions } = partitionScopes(params.scopes);
   const permissionScopeString = axusPermissions.join(" ");
@@ -68,6 +69,7 @@ export async function issueTokenResponse(params: {
       aud: params.clientId,
       expiresInSeconds: expiresIn,
       claims: profileClaims,
+      nonce: params.nonce,
     });
   }
 

@@ -13,8 +13,9 @@ export type AuthorizationCodeRecord = {
   scopes: string[];
   userAuid: string;
   credentials: AuthCredentials;
-  codeChallenge: string;
-  codeChallengeMethod: "S256";
+  codeChallenge?: string;
+  codeChallengeMethod?: "S256";
+  nonce?: string;
   expiresAt: Date;
 };
 
@@ -33,7 +34,8 @@ export async function saveAuthorizationCode(
     scopes: record.scopes,
     userAuid: record.userAuid,
     credentials: encryptedCredentials,
-    codeChallenge: record.codeChallenge,
+    codeChallenge: record.codeChallenge ?? null,
+    nonce: record.nonce ?? null,
     expiresAt: record.expiresAt,
   });
 }
@@ -77,8 +79,9 @@ export async function consumeAuthorizationCode(
     scopes: row.scopes,
     userAuid: row.userAuid,
     credentials,
-    codeChallenge: row.codeChallenge,
-    codeChallengeMethod: "S256",
+    codeChallenge: row.codeChallenge ?? undefined,
+    codeChallengeMethod: row.codeChallenge ? "S256" : undefined,
+    nonce: row.nonce ?? undefined,
     expiresAt: row.expiresAt,
   };
 }

@@ -198,7 +198,17 @@ query ExternalIdentities($auid: ID!, $tokenId: String) {
   }
 }
 
+query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
+  externalIdentityAccessToken(auid: $auid, externalIdentityId: $externalIdentityId, tokenId: $tokenId) {
+    accessToken
+    tokenType
+    expiresIn
+    scopes
+  }
+}
+
 mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
   unlinkExternalIdentity(auid: $auid, externalIdentityId: $externalIdentityId, tokenId: $tokenId)
 }
+
 

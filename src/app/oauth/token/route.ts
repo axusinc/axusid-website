@@ -3,7 +3,7 @@ import { formatGraphqlError } from "@/lib/graphql-errors";
 import { consumeAuthorizationCode } from "@/lib/oauth/auth-code-store";
 import { getOAuthClient } from "@/lib/oauth/clients";
 import { verifyPkceChallenge } from "@/lib/oauth/pkce";
-import { parseRequestBody, tokenRequestSchema } from "@/lib/oauth/schemas";
+import { extractBasicAuth, parseRequestBody, tokenRequestSchema } from "@/lib/oauth/schemas";
 import {
   issueTokenResponse,
   refreshTokenResponse,
@@ -11,9 +11,19 @@ import {
 
 export async function POST(request: Request) {
   const body = await parseRequestBody(request);
-  if (!body.client_id && body.auid) {
-    body.client_id = body.auid;
+  const basicAuth = extractBasicAuth(request);
+
+  if (!body.client_id) {
+    if (basicAuth.clientId) {
+      body.client_id = basicAuth.clientId;
+    } else if (body.auid) {
+      body.client_id = body.auid;
+    }
   }
+  if (!body.client_secret && basicAuth.clientSecret) {
+    body.client_secret = basicAuth.clientSecret;
+  }
+
   const parsed = tokenRequestSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -65,13 +75,18 @@ export async function POST(request: Request) {
     return oauthError("invalid_grant", "redirect_uri mismatch", 400);
   }
 
-  const pkceValid = await verifyPkceChallenge(
-    payload.code_verifier,
-    record.codeChallenge,
-  );
+  if (record.codeChallenge) {
+    if (!payload.code_verifier) {
+      return oauthError("invalid_grant", "code_verifier required for PKCE", 400);
+    }
+    const pkceValid = await verifyPkceChallenge(
+      payload.code_verifier,
+      record.codeChallenge,
+    );
 
-  if (!pkceValid) {
-    return oauthError("invalid_grant", "PKCE verification failed", 400);
+    if (!pkceValid) {
+      return oauthError("invalid_grant", "PKCE verification failed", 400);
+    }
   }
 
   try {
@@ -80,6 +95,7 @@ export async function POST(request: Request) {
       clientId: record.clientAuid,
       scopes: record.scopes,
       credentials: record.credentials,
+      nonce: record.nonce,
     });
 
     return Response.json(tokenResponse, {

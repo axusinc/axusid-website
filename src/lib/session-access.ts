@@ -35,24 +35,37 @@ export async function refreshSessionCredentials(
 
 export async function persistSession(session: IdPSession): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(
-    SESSION_COOKIE,
-    await serializeSession(session),
-    sessionCookieOptions,
-  );
+  try {
+    cookieStore.set(
+      SESSION_COOKIE,
+      await serializeSession(session),
+      sessionCookieOptions,
+    );
+  } catch {
+    // Cookies can only be modified in a Server Action or Route Handler.
+    // Gracefully ignore when called during Server Component rendering.
+  }
 }
 
 export async function persistMultiSession(multiSession: MultiSession): Promise<void> {
   const cookieStore = await cookies();
   if (multiSession.accounts.length === 0) {
-    cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
+    try {
+      cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
+    } catch {
+      // Cookies can only be modified in a Server Action or Route Handler.
+    }
     return;
   }
-  cookieStore.set(
-    SESSION_COOKIE,
-    await serializeMultiSession(multiSession),
-    sessionCookieOptions,
-  );
+  try {
+    cookieStore.set(
+      SESSION_COOKIE,
+      await serializeMultiSession(multiSession),
+      sessionCookieOptions,
+    );
+  } catch {
+    // Cookies can only be modified in a Server Action or Route Handler.
+  }
 }
 
 /**
@@ -182,5 +195,9 @@ export async function removeAccountFromSession(auid: string): Promise<MultiSessi
  */
 export async function clearAllSessions(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
+  try {
+    cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
+  } catch {
+    // Cookies can only be modified in a Server Action or Route Handler.
+  }
 }

@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
       state,
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
-      prompt: "select_account",
+      access_type: "offline",
+      prompt: "consent select_account",
     }).toString();
 
     const response = NextResponse.redirect(authorizationUrl);
@@ -81,7 +82,8 @@ export async function GET(request: NextRequest) {
       },
     );
     return response;
-  } catch {
+  } catch (error) {
+    console.error("[Google OAuth Init Error]", error);
     return configurationErrorRedirect(request, intent);
   }
 }

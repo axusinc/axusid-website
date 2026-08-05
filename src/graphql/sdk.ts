@@ -50,8 +50,9 @@ export type SchemaDescription = {
 };
 
 export type SchemaExternalAuthenticationInput = {
+  clientId: Scalars['String']['input'];
   providerId: Scalars['String']['input'];
-  token: Scalars['String']['input'];
+  refreshToken: Scalars['String']['input'];
 };
 
 export type SchemaExternalIdentity = {
@@ -59,6 +60,14 @@ export type SchemaExternalIdentity = {
   createdAt: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   providerId: Scalars['String']['output'];
+};
+
+export type SchemaExternalIdentityAccessTokenResponse = {
+  __typename?: 'ExternalIdentityAccessTokenResponse';
+  accessToken: Scalars['String']['output'];
+  expiresIn?: Maybe<Scalars['Int']['output']>;
+  scopes: Array<Scalars['String']['output']>;
+  tokenType?: Maybe<Scalars['String']['output']>;
 };
 
 export type SchemaIdentity = {
@@ -435,6 +444,7 @@ export type SchemaQuery = {
   defaultVariation?: Maybe<SchemaDefaultVariation>;
   description?: Maybe<SchemaDescription>;
   externalIdentities: Array<SchemaExternalIdentity>;
+  externalIdentityAccessToken: SchemaExternalIdentityAccessTokenResponse;
   identities: SchemaPaginatedIdentities;
   name?: Maybe<SchemaName>;
   ownerByUsername?: Maybe<Scalars['ID']['output']>;
@@ -459,6 +469,13 @@ export type SchemaQueryDescriptionArgs = {
 
 export type SchemaQueryExternalIdentitiesArgs = {
   auid: Scalars['ID']['input'];
+  tokenId?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type SchemaQueryExternalIdentityAccessTokenArgs = {
+  auid: Scalars['ID']['input'];
+  externalIdentityId: Scalars['ID']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -557,8 +574,9 @@ export type SchemaVariation = {
 };
 
 export type ExternalAuthenticationInput = {
+  clientId: string;
   providerId: string;
-  token: string;
+  refreshToken: string;
 };
 
 export type NameElementInput = {
@@ -851,6 +869,15 @@ export type ExternalIdentitiesQueryVariables = Exact<{
 
 
 export type ExternalIdentitiesQuery = { externalIdentities: Array<{ id: string, providerId: string, createdAt: string }> };
+
+export type ExternalIdentityAccessTokenQueryVariables = Exact<{
+  auid: string | number;
+  externalIdentityId: string | number;
+  tokenId?: string | null | undefined;
+}>;
+
+
+export type ExternalIdentityAccessTokenQuery = { externalIdentityAccessToken: { accessToken: string, tokenType: string | null, expiresIn: number | null, scopes: Array<string> } };
 
 export type UnlinkExternalIdentityMutationVariables = Exact<{
   auid: string | number;
@@ -1197,6 +1224,20 @@ export const ExternalIdentitiesDocument = gql`
   }
 }
     `;
+export const ExternalIdentityAccessTokenDocument = gql`
+    query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
+  externalIdentityAccessToken(
+    auid: $auid
+    externalIdentityId: $externalIdentityId
+    tokenId: $tokenId
+  ) {
+    accessToken
+    tokenType
+    expiresIn
+    scopes
+  }
+}
+    `;
 export const UnlinkExternalIdentityDocument = gql`
     mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
   unlinkExternalIdentity(
@@ -1312,6 +1353,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     ExternalIdentities(variables: ExternalIdentitiesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ExternalIdentitiesQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<ExternalIdentitiesQuery>({ document: ExternalIdentitiesDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ExternalIdentities', 'query', variables);
+    },
+    ExternalIdentityAccessToken(variables: ExternalIdentityAccessTokenQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ExternalIdentityAccessTokenQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ExternalIdentityAccessTokenQuery>({ document: ExternalIdentityAccessTokenDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ExternalIdentityAccessToken', 'query', variables);
     },
     UnlinkExternalIdentity(variables: UnlinkExternalIdentityMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<UnlinkExternalIdentityMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<UnlinkExternalIdentityMutation>({ document: UnlinkExternalIdentityDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'UnlinkExternalIdentity', 'mutation', variables);

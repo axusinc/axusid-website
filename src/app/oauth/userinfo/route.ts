@@ -43,7 +43,7 @@ async function handleUserinfo(request: Request): Promise<Response> {
   try {
     const profileClaims = await buildOidcClaims(
       claimsContext.sub,
-      "",
+      token,
       oidcScopes,
     );
 

@@ -20,7 +20,8 @@ export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
   scopes: text("scopes").array().notNull(),
   userAuid: text("user_auid").notNull(),
   credentials: jsonb("credentials").notNull(),
-  codeChallenge: text("code_challenge").notNull(),
+  codeChallenge: text("code_challenge"),
+  nonce: text("nonce"),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   consumedAt: timestamp("consumed_at", { withTimezone: true }),
 });

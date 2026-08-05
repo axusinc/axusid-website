@@ -10,6 +10,7 @@ type Query {
     parents(auid: ID!): Parents
     identities(contextAuid: ID!, recursive: Boolean = false, cursor: ID, offset: Int = 0, limit: Int = 20): PaginatedIdentities!
     externalIdentities(auid: ID!, tokenId: String): [ExternalIdentity!]!
+    externalIdentityAccessToken(auid: ID!, externalIdentityId: ID!, tokenId: String): ExternalIdentityAccessTokenResponse!
     passkeys(auid: ID!, tokenId: String): [PasskeyCredential!]!
 }
 
@@ -194,7 +195,15 @@ type AuthCredentials {
 
 input ExternalAuthenticationInput {
     providerId: String!
-    token: String!
+    refreshToken: String!
+    clientId: String!
+}
+
+type ExternalIdentityAccessTokenResponse {
+    accessToken: String!
+    tokenType: String
+    expiresIn: Int
+    scopes: [String!]!
 }
 
 type ExternalIdentity {

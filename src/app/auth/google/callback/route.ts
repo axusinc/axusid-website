@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const idToken = await exchangeGoogleCode({
+    const { refreshToken } = await exchangeGoogleCode({
       code,
       codeVerifier: oauthState.codeVerifier,
       redirectUri: getGoogleRedirectUri(request.url),
@@ -95,14 +95,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(loginUrl);
       }
 
-      await linkGoogleIdentity(session, idToken);
+      await linkGoogleIdentity(session, refreshToken);
       return accountRedirect(request, "linked");
     }
 
     const { oidcScopes, axusPermissions } = await resolveExternalLoginScopes(
       oauthState.redirectUri,
     );
-    const credentials = await loginWithGoogleIdentity(idToken, axusPermissions);
+    const credentials = await loginWithGoogleIdentity(refreshToken, axusPermissions);
     const session: IdPSession = {
       auid: credentials.auid,
       credentials,
@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
       ),
     );
   } catch (error) {
+    console.error("[Google OAuth Callback Error]", error);
     if (oauthState.intent === "link") {
       const domainError = getPrimaryDomainError(error);
       return accountRedirect(

@@ -6,8 +6,9 @@ export const authorizeQuerySchema = z.object({
   redirect_uri: z.string().url(),
   scope: z.string().optional(),
   state: z.string().optional(),
-  code_challenge: z.string().min(1),
-  code_challenge_method: z.literal("S256"),
+  nonce: z.string().optional(),
+  code_challenge: z.string().optional(),
+  code_challenge_method: z.literal("S256").optional(),
 });
 
 export const tokenRequestSchema = z.discriminatedUnion("grant_type", [
@@ -16,14 +17,38 @@ export const tokenRequestSchema = z.discriminatedUnion("grant_type", [
     code: z.string().min(1),
     redirect_uri: z.string().url(),
     client_id: z.string().min(1),
-    code_verifier: z.string().min(43).max(128),
+    client_secret: z.string().optional(),
+    code_verifier: z.string().optional(),
   }),
   z.object({
     grant_type: z.literal("refresh_token"),
     refresh_token: z.string().min(1),
     client_id: z.string().min(1).optional(),
+    client_secret: z.string().optional(),
   }),
 ]);
+
+export function extractBasicAuth(request: Request): { clientId?: string; clientSecret?: string } {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Basic ")) {
+    return {};
+  }
+  try {
+    const credentials = Buffer.from(authHeader.slice(6), "base64").toString("utf-8");
+    const colonIndex = credentials.indexOf(":");
+    if (colonIndex === -1) {
+      return {};
+    }
+    const clientId = credentials.substring(0, colonIndex);
+    const clientSecret = credentials.substring(colonIndex + 1);
+    return {
+      clientId: clientId ? decodeURIComponent(clientId) : undefined,
+      clientSecret: clientSecret ? decodeURIComponent(clientSecret) : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 
 export const revokeRequestSchema = z.object({
   token: z.string().min(1),

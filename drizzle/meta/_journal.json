@@ -36,6 +36,13 @@
       "when": 1783621500000,
       "tag": "0004_rename_client_id_to_auid",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785938930000,
+      "tag": "0005_add_nonce_and_nullable_code_challenge",
+      "breakpoints": true
     }
   ]
 }

@@ -71,9 +71,14 @@ export async function signIdToken(params: {
   aud: string;
   expiresInSeconds: number;
   claims: Record<string, unknown>;
+  nonce?: string;
 }): Promise<string> {
   const key = await getPrivateKey();
-  return new SignJWT(params.claims)
+  const payload = {
+    ...params.claims,
+    ...(params.nonce ? { nonce: params.nonce } : {}),
+  };
+  return new SignJWT(payload)
     .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: KEY_ID })
     .setIssuer(getIssuer())
     .setSubject(params.sub)

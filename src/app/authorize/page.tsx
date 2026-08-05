@@ -129,7 +129,8 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     userAuid: session.auid,
     credentials: session.credentials,
     codeChallenge: query.code_challenge,
-    codeChallengeMethod: "S256",
+    codeChallengeMethod: query.code_challenge ? "S256" : undefined,
+    nonce: query.nonce,
     // eslint-disable-next-line react-hooks/purity
     expiresAt: new Date(Date.now() + AUTH_CODE_TTL_MS),
   });
