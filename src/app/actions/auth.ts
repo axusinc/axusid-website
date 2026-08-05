@@ -9,6 +9,7 @@ import {
   DOMAIN_ERROR_CODES,
   formatGraphqlError,
   getPrimaryDomainError,
+  isGraphqlClientError,
 } from "@/lib/graphql-errors";
 import { loginWithBackend, wrapTokenWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
@@ -444,20 +445,39 @@ export async function ensureRegistrationUsername(
     }
 
     try {
-      await sdk.AddUsername(params);
+      // Fetch the auto-assigned default username so we can swap it.
+      const current = await sdk.Usernames({ auid: params.auid });
+      const oldUsername = current.usernames?.defaultUsername ?? "";
+
+      if (oldUsername === params.username) {
+        // Already set correctly — nothing to do.
+        return;
+      }
+
+      await sdk.ChangeUsername({
+        auid: params.auid,
+        tokenId: params.tokenId,
+        oldUsername,
+        newUsername: params.username,
+      });
       return;
     } catch (error) {
       const domainError = getPrimaryDomainError(error);
 
-      if (domainError?.code === DOMAIN_ERROR_CODES.USERNAME_ALREADY_EXISTS) {
-        const owner = await sdk.OwnerByUsername({ username: params.username });
-        if (owner.ownerByUsername !== params.auid) {
-          throw error;
-        }
-        return;
-      }
+      // The backend may not have propagated the new identity yet — retry on any
+      // not-found variant, including unrecognised codes whose message mentions
+      // "not found" (e.g. "No usernames found for identity: …").
+      const isNotFound =
+        domainError?.groupCode === "NOT_FOUND" ||
+        domainError?.code === DOMAIN_ERROR_CODES.USERNAMES_NOT_FOUND ||
+        domainError?.code === DOMAIN_ERROR_CODES.IDENTITY_NOT_FOUND ||
+        (isGraphqlClientError(error) &&
+          (error.response.errors ?? []).some((e) =>
+            typeof e.message === "string" &&
+            e.message.toLowerCase().includes("not found"),
+          ));
 
-      if (domainError?.code === DOMAIN_ERROR_CODES.USERNAMES_NOT_FOUND) {
+      if (isNotFound) {
         lastError = error;
         continue;
       }

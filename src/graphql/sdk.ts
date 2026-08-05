@@ -810,6 +810,7 @@ export type ChangeDefaultUsernameMutation = { changeDefaultUsername: { auid: str
 
 export type ChangeUsernameMutationVariables = Exact<{
   auid: string | number;
+  tokenId?: string | null | undefined;
   oldUsername: string;
   newUsername: string;
 }>;
@@ -1145,9 +1146,10 @@ export const ChangeDefaultUsernameDocument = gql`
 }
     `;
 export const ChangeUsernameDocument = gql`
-    mutation ChangeUsername($auid: ID!, $oldUsername: String!, $newUsername: String!) {
+    mutation ChangeUsername($auid: ID!, $tokenId: String, $oldUsername: String!, $newUsername: String!) {
   changeUsername(
     auid: $auid
+    tokenId: $tokenId
     oldUsername: $oldUsername
     newUsername: $newUsername
   ) {

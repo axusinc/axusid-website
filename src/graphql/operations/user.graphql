@@ -100,8 +100,8 @@ mutation ChangeDefaultUsername($auid: ID!, $username: String!) {
   }
 }
 
-mutation ChangeUsername($auid: ID!, $oldUsername: String!, $newUsername: String!) {
-  changeUsername(auid: $auid, oldUsername: $oldUsername, newUsername: $newUsername) {
+mutation ChangeUsername($auid: ID!, $tokenId: String, $oldUsername: String!, $newUsername: String!) {
+  changeUsername(auid: $auid, tokenId: $tokenId, oldUsername: $oldUsername, newUsername: $newUsername) {
     auid
     usernames
     defaultUsername

@@ -196,6 +196,12 @@ export function RegisterForm({
     useState<UsernameAvailability>({ username: "", status: "idle" });
   const availabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const availabilityRequestRef = useRef(0);
+  // Stable key for the Google path — generated once on mount so that retrying
+  // the same server action doesn't call CreateUser with a fresh key each time.
+  const googleRegistrationKeyRef = useRef<string | null>(null);
+  if (!googleRegistrationKeyRef.current) {
+    googleRegistrationKeyRef.current = crypto.randomUUID();
+  }
 
   useEffect(() => {
     return () => {
@@ -279,8 +285,8 @@ export function RegisterForm({
     }, 450);
   };
 
-  const footer = (
-    <>
+  const footerContent = (
+    <div className="mt-7 text-center text-sm text-neutral-500">
       Already have an account?{" "}
       <Link
         href={signInHref}
@@ -288,7 +294,7 @@ export function RegisterForm({
       >
         Sign in
       </Link>
-    </>
+    </div>
   );
 
   if (stage === "identity") {
@@ -303,7 +309,7 @@ export function RegisterForm({
             ? "Choose how people will find you. Your Google account will be linked automatically."
             : "Choose how people will find you. You’ll secure your account next."
         }
-        footer={footer}
+
       >
         {pendingGoogle ? (
           <div
@@ -432,7 +438,7 @@ export function RegisterForm({
         >
           {pendingGoogle ? (
             <>
-              <input type="hidden" name="registrationKey" value={registrationKey || crypto.randomUUID()} />
+              <input type="hidden" name="registrationKey" value={googleRegistrationKeyRef.current!} />
               <input type="hidden" name="username" value={normalizedUsername} />
               {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
               {next ? <input type="hidden" name="next" value={next} /> : null}
@@ -607,6 +613,7 @@ export function RegisterForm({
             </>
           ) : null}
         </form>
+        {footerContent}
       </AuthShell>
     );
   }
@@ -618,7 +625,7 @@ export function RegisterForm({
       maxWidthClass="max-w-[920px]"
       title="Secure your account"
       description="Create a password for your new AXUS ID."
-      footer={footer}
+
     >
       <button
         type="button"
@@ -805,6 +812,7 @@ export function RegisterForm({
           Continue with Google
         </a>
       </form>
+      {footerContent}
     </AuthShell>
   );
 }
