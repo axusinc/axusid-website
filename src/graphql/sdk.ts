@@ -320,12 +320,14 @@ export type SchemaMutationSetPasswordArgs = {
 
 export type SchemaMutationStartPasskeyLoginArgs = {
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+  relyingPartyId: Scalars['String']['input'];
 };
 
 
 export type SchemaMutationStartPasskeyRegistrationArgs = {
   auid: Scalars['ID']['input'];
   displayName?: InputMaybe<Scalars['String']['input']>;
+  relyingPartyId: Scalars['String']['input'];
   tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -677,6 +679,7 @@ export type StartPasskeyRegistrationMutationVariables = Exact<{
   auid: string | number;
   tokenId?: string | null | undefined;
   displayName?: string | null | undefined;
+  relyingPartyId: string;
 }>;
 
 
@@ -714,6 +717,7 @@ export type DeletePasskeyMutation = { deletePasskey: boolean };
 
 export type StartPasskeyLoginMutationVariables = Exact<{
   permissions?: Array<string> | string | null | undefined;
+  relyingPartyId: string;
 }>;
 
 
@@ -979,11 +983,12 @@ export const PasskeysDocument = gql`
 }
     `;
 export const StartPasskeyRegistrationDocument = gql`
-    mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String) {
+    mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String, $relyingPartyId: String!) {
   startPasskeyRegistration(
     auid: $auid
     tokenId: $tokenId
     displayName: $displayName
+    relyingPartyId: $relyingPartyId
   ) {
     challengeId
     optionsJson
@@ -1017,8 +1022,8 @@ export const DeletePasskeyDocument = gql`
 }
     `;
 export const StartPasskeyLoginDocument = gql`
-    mutation StartPasskeyLogin($permissions: [String!]) {
-  startPasskeyLogin(permissions: $permissions) {
+    mutation StartPasskeyLogin($permissions: [String!], $relyingPartyId: String!) {
+  startPasskeyLogin(permissions: $permissions, relyingPartyId: $relyingPartyId) {
     challengeId
     optionsJson
   }
@@ -1296,7 +1301,7 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     DeletePasskey(variables: DeletePasskeyMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DeletePasskeyMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<DeletePasskeyMutation>({ document: DeletePasskeyDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'DeletePasskey', 'mutation', variables);
     },
-    StartPasskeyLogin(variables?: StartPasskeyLoginMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<StartPasskeyLoginMutation> {
+    StartPasskeyLogin(variables: StartPasskeyLoginMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<StartPasskeyLoginMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<StartPasskeyLoginMutation>({ document: StartPasskeyLoginDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'StartPasskeyLogin', 'mutation', variables);
     },
     LoginWithPasskey(variables: LoginWithPasskeyMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithPasskeyMutation> {

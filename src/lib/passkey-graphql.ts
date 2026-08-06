@@ -27,19 +27,17 @@ export type PasskeyLoginResponse = {
 
 export async function startPasskeyEnrollment(
   auid: string,
+  relyingPartyId: string,
   displayName?: string,
   bearerToken?: string,
   tokenId?: string,
-  rp?: string,
 ): Promise<PasskeyEnrollmentResponse> {
-  const extraHeaders = rp
-    ? { "X-RP-ID": rp, "X-RP": rp, "X-Forwarded-Host": rp }
-    : undefined;
-  const sdk = getAuthSdk(bearerToken, extraHeaders);
+  const sdk = getAuthSdk(bearerToken);
   const data = await sdk.StartPasskeyRegistration({
     auid,
     displayName,
     tokenId,
+    relyingPartyId,
   });
   return data.startPasskeyRegistration;
 }
@@ -64,15 +62,13 @@ export async function verifyPasskeyEnrollment(
 }
 
 export async function startPasskeyLogin(
+  relyingPartyId: string,
   permissions?: string[],
-  rp?: string,
 ): Promise<PasskeyLoginResponse> {
-  const extraHeaders = rp
-    ? { "X-RP-ID": rp, "X-RP": rp, "X-Forwarded-Host": rp }
-    : undefined;
-  const sdk = getAuthSdk(undefined, extraHeaders);
+  const sdk = getAuthSdk();
   const data = await sdk.StartPasskeyLogin({
     permissions: permissions && permissions.length > 0 ? permissions : undefined,
+    relyingPartyId,
   });
   return data.startPasskeyLogin;
 }

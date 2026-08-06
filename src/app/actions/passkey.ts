@@ -91,10 +91,10 @@ export async function startPasskeyLoginAction(
           ]),
         ]
       : undefined;
-    const effectiveRp = await resolveRp(rp);
+    const effectiveRp = (await resolveRp(rp)) || "localhost";
     const loginResponse = await startPasskeyLogin(
-      loginPermissions,
       effectiveRp,
+      loginPermissions,
     );
     return { loginResponse, auid };
   } catch (error) {
@@ -200,8 +200,8 @@ export async function startPasskeyEnrollmentAction(
       return { error: "Your account does not have a default username." };
     }
 
-    const effectiveRp = await resolveRp(rp);
-    const response = await startPasskeyEnrollment(session.auid, displayName, bearer, undefined, effectiveRp);
+    const effectiveRp = (await resolveRp(rp)) || "localhost";
+    const response = await startPasskeyEnrollment(session.auid, effectiveRp, displayName, bearer);
     return { enrollmentResponse: response, passkeyUsername };
   } catch (error) {
     return {

@@ -45,11 +45,11 @@ type Mutation {
     startTotpEnrollment(auid: ID!, tokenId: String): TotpEnrollmentResponse!
     verifyTotpEnrollment(auid: ID!, tokenId: String, code: String!): Boolean!
     loginWithTotp(totpToken: String!, code: String!): AuthenticatedToken!
-    startPasskeyRegistration(auid: ID!, tokenId: String, displayName: String): PasskeyCeremony!
+    startPasskeyRegistration(auid: ID!, tokenId: String, displayName: String, relyingPartyId: String!): PasskeyCeremony!
     finishPasskeyRegistration(auid: ID!, tokenId: String, challengeId: ID!, responseJson: String!, name: String): Boolean!
     updatePasskeyName(auid: ID!, credentialId: ID!, name: String!, tokenId: String): Boolean!
     deletePasskey(auid: ID!, credentialId: ID!, tokenId: String): Boolean!
-    startPasskeyLogin(permissions: [String!]): PasskeyCeremony!
+    startPasskeyLogin(permissions: [String!], relyingPartyId: String!): PasskeyCeremony!
     loginWithPasskey(challengeId: ID!, responseJson: String!): AuthenticatedToken!
 }
 
