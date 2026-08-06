@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormError } from "@/components/ui/form-message";
 import { getAuthSdkForSession, opaqueGraphqlBearer } from "@/lib/auth-graphql";
-import { formatGraphqlError } from "@/lib/graphql-errors";
+import { formatGraphqlError, isAuthError } from "@/lib/graphql-errors";
 import { listClientsByOwner } from "@/lib/oauth/client-store";
 import { getIssuer } from "@/lib/oauth/constants";
-import { getValidSession, getValidMultiSession } from "@/lib/session-access";
+import { getValidSession, getValidMultiSession, removeAccountFromSession } from "@/lib/session-access";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import { fetchUserProfileWithVariations, fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { getUserPasskeys } from "@/lib/passkey-graphql";
@@ -22,11 +22,20 @@ export default async function AccountPage() {
     redirect("/login");
   }
 
-  const accountInfos = await fetchAccountsDisplayInfo(
-    multiSession.accounts,
-    multiSession.activeAuid,
-    (credentials) => getAuthSdkForSession({ auid: "", credentials, oidcScopes: [], axusPermissions: [], consentedClients: [] }),
-  );
+  let accountInfos;
+  try {
+    accountInfos = await fetchAccountsDisplayInfo(
+      multiSession.accounts,
+      multiSession.activeAuid,
+      (credentials) => getAuthSdkForSession({ auid: "", credentials, oidcScopes: [], axusPermissions: [], consentedClients: [] }),
+    );
+  } catch (error) {
+    if (isAuthError(error)) {
+      await removeAccountFromSession(session.auid);
+      redirect("/login");
+    }
+    throw error;
+  }
 
   const sdk = getAuthSdkForSession(session);
   let profile;
@@ -34,6 +43,10 @@ export default async function AccountPage() {
   try {
     profile = await fetchUserProfileWithVariations(sdk, session.auid);
   } catch (error) {
+    if (isAuthError(error)) {
+      await removeAccountFromSession(session.auid);
+      redirect("/login");
+    }
     return (
       <DashboardShell>
         <main className="relative mx-auto flex min-h-full w-full max-w-xl flex-1 items-center px-4 py-8 sm:px-6 sm:py-12">

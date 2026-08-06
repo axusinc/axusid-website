@@ -220,3 +220,40 @@ export function formatGraphqlError(
 
   return fallback;
 }
+
+export function isAuthError(error: unknown): boolean {
+  const domainError = getPrimaryDomainError(error);
+  if (domainError) {
+    if (
+      domainError.code === DOMAIN_ERROR_CODES.NOT_AUTHORIZED ||
+      domainError.code === DOMAIN_ERROR_CODES.TOKEN_REQUIRED ||
+      domainError.code === DOMAIN_ERROR_CODES.INVALID_CREDENTIALS
+    ) {
+      return true;
+    }
+  }
+
+  if (isGraphqlClientError(error)) {
+    const msg = (error.response.errors?.[0]?.message ?? "").toLowerCase();
+    const code = error.response.errors?.[0]?.extensions?.code;
+    if (
+      msg.includes("expired") ||
+      msg.includes("invalid_grant") ||
+      code === "NOT_AUTHORIZED" ||
+      code === "TOKEN_REQUIRED" ||
+      code === "INVALID_CREDENTIALS"
+    ) {
+      return true;
+    }
+  }
+
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("expired") || msg.includes("invalid_grant")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+

@@ -320,12 +320,14 @@ export type SchemaMutationSetPasswordArgs = {
 
 export type SchemaMutationStartPasskeyLoginArgs = {
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+  rp?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationStartPasskeyRegistrationArgs = {
   auid: Scalars['ID']['input'];
   displayName?: InputMaybe<Scalars['String']['input']>;
+  rp?: InputMaybe<Scalars['String']['input']>;
   tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -677,6 +679,7 @@ export type StartPasskeyRegistrationMutationVariables = Exact<{
   auid: string | number;
   tokenId?: string | null | undefined;
   displayName?: string | null | undefined;
+  rp?: string | null | undefined;
 }>;
 
 
@@ -714,6 +717,7 @@ export type DeletePasskeyMutation = { deletePasskey: boolean };
 
 export type StartPasskeyLoginMutationVariables = Exact<{
   permissions?: Array<string> | string | null | undefined;
+  rp?: string | null | undefined;
 }>;
 
 
@@ -979,11 +983,12 @@ export const PasskeysDocument = gql`
 }
     `;
 export const StartPasskeyRegistrationDocument = gql`
-    mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String) {
+    mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String, $rp: String) {
   startPasskeyRegistration(
     auid: $auid
     tokenId: $tokenId
     displayName: $displayName
+    rp: $rp
   ) {
     challengeId
     optionsJson
@@ -1017,8 +1022,8 @@ export const DeletePasskeyDocument = gql`
 }
     `;
 export const StartPasskeyLoginDocument = gql`
-    mutation StartPasskeyLogin($permissions: [String!]) {
-  startPasskeyLogin(permissions: $permissions) {
+    mutation StartPasskeyLogin($permissions: [String!], $rp: String) {
+  startPasskeyLogin(permissions: $permissions, rp: $rp) {
     challengeId
     optionsJson
   }

@@ -88,17 +88,26 @@ export async function getValidMultiSession(): Promise<MultiSession | null> {
         updatedAccounts.push(refreshed);
         updated = true;
       } catch {
-        // If refresh fails for an account, keep old or skip depending on whether active
-        // If active fails, we keep it so user can be prompted to re-login if needed
-        updatedAccounts.push(account);
+        // Drop account if refresh fails (e.g. expired or revoked refresh token)
+        updated = true;
       }
     } else {
       updatedAccounts.push(account);
     }
   }
 
+  if (updatedAccounts.length === 0) {
+    await clearAllSessions();
+    return null;
+  }
+
+  let activeAuid = multiSession.activeAuid;
+  if (!updatedAccounts.some((acc) => acc.auid === activeAuid)) {
+    activeAuid = updatedAccounts[0].auid;
+  }
+
   const result: MultiSession = {
-    activeAuid: multiSession.activeAuid,
+    activeAuid,
     accounts: updatedAccounts,
   };
 

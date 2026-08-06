@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { getAuthSdkForSession, opaqueGraphqlBearer } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { getValidSession, addAccountToSession } from "@/lib/session-access";
@@ -29,9 +30,28 @@ export type PasskeyActionState = {
   passkeyUsername?: string;
 };
 
+async function resolveRp(explicitRp?: string): Promise<string | undefined> {
+  if (explicitRp?.trim()) {
+    return explicitRp.trim();
+  }
+  try {
+    const headerList = await headers();
+    const hostHeader =
+      headerList.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+      headerList.get("host")?.trim();
+    if (hostHeader) {
+      return hostHeader.split(":")[0];
+    }
+  } catch {
+    // Fallback if headers context unavailable
+  }
+  return undefined;
+}
+
 export async function startPasskeyLoginAction(
   username?: string,
   redirectUri?: string,
+  rp?: string,
 ): Promise<{ error?: string; loginResponse?: PasskeyLoginResponse; auid?: string }> {
   const normalizedUsername = username?.trim().replace(/^@/, "");
 
@@ -71,8 +91,10 @@ export async function startPasskeyLoginAction(
           ]),
         ]
       : undefined;
+    const effectiveRp = await resolveRp(rp);
     const loginResponse = await startPasskeyLogin(
       loginPermissions,
+      effectiveRp,
     );
     return { loginResponse, auid };
   } catch (error) {
@@ -161,6 +183,7 @@ export async function loginWithPasskeyAction(params: {
 
 export async function startPasskeyEnrollmentAction(
   displayName?: string,
+  rp?: string,
 ): Promise<PasskeyActionState> {
   const session = await getValidSession();
   if (!session) {
@@ -177,7 +200,8 @@ export async function startPasskeyEnrollmentAction(
       return { error: "Your account does not have a default username." };
     }
 
-    const response = await startPasskeyEnrollment(session.auid, displayName, bearer);
+    const effectiveRp = await resolveRp(rp);
+    const response = await startPasskeyEnrollment(session.auid, displayName, bearer, undefined, effectiveRp);
     return { enrollmentResponse: response, passkeyUsername };
   } catch (error) {
     return {

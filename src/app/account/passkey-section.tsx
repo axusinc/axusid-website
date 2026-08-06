@@ -49,8 +49,9 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
       try {
         const nameToUse = passkeyName.trim() || "My Passkey";
 
+        const rp = typeof window !== "undefined" ? window.location.hostname : undefined;
         // 1. Get enrollment challenge from backend
-        const result = await startPasskeyEnrollmentAction(nameToUse);
+        const result = await startPasskeyEnrollmentAction(nameToUse, rp);
         if (result.error || !result.enrollmentResponse || !result.passkeyUsername) {
           setError(result.error || "Failed to initiate passkey enrollment.");
           return;

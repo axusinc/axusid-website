@@ -85,9 +85,11 @@ export function LoginForm({
 
     startPasskeyTransition(async () => {
       try {
+        const rp = typeof window !== "undefined" ? window.location.hostname : undefined;
         const init = await startPasskeyLoginAction(
           normalizedUsername || undefined,
           redirectUri,
+          rp,
         );
         if (init.error || !init.loginResponse) {
           setPasskeyError(init.error || "Unable to start passkey sign in.");

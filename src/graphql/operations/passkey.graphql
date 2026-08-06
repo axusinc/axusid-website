@@ -11,8 +11,8 @@ query Passkeys($auid: ID!, $tokenId: String) {
   }
 }
 
-mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String) {
-  startPasskeyRegistration(auid: $auid, tokenId: $tokenId, displayName: $displayName) {
+mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String, $rp: String) {
+  startPasskeyRegistration(auid: $auid, tokenId: $tokenId, displayName: $displayName, rp: $rp) {
     challengeId
     optionsJson
   }
@@ -30,8 +30,8 @@ mutation DeletePasskey($auid: ID!, $credentialId: ID!, $tokenId: String) {
   deletePasskey(auid: $auid, credentialId: $credentialId, tokenId: $tokenId)
 }
 
-mutation StartPasskeyLogin($permissions: [String!]) {
-  startPasskeyLogin(permissions: $permissions) {
+mutation StartPasskeyLogin($permissions: [String!], $rp: String) {
+  startPasskeyLogin(permissions: $permissions, rp: $rp) {
     challengeId
     optionsJson
   }

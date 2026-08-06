@@ -30,12 +30,14 @@ export async function startPasskeyEnrollment(
   displayName?: string,
   bearerToken?: string,
   tokenId?: string,
+  rp?: string,
 ): Promise<PasskeyEnrollmentResponse> {
   const sdk = getAuthSdk(bearerToken);
   const data = await sdk.StartPasskeyRegistration({
     auid,
     displayName,
     tokenId,
+    rp,
   });
   return data.startPasskeyRegistration;
 }
@@ -61,10 +63,12 @@ export async function verifyPasskeyEnrollment(
 
 export async function startPasskeyLogin(
   permissions?: string[],
+  rp?: string,
 ): Promise<PasskeyLoginResponse> {
   const sdk = getAuthSdk();
   const data = await sdk.StartPasskeyLogin({
     permissions: permissions && permissions.length > 0 ? permissions : undefined,
+    rp,
   });
   return data.startPasskeyLogin;
 }
