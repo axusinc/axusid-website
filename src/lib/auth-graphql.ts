@@ -52,9 +52,13 @@ export async function signGraphqlAccessToken(params: {
   });
 }
 
-export function createAuthGraphqlClient(bearerToken?: string): GraphQLClient {
+export function createAuthGraphqlClient(
+  bearerToken?: string,
+  extraHeaders?: Record<string, string>,
+): GraphQLClient {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...extraHeaders,
   };
 
   if (bearerToken) {
@@ -64,12 +68,18 @@ export function createAuthGraphqlClient(bearerToken?: string): GraphQLClient {
   return new GraphQLClient(getEndpoint(), { headers });
 }
 
-export function getAuthSdk(bearerToken?: string) {
-  return getSdk(createAuthGraphqlClient(bearerToken));
+export function getAuthSdk(
+  bearerToken?: string,
+  extraHeaders?: Record<string, string>,
+) {
+  return getSdk(createAuthGraphqlClient(bearerToken, extraHeaders));
 }
 
-export function getAuthSdkForSession(session: IdPSession) {
-  return getAuthSdk(opaqueGraphqlBearer(session.credentials));
+export function getAuthSdkForSession(
+  session: IdPSession,
+  extraHeaders?: Record<string, string>,
+) {
+  return getAuthSdk(opaqueGraphqlBearer(session.credentials), extraHeaders);
 }
 
 export async function getAuthSdkForSessionJwt(session: IdPSession) {

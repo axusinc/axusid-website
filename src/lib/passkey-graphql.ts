@@ -32,12 +32,14 @@ export async function startPasskeyEnrollment(
   tokenId?: string,
   rp?: string,
 ): Promise<PasskeyEnrollmentResponse> {
-  const sdk = getAuthSdk(bearerToken);
+  const extraHeaders = rp
+    ? { "X-RP-ID": rp, "X-RP": rp, "X-Forwarded-Host": rp }
+    : undefined;
+  const sdk = getAuthSdk(bearerToken, extraHeaders);
   const data = await sdk.StartPasskeyRegistration({
     auid,
     displayName,
     tokenId,
-    rp,
   });
   return data.startPasskeyRegistration;
 }
@@ -65,10 +67,12 @@ export async function startPasskeyLogin(
   permissions?: string[],
   rp?: string,
 ): Promise<PasskeyLoginResponse> {
-  const sdk = getAuthSdk();
+  const extraHeaders = rp
+    ? { "X-RP-ID": rp, "X-RP": rp, "X-Forwarded-Host": rp }
+    : undefined;
+  const sdk = getAuthSdk(undefined, extraHeaders);
   const data = await sdk.StartPasskeyLogin({
     permissions: permissions && permissions.length > 0 ? permissions : undefined,
-    rp,
   });
   return data.startPasskeyLogin;
 }
