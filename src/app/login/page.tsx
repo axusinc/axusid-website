@@ -49,10 +49,19 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     } catch {}
   }
 
-  const selectAccount =
-    params.select_account === "true" || params.prompt === "select_account" || promptRequiresAuth;
+  const hasMultipleAccounts = Boolean(
+    multiSession &&
+      multiSession.accounts.length > 1 &&
+      params.account_selected !== "true",
+  );
 
-  if (session && !addAccount && !flowMeta.isOAuthFlow && !selectAccount) {
+  const selectAccount =
+    params.select_account === "true" ||
+    params.prompt === "select_account" ||
+    promptRequiresAuth ||
+    hasMultipleAccounts;
+
+  if (session && !addAccount && !selectAccount) {
     redirect(resolveAuthenticatedRedirect({ redirectUri, next }));
   }
 
