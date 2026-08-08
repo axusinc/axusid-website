@@ -384,6 +384,8 @@ export async function consentAction(formData: FormData) {
     consentedClients: [...new Set([...session.consentedClients, clientId])],
   };
 
+  await addAccountToSession(updatedSession);
+
   let targetUri = redirectUri;
   if (targetUri.startsWith("/authorize")) {
     try {
