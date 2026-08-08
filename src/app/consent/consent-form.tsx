@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { denyConsentAction, consentAction, switchAccountAction } from "@/app/actions/auth";
+import { Check, ShieldCheck } from "lucide-react";
+import { denyConsentAction, consentAction } from "@/app/actions/auth";
 import { Avatar } from "@/app/account/dashboard-ui";
 import { AuthShell } from "@/components/auth-shell";
 import { Button } from "@/components/ui/button";
@@ -20,214 +20,263 @@ export type ConsentApplicationUserInfo = {
 
 type ConsentFormProps = {
   applicationUser: ConsentApplicationUserInfo | null;
-  redirectHost: string | null;
+  redirectHost?: string | null;
   permissions: string[];
   redirectUri: string;
   accounts?: AccountItemInfo[];
   currentAuid?: string;
 };
 
+function renderIdentityHeading(
+  displayName: string,
+  username: string | null | undefined,
+  firstName?: string | null,
+  lastName?: string | null,
+) {
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const effectiveDisplay = fullName || displayName;
+  const normUsername = username?.trim().replace(/^@/, "");
+  const normDisplay = effectiveDisplay?.trim().replace(/^@/, "");
+  const hasDistinctName = Boolean(
+    normUsername &&
+      normDisplay &&
+      normDisplay.toLowerCase() !== normUsername.toLowerCase(),
+  );
+
+  if (hasDistinctName) {
+    return (
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-black">{effectiveDisplay}</p>
+        <p className="truncate text-xs text-neutral-500">@{normUsername}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0">
+      <p className="truncate text-sm font-semibold text-black">
+        {normUsername ? `@${normUsername}` : effectiveDisplay}
+      </p>
+    </div>
+  );
+}
+
+function renderAppIdentityHeading(
+  applicationUser: ConsentApplicationUserInfo | null,
+  appName: string,
+) {
+  if (!applicationUser) {
+    return <p className="truncate text-lg font-semibold tracking-tight text-black">{appName}</p>;
+  }
+
+  const fullName = [applicationUser.firstName, applicationUser.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const effectiveDisplay = fullName || applicationUser.displayName || appName;
+  const normUsername = applicationUser.username?.trim().replace(/^@/, "");
+  const normDisplay = effectiveDisplay?.trim().replace(/^@/, "");
+  const hasDistinctName = Boolean(
+    normUsername &&
+      normDisplay &&
+      normDisplay.toLowerCase() !== normUsername.toLowerCase(),
+  );
+
+  if (hasDistinctName) {
+    return (
+      <div>
+        <p className="truncate text-lg font-semibold tracking-tight text-black">{effectiveDisplay}</p>
+        <p className="truncate text-xs text-neutral-500">@{normUsername}</p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="truncate text-lg font-semibold tracking-tight text-black">
+      {normUsername ? `@${normUsername}` : effectiveDisplay}
+    </p>
+  );
+}
+
+function buildChangeAccountHref(redirectUri: string): string {
+  let cleanRedirect = redirectUri;
+  try {
+    const url = new URL(redirectUri, "http://localhost");
+    url.searchParams.delete("account_selected");
+    cleanRedirect = `${url.pathname}${url.search}`;
+  } catch {
+    // fallback
+  }
+
+  const params = new URLSearchParams();
+  params.set("redirect_uri", cleanRedirect);
+  params.set("select_account", "true");
+  return `/login?${params.toString()}`;
+}
+
 export function ConsentForm({
   applicationUser,
-  redirectHost,
   permissions,
   redirectUri,
   accounts = [],
   currentAuid = "",
 }: ConsentFormProps) {
-  const [selectedAuid, setSelectedAuid] = useState(currentAuid || accounts[0]?.auid || "");
-  const [, startTransition] = useTransition();
+  const activeAccount =
+    accounts.find((a) => a.auid === currentAuid) ||
+    accounts.find((a) => a.isActive) ||
+    accounts[0];
 
-  const hasPermissions = permissions.length > 0;
-  const fullName = applicationUser?.displayName.trim() ?? "";
-  const hasDistinctName = Boolean(
-    applicationUser &&
-      fullName &&
-      fullName !== applicationUser.username,
-  );
+  const appName = applicationUser?.displayName || "Application";
+  const hasCustomPermissions = permissions.length > 0;
+  const changeAccountHref = buildChangeAccountHref(redirectUri);
 
-  const handleSelectAccount = (auid: string, formData: FormData) => {
-    setSelectedAuid(auid);
-    startTransition(async () => {
-      await switchAccountAction(formData);
-    });
-  };
+  const title = hasCustomPermissions
+    ? applicationUser
+      ? `${appName} wants access`
+      : "Confirm access"
+    : `Sign in to ${appName}`;
+
+  const description = hasCustomPermissions
+    ? `Review requested permissions for your account before signing in.`
+    : `Confirm your identity to finish signing in to ${appName}.`;
 
   return (
     <AuthShell
-      title="Authorize access"
-      description="Review the application details and choose an account to log in."
-      maxWidthClass="max-w-3xl"
+      variant="sign-in"
+      signInStep={2}
+      maxWidthClass="max-w-[920px]"
+      title={title}
+      description={description}
     >
-      <div className="grid gap-6 md:grid-cols-2 md:items-stretch">
-        {/* Left Side: Application Info & Permissions */}
-        <div className={cn("flex flex-col justify-between space-y-4 border border-black/5 bg-white/60 p-5 backdrop-blur-sm", roundedRect)}>
-          <div className="space-y-4">
-            {applicationUser ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                  Application
-                </p>
-                <div className="mt-3 flex items-center gap-3">
-                  <Avatar
-                    size="md"
-                    firstName={applicationUser.firstName}
-                    lastName={applicationUser.lastName}
-                    username={applicationUser.username}
-                    className="h-10 w-10 text-xs font-bold"
-                  />
-                  <div className="min-w-0">
-                    {hasDistinctName ? (
-                      <p className="truncate text-sm font-semibold text-neutral-900">
-                        {fullName}
-                      </p>
-                    ) : null}
-                    {applicationUser.username ? (
-                      <p
-                        className={cn(
-                          "truncate text-xs text-neutral-700",
-                          hasDistinctName
-                            ? "text-neutral-500"
-                            : "font-semibold text-neutral-900",
-                        )}
-                      >
-                        @{applicationUser.username}
-                      </p>
-                    ) : (
-                      <p className="truncate text-sm font-semibold text-neutral-900">
-                        {applicationUser.displayName}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : null}
+      <div className="space-y-6">
+        {/* Active Account Card with Change link back to Step 1 */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+            Signing in as
+          </p>
 
-            {redirectHost ? (
-              <div className={cn(applicationUser ? "border-t border-black/5 pt-3" : undefined)}>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                  Redirecting to
-                </p>
-                <p className="mt-1.5 truncate text-xs font-medium text-neutral-700">
-                  {redirectHost}
-                </p>
+          {activeAccount ? (
+            <div
+              className={cn(
+                "flex items-center justify-between border border-black/10 bg-neutral-50/90 px-4 py-3 shadow-xs",
+                roundedRect,
+              )}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar
+                  firstName={activeAccount.firstName}
+                  lastName={activeAccount.lastName}
+                  username={activeAccount.username}
+                  size="md"
+                  className="ring-2 ring-black/[0.04]"
+                />
+                {renderIdentityHeading(
+                  activeAccount.displayName,
+                  activeAccount.username,
+                  activeAccount.firstName,
+                  activeAccount.lastName,
+                )}
               </div>
-            ) : null}
 
-            {hasPermissions ? (
-              <div className="border-t border-black/5 pt-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                  Requested permissions
-                </p>
-                <ul className="mt-2 space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {permissions.map((permission) => (
-                    <li
-                      key={permission}
-                      className={cn(
-                        "flex items-center justify-between bg-neutral-50/80 px-2.5 py-1.5 text-xs text-neutral-700 border border-black/5",
-                        roundedRect,
-                      )}
-                    >
-                      <span>{formatPermissionLabel(permission)}</span>
-                      <span className="text-[10px] uppercase tracking-wide font-medium text-neutral-400">
-                        allow
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Right Side: Account Selection ("Log in as") & Action Buttons */}
-        <div className="flex flex-col justify-between space-y-4">
-          <div className={cn("space-y-3 border border-black/5 bg-white/60 p-5 backdrop-blur-sm flex-1", roundedRect)}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                Log in as
-              </p>
               <Link
-                href={`/login?add_account=true&redirect_uri=${encodeURIComponent(redirectUri)}`}
-                className="text-xs font-medium text-black hover:underline"
+                href={changeAccountHref}
+                className="text-xs font-semibold text-neutral-600 transition-colors hover:text-black hover:underline"
               >
-                + Add account
+                Change
               </Link>
             </div>
+          ) : null}
+        </div>
 
-            {/* Accounts Selector List */}
-            {accounts.length > 0 ? (
-              <div className="space-y-1.5">
-                {accounts.map((account) => {
-                  const isActive = account.auid === selectedAuid;
-                  const usernameDisplay = account.username
-                    ? `@${account.username}`
-                    : account.displayName;
+        {/* Application Details / Permissions Box */}
+        <div
+          className={cn(
+            "space-y-4 border border-black/10 bg-white/70 p-5 backdrop-blur-sm shadow-xs",
+            roundedRect,
+          )}
+        >
+          {/* Target App Identity */}
+          <div className="flex items-center gap-3.5">
+            <Avatar
+              size="md"
+              firstName={applicationUser?.firstName ?? null}
+              lastName={applicationUser?.lastName ?? null}
+              username={applicationUser?.username ?? null}
+              className="h-11 w-11 text-sm font-bold shadow-xs ring-2 ring-black/5"
+            />
+            <div className="min-w-0 flex-1">
+              {renderAppIdentityHeading(applicationUser, appName)}
+              <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+                {hasCustomPermissions
+                  ? "Wants to access your AXUS account with the permissions below."
+                  : "Wants you to sign in with your AXUS ID."}
+              </p>
+            </div>
+          </div>
 
-                  return (
-                    <form
-                      key={account.auid}
-                      action={(formData) => handleSelectAccount(account.auid, formData)}
-                    >
-                      <input type="hidden" name="auid" value={account.auid} />
-                      <input type="hidden" name="redirect_uri" value={redirectUri} />
-                      <button
-                        type="submit"
-                        className={cn(
-                          "group flex w-full items-center justify-between px-3 py-2 border text-left transition-all focus:outline-none focus:ring-2 focus:ring-black/10 cursor-pointer",
-                          roundedRect,
-                          isActive
-                            ? "border-black/15 bg-neutral-100/90 text-black font-medium"
-                            : "border-black/5 bg-white/60 text-neutral-600 hover:bg-white hover:text-black hover:border-black/10",
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Avatar
-                            firstName={account.firstName}
-                            lastName={account.lastName}
-                            username={account.username}
-                            size="sm"
-                            className="h-5 w-5 text-[10px] font-bold ring-0"
-                          />
-                          <p className="text-xs font-medium text-black truncate">
-                            {usernameDisplay}
-                          </p>
-                        </div>
-                        {isActive ? (
-                          <span className="text-[10px] font-semibold text-neutral-600 bg-black/[0.06] px-2 py-0.5 rounded-md">
-                            Active
-                          </span>
-                        ) : null}
-                      </button>
-                    </form>
-                  );
-                })}
+          {/* Custom Permission Items List (only shown if custom permissions exist) */}
+          {hasCustomPermissions ? (
+            <div className="pt-3 border-t border-black/[0.06] space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-neutral-500" />
+                  Requested permissions
+                </p>
+                <span className="text-[11px] text-neutral-400">
+                  {permissions.length} {permissions.length === 1 ? "item" : "items"}
+                </span>
               </div>
-            ) : (
-              <p className="text-xs text-neutral-500">No active accounts.</p>
-            )}
-          </div>
 
-          {/* Action Buttons: Allow Access & Deny Horizontally */}
-          <div className="flex items-center gap-3 pt-1">
-            <form action={consentAction} className="flex-1">
-              <input type="hidden" name="redirect_uri" value={redirectUri} />
-              <Button
-                type="submit"
-                variant="brand"
-                className="w-full transition-transform active:scale-[0.99]"
-              >
-                Allow access
-              </Button>
-            </form>
+              <ul className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {permissions.map((perm) => (
+                  <li
+                    key={perm}
+                    className={cn(
+                      "flex items-start justify-between bg-neutral-50/80 px-3.5 py-2.5 text-sm text-neutral-800 border border-black/[0.06]",
+                      roundedRect,
+                    )}
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0 pr-2">
+                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                      </span>
+                      <span className="font-medium leading-normal">
+                        {formatPermissionLabel(perm)}
+                      </span>
+                    </div>
+                    <span className="shrink-0 rounded-md bg-black/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                      Allow
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
 
-            <form action={denyConsentAction} className="flex-1">
-              <input type="hidden" name="redirect_uri" value={redirectUri} />
-              <Button type="submit" variant="outline" className="w-full">
-                Deny
-              </Button>
-            </form>
-          </div>
+        {/* Action Buttons: Allow Access & Deny */}
+        <div className="flex items-center gap-3 pt-2">
+          <form action={consentAction} className="flex-1">
+            <input type="hidden" name="redirect_uri" value={redirectUri} />
+            <Button
+              type="submit"
+              variant="brand"
+              className="h-11 w-full text-sm font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:translate-y-0"
+            >
+              {hasCustomPermissions ? "Allow access" : "Continue"}
+            </Button>
+          </form>
+
+          <form action={denyConsentAction} className="flex-1">
+            <input type="hidden" name="redirect_uri" value={redirectUri} />
+            <Button
+              type="submit"
+              variant="outline"
+              className="h-11 w-full text-sm font-semibold transition-all hover:-translate-y-px hover:border-black/15 hover:shadow-sm active:translate-y-0"
+            >
+              Cancel
+            </Button>
+          </form>
         </div>
       </div>
     </AuthShell>

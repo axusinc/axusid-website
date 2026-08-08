@@ -65,6 +65,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
 
   let redirectHost: string | null = null;
   let permissions: string[] = [];
+  let oidcScopes: string[] = [];
   let applicationUser = null;
 
   const sdk = getAuthSdkForSession(session);
@@ -98,8 +99,9 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
       redirect("/");
     }
 
-    const { axusPermissions } = partitionScopes(scopes);
-    permissions = getConsentPermissions(axusPermissions);
+    const partitioned = partitionScopes(scopes);
+    oidcScopes = partitioned.oidcScopes;
+    permissions = getConsentPermissions(partitioned.axusPermissions);
 
     const clientRedirectUri = url.searchParams.get("redirect_uri");
     if (clientRedirectUri) {
@@ -122,7 +124,6 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   return (
     <ConsentForm
       applicationUser={applicationUser}
-      redirectHost={redirectHost}
       permissions={permissions}
       redirectUri={redirectUri}
       accounts={accountInfos}

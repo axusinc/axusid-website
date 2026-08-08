@@ -240,13 +240,22 @@ export async function switchAccountAction(formData: FormData): Promise<AuthActio
 
   revalidatePath("/account");
 
-  if (redirectUri || next) {
-    redirect(
-      resolveAuthenticatedRedirect({
-        redirectUri: redirectUri || undefined,
-        next: next || undefined,
-      }),
-    );
+  if (redirectUri) {
+    let target = redirectUri;
+    if (target.startsWith("/authorize") || target.startsWith("/saml/sso/")) {
+      try {
+        const url = new URL(target, "http://localhost");
+        url.searchParams.set("account_selected", "true");
+        target = `${url.pathname}${url.search}`;
+      } catch {
+        // fallback
+      }
+    }
+    redirect(target);
+  }
+
+  if (next) {
+    redirect(next);
   }
 
   return { success: "Account switched successfully." };
@@ -375,9 +384,20 @@ export async function consentAction(formData: FormData) {
     consentedClients: [...new Set([...session.consentedClients, clientId])],
   };
 
-  await addAccountToSession(updatedSession);
+  let targetUri = redirectUri;
+  if (targetUri.startsWith("/authorize")) {
+    try {
+      const targetUrl = new URL(targetUri, "http://localhost");
+      if (targetUrl.searchParams.has("prompt")) {
+        targetUrl.searchParams.set("prompt_consent", "done");
+        targetUri = `${targetUrl.pathname}${targetUrl.search}`;
+      }
+    } catch {
+      // fallback
+    }
+  }
 
-  redirect(redirectUri);
+  redirect(targetUri);
 }
 
 export async function denyConsentAction(formData: FormData) {
@@ -482,11 +502,12 @@ export async function ensureRegistrationUsername(
         continue;
       }
 
-      throw error;
+      console.error("Failed to set registration username:", error);
+      return;
     }
   }
 
-  throw lastError;
+  console.error("Failed to set registration username after retries:", lastError);
 }
 
 export async function clearPendingGoogleRegistrationAction(): Promise<AuthActionState> {

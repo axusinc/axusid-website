@@ -21,8 +21,18 @@ import { cn, isRedirectError } from "@/lib/utils";
 import { getPasskeyCredential } from "@/lib/webauthn";
 import type { AccountItemInfo } from "@/lib/user-profile";
 
+export type TargetAppUserInfo = {
+  displayName: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+};
+
 type LoginFormProps = {
   isOAuthFlow?: boolean;
+  targetAppName?: string | null;
+  targetHost?: string | null;
+  targetAppUser?: TargetAppUserInfo | null;
   registeredUsername?: string;
   redirectUri?: string;
   next?: string;
@@ -33,8 +43,82 @@ type LoginFormProps = {
 
 const initialState: AuthActionState = {};
 
+function renderIdentityHeading(
+  displayName: string,
+  username: string | null | undefined,
+  firstName?: string | null,
+  lastName?: string | null,
+) {
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const effectiveDisplay = fullName || displayName;
+  const normUsername = username?.trim().replace(/^@/, "");
+  const normDisplay = effectiveDisplay?.trim().replace(/^@/, "");
+  const hasDistinctName = Boolean(
+    normUsername &&
+      normDisplay &&
+      normDisplay.toLowerCase() !== normUsername.toLowerCase(),
+  );
+
+  if (hasDistinctName) {
+    return (
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-black">{effectiveDisplay}</p>
+        <p className="truncate text-xs text-neutral-500">@{normUsername}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0 flex-1">
+      <p className="truncate text-sm font-semibold text-black">
+        {normUsername ? `@${normUsername}` : effectiveDisplay}
+      </p>
+    </div>
+  );
+}
+
+function renderAppIdentityHeading(
+  applicationUser: TargetAppUserInfo | null | undefined,
+  appName: string,
+) {
+  if (!applicationUser) {
+    return <p className="truncate text-lg font-semibold tracking-tight text-black">{appName}</p>;
+  }
+
+  const fullName = [applicationUser.firstName, applicationUser.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const effectiveDisplay = fullName || applicationUser.displayName || appName;
+  const normUsername = applicationUser.username?.trim().replace(/^@/, "");
+  const normDisplay = effectiveDisplay?.trim().replace(/^@/, "");
+  const hasDistinctName = Boolean(
+    normUsername &&
+      normDisplay &&
+      normDisplay.toLowerCase() !== normUsername.toLowerCase(),
+  );
+
+  if (hasDistinctName) {
+    return (
+      <div>
+        <p className="truncate text-lg font-semibold tracking-tight text-black">{effectiveDisplay}</p>
+        <p className="truncate text-xs text-neutral-500">@{normUsername}</p>
+      </div>
+    );
+  }
+
+  return (
+    <p className="truncate text-lg font-semibold tracking-tight text-black">
+      {normUsername ? `@${normUsername}` : effectiveDisplay}
+    </p>
+  );
+}
+
 export function LoginForm({
   isOAuthFlow,
+  targetAppName,
+  targetHost,
+  targetAppUser,
   registeredUsername,
   redirectUri,
   next,
@@ -63,6 +147,8 @@ export function LoginForm({
   const [isSwitchPending, startSwitchTransition] = useTransition();
 
   const hasExistingAccounts = existingAccounts.length > 0;
+  const appName = targetAppName || "Application";
+
   const createAccountParams = new URLSearchParams();
   if (redirectUri) createAccountParams.set("redirect_uri", redirectUri);
   if (next) createAccountParams.set("next", next);
@@ -163,103 +249,127 @@ export function LoginForm({
     return (
       <AuthShell
         variant="sign-in"
+        signInStep={isOAuthFlow ? 1 : undefined}
         maxWidthClass="max-w-[920px]"
         title="Choose an account"
         description={
           isOAuthFlow
-            ? "Select a signed-in identity to continue securely with this application."
+            ? `Select an identity to continue to ${appName}.`
             : "Pick an identity to continue to your AXUS account."
         }
       >
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold tracking-tight text-black">Your accounts</h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
-            Continue with an account that is already signed in on this device.
+        <div className="space-y-6">
+          {/* Target App Identity Box (Identical structure & design as Step 2) */}
+          {isOAuthFlow ? (
+            <div
+              className={cn(
+                "space-y-4 border border-black/10 bg-white/70 p-5 backdrop-blur-sm shadow-xs",
+                roundedRect,
+              )}
+            >
+              <div className="flex items-center gap-3.5">
+                <Avatar
+                  size="md"
+                  firstName={targetAppUser?.firstName ?? null}
+                  lastName={targetAppUser?.lastName ?? null}
+                  username={targetAppUser?.username ?? null}
+                  className="h-11 w-11 text-sm font-bold shadow-xs ring-2 ring-black/5"
+                />
+                <div className="min-w-0 flex-1">
+                  {renderAppIdentityHeading(targetAppUser, appName)}
+                  <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+                    Wants you to sign in with your AXUS ID.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-2">
+              <h2 className="text-xl font-semibold tracking-tight text-black">Your accounts</h2>
+              <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
+                Continue with an account that is already signed in on this device.
+              </p>
+            </div>
+          )}
+
+          {/* Identity Selection Cards */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+              Choose an identity
+            </p>
+
+            {existingAccounts.map((account) => {
+              const isActive = account.auid === selectedAuid;
+
+              return (
+                <form
+                  key={account.auid}
+                  action={(formData) => handleSelectAccount(account.auid, formData)}
+                >
+                  <input type="hidden" name="auid" value={account.auid} />
+                  {redirectUri ? (
+                    <input type="hidden" name="redirect_uri" value={redirectUri} />
+                  ) : null}
+                  <input type="hidden" name="next" value={next || "/account"} />
+                  <button
+                    type="submit"
+                    disabled={isSwitchPending}
+                    className={cn(
+                      "group flex w-full cursor-pointer items-center justify-between border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5 disabled:cursor-wait disabled:opacity-60",
+                      roundedRect,
+                      isActive
+                        ? "border-black/15 bg-neutral-100/90 shadow-xs"
+                        : "border-black/[0.06] bg-white/70 hover:border-black/10 hover:bg-white hover:shadow-sm",
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Avatar
+                        firstName={account.firstName}
+                        lastName={account.lastName}
+                        username={account.username}
+                        size="md"
+                        className="ring-2 ring-black/[0.04]"
+                      />
+                      {renderIdentityHeading(
+                        account.displayName,
+                        account.username,
+                        account.firstName,
+                        account.lastName,
+                      )}
+                    </div>
+                  </button>
+                </form>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowCredentialsForm(true);
+                setCredentialStep("identifier");
+              }}
+              className={cn(
+                "flex w-full cursor-pointer items-center gap-3 border border-dashed border-black/10 bg-neutral-50/60 px-4 py-3 text-left text-sm font-medium text-neutral-600 transition-all hover:border-black/15 hover:bg-neutral-100 hover:text-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5",
+                roundedRect,
+              )}
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.05] text-lg font-light">
+                +
+              </span>
+              Use another account
+            </button>
+          </div>
+
+          <p className="mt-7 text-center text-sm text-neutral-500">
+            Need a new identity?{" "}
+            <Link
+              href={createAccountHref}
+              className="font-semibold text-black underline-offset-4 hover:underline"
+            >
+              Create an AXUS ID
+            </Link>
           </p>
         </div>
-
-        <div className="space-y-2">
-          {existingAccounts.map((account) => {
-            const isActive = account.auid === selectedAuid;
-            const usernameDisplay = account.username ? `@${account.username}` : account.auid;
-
-            return (
-              <form
-                key={account.auid}
-                action={(formData) => handleSelectAccount(account.auid, formData)}
-              >
-                <input type="hidden" name="auid" value={account.auid} />
-                {redirectUri ? (
-                  <input type="hidden" name="redirect_uri" value={redirectUri} />
-                ) : null}
-                <input type="hidden" name="next" value={next || "/account"} />
-                <button
-                  type="submit"
-                  disabled={isSwitchPending}
-                  className={cn(
-                    "group flex w-full cursor-pointer items-center gap-3 border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5 disabled:cursor-wait disabled:opacity-60",
-                    roundedRect,
-                    isActive
-                      ? "border-black/10 bg-neutral-100/90 shadow-xs"
-                      : "border-black/[0.06] bg-white/70 hover:border-black/10 hover:bg-white hover:shadow-sm",
-                  )}
-                >
-                  <Avatar
-                    firstName={account.firstName}
-                    lastName={account.lastName}
-                    username={account.username}
-                    size="md"
-                    className="ring-2 ring-black/[0.04]"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-black">
-                      {account.displayName}
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-neutral-500">
-                      {usernameDisplay}
-                    </span>
-                  </span>
-                  {isActive ? (
-                    <span className="rounded-full bg-black/[0.06] px-2.5 py-1 text-[11px] font-medium text-neutral-600">
-                      Current
-                    </span>
-                  ) : (
-                    <span className="text-lg text-neutral-300 transition-transform group-hover:translate-x-0.5 group-hover:text-neutral-500">
-                      →
-                    </span>
-                  )}
-                </button>
-              </form>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={() => {
-              setShowCredentialsForm(true);
-              setCredentialStep("identifier");
-            }}
-            className={cn(
-              "flex w-full cursor-pointer items-center gap-3 border border-dashed border-black/10 bg-neutral-50/60 px-4 py-3 text-left text-sm font-medium text-neutral-600 transition-all hover:border-black/15 hover:bg-neutral-100 hover:text-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5",
-              roundedRect,
-            )}
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.05] text-xl font-light">
-              +
-            </span>
-            Use another account
-          </button>
-        </div>
-
-        <p className="mt-7 text-center text-sm text-neutral-500">
-          Need a new identity?{" "}
-          <Link
-            href={createAccountHref}
-            className="font-semibold text-black underline-offset-4 hover:underline"
-          >
-            Create an AXUS ID
-          </Link>
-        </p>
       </AuthShell>
     );
   }
@@ -268,21 +378,46 @@ export function LoginForm({
     return (
       <AuthShell
         variant="sign-in"
-        signInStep={1}
+        signInStep={isOAuthFlow ? 1 : undefined}
         maxWidthClass="max-w-[920px]"
         title={hasExistingAccounts ? "Add another account" : "Welcome back"}
         description={
           isOAuthFlow
-            ? "Sign in with AXUS ID to continue securely with this application."
+            ? `Sign in with AXUS ID to continue to ${appName}.`
             : "Enter your username first. We’ll ask for your password on the next step."
         }
       >
-        <div className="mb-7">
-          <h2 className="text-xl font-semibold tracking-tight text-black">Enter your username</h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
-            Use the username connected to your AXUS ID.
-          </p>
-        </div>
+        {isOAuthFlow ? (
+          <div
+            className={cn(
+              "space-y-4 border border-black/10 bg-white/70 p-5 backdrop-blur-sm shadow-xs mb-6",
+              roundedRect,
+            )}
+          >
+            <div className="flex items-center gap-3.5">
+              <Avatar
+                size="md"
+                firstName={targetAppUser?.firstName ?? null}
+                lastName={targetAppUser?.lastName ?? null}
+                username={targetAppUser?.username ?? null}
+                className="h-11 w-11 text-sm font-bold shadow-xs ring-2 ring-black/5"
+              />
+              <div className="min-w-0 flex-1">
+                {renderAppIdentityHeading(targetAppUser, appName)}
+                <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+                  Wants you to sign in with your AXUS ID.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-7">
+            <h2 className="text-xl font-semibold tracking-tight text-black">Enter your username</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
+              Use the username connected to your AXUS ID.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-5">
           <form
@@ -312,7 +447,7 @@ export function LoginForm({
             <Button
               type="submit"
               variant="brand"
-              className="h-11 w-full font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:translate-y-0"
+              className="h-11 w-full text-sm font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:translate-y-0"
               disabled={isUsernamePending || isPasskeyPending}
             >
               {isUsernamePending ? "Checking username…" : "Continue"}
@@ -354,7 +489,7 @@ export function LoginForm({
           <Button
             type="button"
             variant="outline"
-            className="h-11 w-full gap-3 bg-white/70 font-semibold transition-all hover:-translate-y-px hover:border-black/15 hover:shadow-sm active:translate-y-0"
+            className="h-11 w-full gap-3 bg-white/70 text-sm font-semibold transition-all hover:-translate-y-px hover:border-black/15 hover:shadow-sm active:translate-y-0"
             disabled={isUsernamePending || isPasskeyPending}
             onClick={handlePasskeySignIn}
           >
@@ -390,7 +525,7 @@ export function LoginForm({
   return (
     <AuthShell
       variant="sign-in"
-      signInStep={2}
+      signInStep={isOAuthFlow ? 1 : undefined}
       maxWidthClass="max-w-[920px]"
       title="Confirm it’s you"
       description="Enter your password to finish signing in to your AXUS ID."
@@ -467,7 +602,7 @@ export function LoginForm({
         <Button
           type="submit"
           variant="brand"
-          className="h-11 w-full font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:translate-y-0"
+          className="h-11 w-full text-sm font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:translate-y-0"
           disabled={pending || isPasskeyPending}
         >
           {pending ? "Signing in…" : "Sign in"}
@@ -476,7 +611,7 @@ export function LoginForm({
         <Button
           type="button"
           variant="outline"
-          className="h-11 w-full gap-3 bg-white/70 font-semibold transition-all hover:-translate-y-px hover:border-black/15 hover:shadow-sm active:translate-y-0"
+          className="h-11 w-full gap-3 bg-white/70 text-sm font-semibold transition-all hover:-translate-y-px hover:border-black/15 hover:shadow-sm active:translate-y-0"
           disabled={pending || isPasskeyPending}
           onClick={handlePasskeySignIn}
         >

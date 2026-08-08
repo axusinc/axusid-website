@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getValidSession } from "@/lib/session-access";
+import { getValidSession, getValidMultiSession } from "@/lib/session-access";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import {
   createIdentityProvider,
@@ -82,17 +82,18 @@ async function handleSsoRequest(
     currentUrl += request.nextUrl.search;
   }
 
+  const multiSession = await getValidMultiSession();
+
   if (!session) {
     const loginUrl = new URL(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`, request.url);
     return NextResponse.redirect(loginUrl, 303);
   }
 
-  // Verify the logged-in user matches the target auidParam
-  if (session.auid !== auidParam) {
-    // Session user mismatch: redirect to login to switch accounts
+  if (multiSession && multiSession.accounts.length > 1 && searchParams.get("account_selected") !== "true") {
     const loginUrl = new URL(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`, request.url);
     return NextResponse.redirect(loginUrl, 303);
   }
+
 
   // Check if the user has consented to the SAML client config
   const hasConsented = session.consentedClients.includes(auidParam);

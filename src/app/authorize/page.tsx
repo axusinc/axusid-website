@@ -13,7 +13,7 @@ import { generateOpaqueCode } from "@/lib/oauth/pkce";
 import {
   authorizeQuerySchema,
 } from "@/lib/oauth/schemas";
-import { getValidSession } from "@/lib/session-access";
+import { getValidSession, getValidMultiSession } from "@/lib/session-access";
 
 type AuthorizePageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -107,17 +107,81 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     );
   }
 
-  const session = await getValidSession();
-  const currentUrl = `/authorize?${new URLSearchParams(queryParams).toString()}`;
+  const promptTokens = new Set(
+    query.prompt ? query.prompt.trim().split(/\s+/) : []
+  );
 
-  if (!session) {
-    redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
+  // 1. OIDC Spec: prompt=none MUST NOT be used with any other prompt values
+  if (promptTokens.has("none") && promptTokens.size > 1) {
+    return oauthRedirectError(
+      query.redirect_uri,
+      "invalid_request",
+      query.state,
+      "The prompt parameter value 'none' cannot be used with other prompt values",
+    );
   }
 
-  const hasConsented = session.consentedClients.includes(client.auid);
+  const session = await getValidSession();
+  const multiSession = await getValidMultiSession();
+  const currentUrl = `/authorize?${new URLSearchParams(queryParams).toString()}`;
 
-  if (!hasConsented) {
-    redirect(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`);
+  // 2. Handle prompt=none (MUST NOT show any interactive UI)
+  if (promptTokens.has("none")) {
+    if (!session) {
+      return oauthRedirectError(
+        query.redirect_uri,
+        "login_required",
+        query.state,
+        "User is not authenticated",
+      );
+    }
+
+    if (multiSession && multiSession.accounts.length > 1 && queryParams.account_selected !== "true") {
+      return oauthRedirectError(
+        query.redirect_uri,
+        "account_selection_required",
+        query.state,
+        "Account selection is required",
+      );
+    }
+
+    const hasConsented = session.consentedClients.includes(client.auid);
+    if (!hasConsented) {
+      return oauthRedirectError(
+        query.redirect_uri,
+        "consent_required",
+        query.state,
+        "User consent is required",
+      );
+    }
+  } else {
+    // 3. Handle prompt=login (requires re-authentication)
+    if (promptTokens.has("login") && queryParams.prompt_reauth !== "true") {
+      redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
+    }
+
+    // 4. Handle prompt=select_account (requires account selector UI)
+    if (promptTokens.has("select_account") && queryParams.account_selected !== "true") {
+      redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
+    }
+
+    // Standard session check
+    if (!session) {
+      redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
+    }
+
+    // Standard multi-session check
+    if (multiSession && multiSession.accounts.length > 1 && queryParams.account_selected !== "true") {
+      redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
+    }
+
+    // 5. Handle prompt=consent or standard consent check
+    const hasConsented = session.consentedClients.includes(client.auid);
+    const forceConsent = promptTokens.has("consent") && queryParams.prompt_consent !== "done";
+
+    if (!hasConsented || forceConsent) {
+      redirect(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`);
+    }
   }
 
   const code = await generateOpaqueCode();

@@ -9,6 +9,7 @@ export const authorizeQuerySchema = z.object({
   nonce: z.string().optional(),
   code_challenge: z.string().optional(),
   code_challenge_method: z.literal("S256").optional(),
+  prompt: z.string().optional(),
 });
 
 export const tokenRequestSchema = z.discriminatedUnion("grant_type", [

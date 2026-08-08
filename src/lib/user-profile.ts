@@ -52,18 +52,24 @@ export async function resolveUserDisplayInfo(
   const username = user?.usernames?.defaultUsername ?? null;
 
   const defaultVariationId = user?.defaultVariation?.variationId;
-  const defaultVariation = variations.find(
-    (variation) => variation.id === defaultVariationId,
-  );
+  const defaultVariation = defaultVariationId
+    ? (variations.find((variation) => variation.id === defaultVariationId) ?? variations[0] ?? null)
+    : (variations[0] ?? null);
+
   const firstName = defaultVariation?.firstName ?? null;
   const lastName = defaultVariation?.lastName ?? null;
-  const canonicalName = defaultVariation?.displayName?.trim() || null;
+  const nameFromParts = [firstName, lastName].filter(Boolean).join(" ").trim() || null;
+  const canonicalName =
+    defaultVariation?.displayName?.trim() ||
+    defaultVariation?.name?.displayName?.trim() ||
+    nameFromParts ||
+    null;
 
   return {
     firstName,
     lastName,
     username,
-    displayName: canonicalName || username || auid,
+    displayName: canonicalName || (username ? `@${username}` : auid),
   };
 }
 

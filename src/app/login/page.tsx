@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
+import { resolveOAuthFlowMetadata } from "@/lib/oauth/flow-metadata";
 import { getValidMultiSession, getValidSession } from "@/lib/session-access";
 import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { LoginForm } from "./login-form";
@@ -13,7 +14,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const redirectUri = typeof params.redirect_uri === "string" ? params.redirect_uri : undefined;
   const next = typeof params.next === "string" ? params.next : undefined;
-  const isOAuthFlow = !!redirectUri?.startsWith("/authorize");
+
+  const flowMeta = await resolveOAuthFlowMetadata(redirectUri);
+
   const registered = typeof params.registered === "string" ? params.registered : undefined;
   const addAccount = params.add_account === "true";
   const authErrorCode = typeof params.auth_error === "string" ? params.auth_error : undefined;
@@ -31,7 +34,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const multiSession = await getValidMultiSession();
   const session = await getValidSession();
 
-  if (session && !addAccount) {
+  let promptRequiresAuth = false;
+  if (redirectUri?.startsWith("/authorize")) {
+    try {
+      const url = new URL(redirectUri, "http://localhost");
+      const prompt = url.searchParams.get("prompt") || "";
+      const promptTokens = new Set(prompt.trim().split(/\s+/));
+      if (promptTokens.has("login") && url.searchParams.get("prompt_reauth") !== "true") {
+        promptRequiresAuth = true;
+      }
+      if (promptTokens.has("select_account") && url.searchParams.get("account_selected") !== "true") {
+        promptRequiresAuth = true;
+      }
+    } catch {}
+  }
+
+  const selectAccount =
+    params.select_account === "true" || params.prompt === "select_account" || promptRequiresAuth;
+
+  if (session && !addAccount && !flowMeta.isOAuthFlow && !selectAccount) {
     redirect(resolveAuthenticatedRedirect({ redirectUri, next }));
   }
 
@@ -52,7 +73,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <LoginForm
-      isOAuthFlow={isOAuthFlow}
+      isOAuthFlow={flowMeta.isOAuthFlow}
+      targetAppName={flowMeta.appName}
+      targetHost={flowMeta.targetHost}
+      targetAppUser={flowMeta.applicationUser}
       registeredUsername={registered}
       redirectUri={redirectUri}
       next={next}
