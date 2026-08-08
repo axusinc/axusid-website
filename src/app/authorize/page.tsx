@@ -160,8 +160,13 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
       redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
     }
 
-    // 4. Handle prompt=select_account (requires account selector UI)
-    if (promptTokens.has("select_account") && queryParams.account_selected !== "true") {
+    // 4. Handle prompt=select_account (requires account selector UI when multiple accounts exist)
+    if (
+      promptTokens.has("select_account") &&
+      queryParams.account_selected !== "true" &&
+      multiSession &&
+      multiSession.accounts.length > 1
+    ) {
       redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
     }
 

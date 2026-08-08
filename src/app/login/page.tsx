@@ -43,9 +43,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       if (promptTokens.has("login") && url.searchParams.get("prompt_reauth") !== "true") {
         promptRequiresAuth = true;
       }
-      if (promptTokens.has("select_account") && url.searchParams.get("account_selected") !== "true") {
-        promptRequiresAuth = true;
-      }
     } catch {}
   }
 
@@ -57,7 +54,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const selectAccount =
     params.select_account === "true" ||
-    params.prompt === "select_account" ||
     promptRequiresAuth ||
     hasMultipleAccounts;
 
