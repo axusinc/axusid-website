@@ -98,14 +98,14 @@ type PanelHeaderProps = {
 
 export function PanelHeader({ title, subtitle, action }: PanelHeaderProps) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="flex flex-col items-stretch gap-3 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between sm:gap-4">
       <div className="min-w-0">
         <h2 className="text-xl font-semibold tracking-tight text-black">{title}</h2>
         {subtitle ? (
           <p className="mt-1 text-sm leading-relaxed text-neutral-500">{subtitle}</p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="shrink-0 self-start">{action}</div> : null}
     </div>
   );
 }
@@ -118,13 +118,13 @@ type SectionIntroProps = {
 
 export function SectionIntro({ eyebrow, title, description }: SectionIntroProps) {
   return (
-    <div className="mb-7 border-b border-black/[0.06] pb-7">
+    <div className="mb-6 border-b border-black/[0.06] pb-6 sm:mb-7 sm:pb-7">
       {eyebrow ? (
         <p className="mb-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand">
           {eyebrow}
         </p>
       ) : null}
-      <h2 className="text-3xl font-semibold leading-tight tracking-[-0.035em] text-black sm:text-[2.25rem]">
+      <h2 className="text-2xl font-semibold leading-tight tracking-[-0.035em] text-black sm:text-[2.25rem]">
         {title}
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-500">
@@ -198,7 +198,7 @@ export function DataRow({ label, hint, children, mono, action }: DataRowProps) {
       <dd
         className={cn(
           "mt-2 min-w-0 text-sm text-black",
-          mono && "truncate font-mono text-xs",
+        mono && "break-all font-mono text-xs sm:truncate",
         )}
       >
         {children}
@@ -241,7 +241,7 @@ export function CopyChip({ value, copied, onCopy }: CopyChipProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 border border-black/5 bg-neutral-50/80 px-4 py-3",
+        "flex min-w-0 items-center gap-2 border border-black/5 bg-neutral-50/80 px-3 py-3 sm:gap-3 sm:px-4",
         roundedRect,
       )}
     >

@@ -153,7 +153,7 @@ export function AccountDashboard({
 
   const sectionNav = (
     <nav
-      className="flex w-full gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
+      className="mobile-scrollbar-hidden flex w-full snap-x snap-mandatory gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
       aria-label="Account sections"
     >
       {sections.map(({ id, label, Icon }) => (
@@ -162,7 +162,7 @@ export function AccountDashboard({
           type="button"
           onClick={() => handleSectionChange(id)}
           className={cn(
-            "group inline-flex shrink-0 items-center justify-start gap-2.5 rounded-[12px] border px-3.5 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5 lg:w-full lg:px-4",
+            "group inline-flex min-h-11 shrink-0 snap-start items-center justify-start gap-2.5 rounded-[12px] border px-3.5 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5 lg:min-h-0 lg:w-full lg:px-4",
             active === id
               ? "border-black/[0.07] bg-white text-black shadow-sm"
               : "border-transparent text-neutral-500 hover:bg-black/[0.035] hover:text-black",
@@ -185,7 +185,7 @@ export function AccountDashboard({
 
   return (
     <section className="relative min-h-screen w-full bg-white/85 backdrop-blur-2xl lg:h-screen lg:overflow-hidden lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="relative z-30 isolate border-b border-black/[0.06] bg-neutral-50/80 px-5 py-5 sm:px-7 sm:py-7 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-7 lg:py-8 custom-scrollbar">
+      <aside className="relative z-30 isolate border-b border-black/[0.06] bg-neutral-50/80 px-4 py-4 sm:px-7 sm:py-7 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-7 lg:py-8 custom-scrollbar">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand/[0.07] blur-3xl" />
           <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-black/[0.04] blur-3xl" />
@@ -203,13 +203,13 @@ export function AccountDashboard({
           </div>
         </div>
 
-        <div className="relative mt-8 flex items-center gap-4 shrink-0 lg:mt-14 lg:block">
+        <div className="relative mt-5 flex items-center gap-3.5 shrink-0 sm:mt-8 sm:gap-4 lg:mt-14 lg:block">
           <Avatar
             firstName={defaultVariation?.firstName}
             lastName={defaultVariation?.lastName}
             username={username}
             size="md"
-            className="h-14 w-14 ring-[3px] ring-black/[0.04] lg:h-20 lg:w-20"
+            className="h-12 w-12 ring-[3px] ring-black/[0.04] sm:h-14 sm:w-14 lg:h-20 lg:w-20"
           />
 
           <div className="min-w-0 lg:mt-5">
@@ -225,7 +225,7 @@ export function AccountDashboard({
           </div>
         </div>
 
-        <div className="relative mt-6 shrink-0 lg:mt-9">{sectionNav}</div>
+        <div className="relative mt-4 shrink-0 sm:mt-6 lg:mt-9">{sectionNav}</div>
 
         <div className="relative mt-auto hidden shrink-0 border-t border-black/[0.06] pt-6 lg:block">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-400">
@@ -235,7 +235,7 @@ export function AccountDashboard({
         </div>
       </aside>
 
-      <div ref={mainContentRef} className="min-w-0 px-5 py-7 sm:px-7 sm:py-9 lg:h-screen lg:overflow-y-auto lg:px-10 lg:py-10 xl:px-12 xl:py-12 custom-scrollbar">
+      <div ref={mainContentRef} className="min-w-0 px-4 py-6 sm:px-7 sm:py-9 lg:h-screen lg:overflow-y-auto lg:px-10 lg:py-10 xl:px-12 xl:py-12 custom-scrollbar">
         <div className="mx-auto w-full max-w-4xl">
           <SectionIntro
             eyebrow="Account settings"

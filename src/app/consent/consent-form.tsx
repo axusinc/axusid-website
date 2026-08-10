@@ -158,7 +158,7 @@ export function ConsentForm({
           {activeAccount ? (
             <div
               className={cn(
-                "flex items-center justify-between border border-black/10 bg-neutral-50/90 px-4 py-3 shadow-xs",
+                "flex items-center justify-between gap-3 border border-black/10 bg-neutral-50/90 px-3 py-3 shadow-xs sm:px-4",
                 roundedRect,
               )}
             >
@@ -180,7 +180,7 @@ export function ConsentForm({
 
               <Link
                 href={changeAccountHref}
-                className="text-xs font-semibold text-neutral-600 transition-colors hover:text-black hover:underline"
+                className="inline-flex min-h-11 shrink-0 items-center text-xs font-semibold text-neutral-600 transition-colors hover:text-black hover:underline"
               >
                 Change
               </Link>
@@ -191,7 +191,7 @@ export function ConsentForm({
         {/* Application Details / Permissions Box */}
         <div
           className={cn(
-            "space-y-4 border border-black/10 bg-white/70 p-5 backdrop-blur-sm shadow-xs",
+            "space-y-4 border border-black/10 bg-white/70 p-4 backdrop-blur-sm shadow-xs sm:p-5",
             roundedRect,
           )}
         >
@@ -255,7 +255,7 @@ export function ConsentForm({
         </div>
 
         {/* Action Buttons: Allow Access & Deny */}
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex flex-col gap-3 pt-2 min-[420px]:flex-row min-[420px]:items-center">
           <form action={consentAction} className="flex-1">
             <input type="hidden" name="redirect_uri" value={redirectUri} />
             <Button

@@ -6,7 +6,7 @@ type CardProps = React.ComponentProps<"div">;
 export function Card({ className, ...props }: CardProps) {
   return (
     <div
-      className={cn(cardSurface, roundedRect, "p-6", className)}
+      className={cn(cardSurface, roundedRect, "p-4 sm:p-6", className)}
       {...props}
     />
   );
