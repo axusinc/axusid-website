@@ -50,6 +50,10 @@ mutation SetPassword(
   setPassword(auid: $auid, tokenId: $tokenId, password: $password)
 }
 
+query IsPasswordSet($auid: ID!) {
+  isPasswordSet(auid: $auid)
+}
+
 mutation LoginWithExternalIdentity(
   $authentication: ExternalAuthenticationInput!
   $permissions: [String!]

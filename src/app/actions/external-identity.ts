@@ -21,7 +21,13 @@ export async function unlinkExternalIdentityAction(
 
   try {
     const bearer = opaqueGraphqlBearer(session.credentials);
-    await unlinkExternalIdentity(session.auid, externalIdentityId, bearer);
+    const unlinked = await unlinkExternalIdentity(session.auid, externalIdentityId, bearer);
+    if (!unlinked) {
+      return {
+        error:
+          "This sign-in method cannot be disconnected. Add another way to sign in first.",
+      };
+    }
 
     revalidatePath("/account");
     return { success: "Google account disconnected successfully." };

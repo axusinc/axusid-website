@@ -46,6 +46,7 @@ import {
   getGoogleClientId,
   getGoogleProviderId,
   getPendingGoogleRegistration,
+  setGoogleRegistrationName,
 } from "@/lib/google-oauth";
 
 export type AuthActionState = {
@@ -134,6 +135,33 @@ export async function checkUsernameAvailabilityAction(
       ),
     };
   }
+}
+
+export async function suggestUsernameFromEmailAction(
+  email: string,
+): Promise<string | undefined> {
+  const localPart = email.split("@", 1)[0]?.trim().replace(/^@/, "");
+  if (!localPart) return undefined;
+
+  const base = localPart.length >= 4 ? localPart : localPart.padEnd(4, "0");
+
+  for (let suffix = 0; suffix <= 100; suffix++) {
+    const candidate = suffix === 0 ? base : `${base}${suffix}`;
+    const result = await checkUsernameAvailabilityAction(candidate);
+
+    if (result.available) return candidate;
+    if (result.reason !== "taken") return base;
+  }
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const suffix = crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000;
+    const candidate = `${base}${suffix}`;
+    const result = await checkUsernameAvailabilityAction(candidate);
+    if (result.available) return candidate;
+    if (result.reason !== "taken") return base;
+  }
+
+  return undefined;
 }
 
 export async function loginAction(
@@ -570,6 +598,11 @@ export async function registerAction(
       });
 
       const credentials = await wrapTokenWithBackend(auid, tokenId);
+      await setGoogleRegistrationName({
+        auid,
+        credentials,
+        profile: pendingGoogle,
+      });
       const session: IdPSession = {
         auid,
         credentials,

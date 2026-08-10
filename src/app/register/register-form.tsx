@@ -35,6 +35,7 @@ type RegisterFormProps = {
   contextAuid?: string;
   isAddAccount?: boolean;
   authError?: string;
+  initialUsername?: string;
   pendingGoogle?: {
     email?: string;
     name?: string;
@@ -175,6 +176,7 @@ export function RegisterForm({
   contextAuid,
   isAddAccount = false,
   authError,
+  initialUsername,
   pendingGoogle,
 }: RegisterFormProps) {
   const [state, formAction, pending] = useActionState(
@@ -183,7 +185,7 @@ export function RegisterForm({
   );
   const [registrationKey, setRegistrationKey] = useState("");
   const [stage, setStage] = useState<RegistrationStage>("identity");
-  const [customUsername, setCustomUsername] = useState("");
+  const [customUsername, setCustomUsername] = useState(initialUsername ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -193,7 +195,11 @@ export function RegisterForm({
   const [isClearGooglePending, startClearGoogleTransition] = useTransition();
   const router = useRouter();
   const [usernameAvailability, setUsernameAvailability] =
-    useState<UsernameAvailability>({ username: "", status: "idle" });
+    useState<UsernameAvailability>(() =>
+      initialUsername
+        ? { username: initialUsername, status: "available" }
+        : { username: "", status: "idle" },
+    );
   const availabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const availabilityRequestRef = useRef(0);
   // Stable key for the Google path — generated once on mount so that retrying

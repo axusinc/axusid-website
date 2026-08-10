@@ -4,6 +4,7 @@ import {
   opaqueGraphqlBearer,
   type AuthCredentials,
 } from "@/lib/auth-graphql";
+import { buildGoogleNameElements } from "@/lib/profile-name";
 import {
   getOAuthClient,
   normalizeScopes,
@@ -23,6 +24,8 @@ export type PendingGoogleRegistration = {
   refreshToken: string;
   email?: string;
   name?: string;
+  givenName?: string;
+  familyName?: string;
   picture?: string;
   createdAt: number;
 };
@@ -50,6 +53,8 @@ export function decodePendingGoogleRegistration(value?: string): PendingGoogleRe
       refreshToken: parsed.refreshToken,
       email: typeof parsed.email === "string" ? parsed.email : undefined,
       name: typeof parsed.name === "string" ? parsed.name : undefined,
+      givenName: typeof parsed.givenName === "string" ? parsed.givenName : undefined,
+      familyName: typeof parsed.familyName === "string" ? parsed.familyName : undefined,
       picture: typeof parsed.picture === "string" ? parsed.picture : undefined,
       createdAt,
     };
@@ -85,11 +90,15 @@ export async function fetchGoogleProfileFromAccessToken(
       const info = (await res.json()) as {
         email?: string;
         name?: string;
+        given_name?: string;
+        family_name?: string;
         picture?: string;
       };
       return {
         email: info.email,
         name: info.name,
+        givenName: info.given_name,
+        familyName: info.family_name,
         picture: info.picture,
       };
     }
@@ -345,8 +354,46 @@ export async function linkGoogleIdentity(
 export type ExternalIdentityUserInfo = {
   email?: string;
   name?: string;
+  givenName?: string;
+  familyName?: string;
   picture?: string;
 };
+
+export async function setGoogleRegistrationName(params: {
+  auid: string;
+  credentials: AuthCredentials;
+  profile: Pick<ExternalIdentityUserInfo, "name" | "givenName" | "familyName">;
+}): Promise<void> {
+  const elements = buildGoogleNameElements(params.profile);
+  if (elements.length === 0) return;
+
+  const sdk = getAuthSdk(opaqueGraphqlBearer(params.credentials));
+  const maxAttempts = 5;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, 300 * Math.pow(2, attempt - 1)),
+      );
+    }
+
+    try {
+      const result = await sdk.DefaultVariation({ auid: params.auid });
+      const variationId = result.defaultVariation?.variationId;
+      if (!variationId) {
+        throw new Error("The new account does not have a default variation yet");
+      }
+
+      await sdk.ChangeName({ auid: params.auid, variationId, elements });
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
 
 export type ExternalIdentity = {
   id: string;

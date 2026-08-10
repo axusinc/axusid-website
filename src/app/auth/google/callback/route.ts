@@ -17,6 +17,7 @@ import {
   linkGoogleIdentity,
   loginWithGoogleIdentity,
   resolveExternalLoginScopes,
+  setGoogleRegistrationName,
   type GoogleOAuthState,
 } from "@/lib/google-oauth";
 import { DOMAIN_ERROR_CODES, getPrimaryDomainError } from "@/lib/graphql-errors";
@@ -194,6 +195,11 @@ export async function GET(request: NextRequest) {
         });
 
         const credentials = await wrapTokenWithBackend(auid, tokenId);
+        await setGoogleRegistrationName({
+          auid,
+          credentials,
+          profile: googleProfile ?? {},
+        });
         const session: IdPSession = {
           auid,
           credentials,
@@ -222,6 +228,8 @@ export async function GET(request: NextRequest) {
           refreshToken,
           email: googleProfile?.email,
           name: googleProfile?.name,
+          givenName: googleProfile?.givenName,
+          familyName: googleProfile?.familyName,
           picture: googleProfile?.picture,
           createdAt: Date.now(),
         }),

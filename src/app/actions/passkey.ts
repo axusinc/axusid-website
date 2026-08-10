@@ -279,7 +279,12 @@ export async function deletePasskeyAction(
 
   try {
     const bearer = opaqueGraphqlBearer(session.credentials);
-    await deletePasskey(session.auid, passkeyId, bearer);
+    const deleted = await deletePasskey(session.auid, passkeyId, bearer);
+    if (!deleted) {
+      return {
+        error: "This passkey cannot be removed. Add another way to sign in first.",
+      };
+    }
 
     revalidatePath("/account");
     return { success: "Passkey removed successfully." };

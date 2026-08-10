@@ -29,6 +29,7 @@ type AccountFormsProps = {
   auid: string;
   initialPasskeys?: PasskeyCredential[];
   initialExternalIdentities?: ExternalIdentity[];
+  initialHasPassword: boolean;
   onEditingChange?: (editing: boolean) => void;
   cancelRef?: RefObject<(() => void) | null>;
 };
@@ -244,6 +245,7 @@ export function AccountForms({
   auid,
   initialPasskeys = [],
   initialExternalIdentities = [],
+  initialHasPassword,
   onEditingChange,
   cancelRef,
 }: AccountFormsProps) {
@@ -253,6 +255,7 @@ export function AccountForms({
     initialState,
   );
   const [isEditing, setIsEditing] = useState(false);
+  const [hasPassword, setHasPassword] = useState(initialHasPassword);
 
   const cancelEditing = () => {
     setIsEditing(false);
@@ -272,6 +275,7 @@ export function AccountForms({
     if (passwordState.success) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsEditing(false);
+      setHasPassword(true);
       router.refresh();
     }
   }, [passwordState.success, router]);
@@ -288,14 +292,31 @@ export function AccountForms({
             </span>
             <SubsectionTitle
               title="Password"
-              description="Sign in to AXUS ID with your password."
+              description={
+                hasPassword
+                  ? "Sign in to AXUS ID with your password."
+                  : "Add a password as another way to sign in."
+              }
             />
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-emerald-50 px-3 text-xs font-medium text-emerald-700 leading-none">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-              Password active
+            <span
+              className={cn(
+                "inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-medium leading-none",
+                hasPassword
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-neutral-100 text-neutral-600",
+              )}
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  hasPassword ? "bg-emerald-500" : "bg-neutral-400",
+                )}
+                aria-hidden
+              />
+              {hasPassword ? "Password active" : "No password"}
             </span>
 
             {!isEditing && (
@@ -305,7 +326,7 @@ export function AccountForms({
                 onClick={() => setIsEditing(true)}
               >
                 <Pencil className="h-3.5 w-3.5 text-neutral-600" strokeWidth={2} aria-hidden />
-                Change password
+                {hasPassword ? "Change password" : "Set password"}
               </button>
             )}
           </div>
@@ -328,7 +349,9 @@ export function AccountForms({
             onKeyDown={(event) => handleFormKeyDown(event, cancelEditing)}
           >
             <div className="space-y-1.5">
-              <h4 className="text-xs font-semibold text-neutral-900">Change password</h4>
+              <h4 className="text-xs font-semibold text-neutral-900">
+                {hasPassword ? "Change password" : "Set password"}
+              </h4>
               <p className="text-[11px] text-neutral-500">
                 Enter a new password. You will use it the next time you sign in.
               </p>

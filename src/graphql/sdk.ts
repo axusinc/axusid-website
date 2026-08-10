@@ -448,6 +448,7 @@ export type SchemaQuery = {
   externalIdentities: Array<SchemaExternalIdentity>;
   externalIdentityAccessToken: SchemaExternalIdentityAccessTokenResponse;
   identities: SchemaPaginatedIdentities;
+  isPasswordSet: Scalars['Boolean']['output'];
   name?: Maybe<SchemaName>;
   ownerByUsername?: Maybe<Scalars['ID']['output']>;
   parents?: Maybe<SchemaParents>;
@@ -488,6 +489,11 @@ export type SchemaQueryIdentitiesArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   recursive?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type SchemaQueryIsPasswordSetArgs = {
+  auid: Scalars['ID']['input'];
 };
 
 
@@ -649,6 +655,13 @@ export type SetPasswordMutationVariables = Exact<{
 
 
 export type SetPasswordMutation = { setPassword: boolean };
+
+export type IsPasswordSetQueryVariables = Exact<{
+  auid: string | number;
+}>;
+
+
+export type IsPasswordSetQuery = { isPasswordSet: boolean };
 
 export type LoginWithExternalIdentityMutationVariables = Exact<{
   authentication: ExternalAuthenticationInput;
@@ -942,6 +955,11 @@ export const CreateUserDocument = gql`
 export const SetPasswordDocument = gql`
     mutation SetPassword($auid: ID!, $tokenId: String, $password: String!) {
   setPassword(auid: $auid, tokenId: $tokenId, password: $password)
+}
+    `;
+export const IsPasswordSetDocument = gql`
+    query IsPasswordSet($auid: ID!) {
+  isPasswordSet(auid: $auid)
 }
     `;
 export const LoginWithExternalIdentityDocument = gql`
@@ -1279,6 +1297,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     SetPassword(variables: SetPasswordMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SetPasswordMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<SetPasswordMutation>({ document: SetPasswordDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SetPassword', 'mutation', variables);
+    },
+    IsPasswordSet(variables: IsPasswordSetQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<IsPasswordSetQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<IsPasswordSetQuery>({ document: IsPasswordSetDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'IsPasswordSet', 'query', variables);
     },
     LoginWithExternalIdentity(variables: LoginWithExternalIdentityMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithExternalIdentityMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<LoginWithExternalIdentityMutation>({ document: LoginWithExternalIdentityDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithExternalIdentity', 'mutation', variables);

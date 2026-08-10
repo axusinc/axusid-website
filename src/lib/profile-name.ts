@@ -53,6 +53,22 @@ export function buildSimpleNameElements(
   return elements;
 }
 
+export function buildGoogleNameElements(profile: {
+  name?: string;
+  givenName?: string;
+  familyName?: string;
+}): NameElementInput[] {
+  const givenName = profile.givenName?.trim();
+  const familyName = profile.familyName?.trim();
+
+  if (givenName || familyName) {
+    return buildSimpleNameElements(givenName, familyName);
+  }
+
+  const name = profile.name?.trim();
+  return name ? [{ partType: "UNSTRUCTURED", value: name }] : [];
+}
+
 export function readNamePart(
   elements: readonly ProfileNameElement[],
   partType: NamePartType,

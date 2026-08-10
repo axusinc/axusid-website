@@ -12,6 +12,7 @@ type Query {
     externalIdentities(auid: ID!, tokenId: String): [ExternalIdentity!]!
     externalIdentityAccessToken(auid: ID!, externalIdentityId: ID!, tokenId: String): ExternalIdentityAccessTokenResponse!
     passkeys(auid: ID!, tokenId: String): [PasskeyCredential!]!
+    isPasswordSet(auid: ID!): Boolean!
 }
 
 type Mutation {

@@ -80,11 +80,12 @@ export default async function AccountPage() {
   const username = user?.usernames?.defaultUsername ?? null;
   const bearerToken = opaqueGraphqlBearer(session.credentials);
   const refreshToken = session.credentials.refreshToken;
-  const [clients, samlConfig, initialPasskeys, initialExternalIdentities] = await Promise.all([
+  const [clients, samlConfig, initialPasskeys, initialExternalIdentities, passwordStatus] = await Promise.all([
     listClientsByOwner(session.auid),
     getSamlConfigByAuid(session.auid),
     getUserPasskeys(session.auid, bearerToken, undefined, refreshToken),
     getUserExternalIdentities(session.auid, bearerToken),
+    sdk.IsPasswordSet({ auid: session.auid }),
   ]);
   const issuer = getIssuer();
 
@@ -104,6 +105,7 @@ export default async function AccountPage() {
           samlConfig={samlConfig}
           initialPasskeys={initialPasskeys}
           initialExternalIdentities={initialExternalIdentities}
+          initialHasPassword={passwordStatus.isPasswordSet}
         />
       </main>
     </DashboardShell>

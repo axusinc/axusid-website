@@ -50,6 +50,7 @@ type AccountDashboardProps = {
   samlConfig?: SamlConfig;
   initialPasskeys?: PasskeyCredential[];
   initialExternalIdentities?: ExternalIdentity[];
+  initialHasPassword: boolean;
 };
 
 const sections: {
@@ -105,6 +106,7 @@ export function AccountDashboard({
   samlConfig,
   initialPasskeys = [],
   initialExternalIdentities = [],
+  initialHasPassword,
 }: AccountDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -255,6 +257,7 @@ export function AccountDashboard({
                 auid={auid}
                 initialPasskeys={initialPasskeys}
                 initialExternalIdentities={initialExternalIdentities}
+                initialHasPassword={initialHasPassword}
                 onEditingChange={handleEditingChange}
                 cancelRef={securityCancelRef}
               />

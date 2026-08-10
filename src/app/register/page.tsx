@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { suggestUsernameFromEmailAction } from "@/app/actions/auth";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getValidSession } from "@/lib/session-access";
 import { getPendingGoogleRegistration } from "@/lib/google-oauth";
@@ -19,6 +20,9 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
 
   const session = await getValidSession();
   const pendingGoogle = await getPendingGoogleRegistration();
+  const suggestedUsername = pendingGoogle?.email
+    ? await suggestUsernameFromEmailAction(pendingGoogle.email)
+    : undefined;
 
   if (session && !addAccount && !pendingGoogle && !contextAuid) {
     redirect(resolveAuthenticatedRedirect({ redirectUri, next }));
@@ -31,6 +35,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
       contextAuid={contextAuid}
       isAddAccount={addAccount}
       authError={authError}
+      initialUsername={suggestedUsername}
       pendingGoogle={
         pendingGoogle
           ? {
