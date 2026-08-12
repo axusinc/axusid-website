@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
       access_type: "offline",
-      prompt: "select_account",
+      prompt: "consent select_account",
     }).toString();
 
     const response = NextResponse.redirect(authorizationUrl);
