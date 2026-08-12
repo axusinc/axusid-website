@@ -79,7 +79,7 @@ export async function issueTokenResponse(params: {
       clientId: params.clientId,
       scopes: params.scopes,
       backendRefreshToken: params.credentials.refreshToken,
-      exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours refresh token lifetime
+      exp: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000, // 100 years refresh token lifetime
     });
   }
 
