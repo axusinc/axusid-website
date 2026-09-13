@@ -92,7 +92,7 @@ Use a dedicated Winelore client in production.
 
 - Must be registered exactly (no wildcards).
 - Must not contain URL fragments (`#...`).
-- In production, URIs must use **HTTPS** (except `localhost` / `127.0.0.1`).
+- In production, URIs are recommended to use **HTTPS**, but HTTP is also permitted.
 
 ---
 
@@ -583,7 +583,7 @@ For a quick smoke test without registering a client, use seeded `axusid-dev` if 
 
 - [ ] Register a **production** OAuth client (do not ship `axusid-dev`).
 - [ ] Set `NEXT_PUBLIC_AXUS_ID_ISSUER` to the production AXUS ID URL.
-- [ ] Register **HTTPS** callback URIs only.
+- [ ] Register callback URIs (HTTPS recommended in production).
 - [ ] Store refresh tokens in HttpOnly, Secure cookies or server-side session store.
 - [ ] Implement token refresh before expiry.
 - [ ] Revoke refresh tokens on sign-out.

@@ -84,15 +84,6 @@ export function validateRedirectUris(uris: string[]): string[] {
       throw new Error(`Redirect URI must not contain wildcards: ${uri}`);
     }
 
-    if (process.env.NODE_ENV === "production") {
-      const isLocalhost =
-        parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-      if (parsed.protocol !== "https:" && !isLocalhost) {
-        throw new Error(
-          `Production redirect URIs must use HTTPS (except localhost): ${uri}`,
-        );
-      }
-    }
   }
 
   return normalized;
