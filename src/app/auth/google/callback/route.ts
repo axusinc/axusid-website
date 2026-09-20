@@ -21,7 +21,6 @@ import {
   type GoogleOAuthState,
 } from "@/lib/google-oauth";
 import { DOMAIN_ERROR_CODES, getPrimaryDomainError } from "@/lib/graphql-errors";
-import { wrapTokenWithBackend } from "@/lib/oauth/adapter";
 import { addAccountToSession, getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
 
@@ -138,10 +137,10 @@ export async function GET(request: NextRequest) {
 
     // First try logging into an existing account linked with this Google identity
     try {
-      const credentials = await loginWithGoogleIdentity(refreshToken, axusPermissions);
+      const login = await loginWithGoogleIdentity(refreshToken, axusPermissions);
       const session: IdPSession = {
-        auid: credentials.auid,
-        credentials,
+        auid: login.auid,
+        tokenId: login.tokenId,
         oidcScopes,
         axusPermissions,
         consentedClients: [],
@@ -178,15 +177,14 @@ export async function GET(request: NextRequest) {
         const auid = result.createUser.auid;
         const tokenId = result.createUser.token.id;
 
-        await ensureRegistrationUsername(sdk, {
+        await ensureRegistrationUsername({
           auid,
           tokenId,
           username: oauthState.username,
         });
 
-        await sdk.LinkExternalIdentity({
+        await getAuthSdk(tokenId).LinkExternalIdentity({
           auid,
-          tokenId,
           authentication: {
             providerId: getGoogleProviderId(),
             refreshToken,
@@ -194,15 +192,14 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        const credentials = await wrapTokenWithBackend(auid, tokenId);
         await setGoogleRegistrationName({
           auid,
-          credentials,
+          tokenId,
           profile: googleProfile ?? {},
         });
         const session: IdPSession = {
           auid,
-          credentials,
+          tokenId,
           oidcScopes,
           axusPermissions,
           consentedClients: [],

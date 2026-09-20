@@ -1,7 +1,6 @@
 import "server-only";
 
 import { and, eq, isNull, lt } from "drizzle-orm";
-import type { AuthCredentials } from "@/lib/auth-graphql";
 import { decryptJson, encryptJson } from "@/lib/crypto/secret-box";
 import { getDb } from "@/lib/db";
 import { oauthAuthorizationCodes } from "@/lib/db/schema";
@@ -12,7 +11,8 @@ export type AuthorizationCodeRecord = {
   redirectUri: string;
   scopes: string[];
   userAuid: string;
-  credentials: AuthCredentials;
+  /** Native token the authorization grants the app. */
+  tokenId: string;
   codeChallenge?: string;
   codeChallengeMethod?: "S256";
   nonce?: string;
@@ -25,7 +25,7 @@ export async function saveAuthorizationCode(
   record: AuthorizationCodeRecord,
 ): Promise<void> {
   const db = getDb();
-  const encryptedCredentials = await encryptJson(record.credentials);
+  const encryptedTokenId = await encryptJson(record.tokenId);
 
   await db.insert(oauthAuthorizationCodes).values({
     code: record.code,
@@ -33,7 +33,7 @@ export async function saveAuthorizationCode(
     redirectUri: record.redirectUri,
     scopes: record.scopes,
     userAuid: record.userAuid,
-    credentials: encryptedCredentials,
+    tokenId: encryptedTokenId,
     codeChallenge: record.codeChallenge ?? null,
     nonce: record.nonce ?? null,
     expiresAt: record.expiresAt,
@@ -67,10 +67,7 @@ export async function consumeAuthorizationCode(
     .set({ consumedAt: now })
     .where(eq(oauthAuthorizationCodes.code, code));
 
-  const credentials =
-    typeof row.credentials === "string"
-      ? await decryptJson<AuthCredentials>(row.credentials)
-      : (row.credentials as AuthCredentials);
+  const tokenId = await decryptJson<string>(row.tokenId);
 
   return {
     code: row.code,
@@ -78,7 +75,7 @@ export async function consumeAuthorizationCode(
     redirectUri: row.redirectUri,
     scopes: row.scopes,
     userAuid: row.userAuid,
-    credentials,
+    tokenId,
     codeChallenge: row.codeChallenge ?? undefined,
     codeChallengeMethod: row.codeChallenge ? "S256" : undefined,
     nonce: row.nonce ?? undefined,

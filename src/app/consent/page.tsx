@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { ConsentForm } from "./consent-form";
-import { getAuthSdkForSession } from "@/lib/auth-graphql";
+import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import {
   getOAuthClient,
   normalizeScopes,
@@ -30,14 +30,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   const accountInfos = await fetchAccountsDisplayInfo(
     multiSession.accounts,
     multiSession.activeAuid,
-    (credentials) =>
-      getAuthSdkForSession({
-        auid: "",
-        credentials,
-        oidcScopes: [],
-        axusPermissions: [],
-        consentedClients: [],
-      }),
+    getAuthSdk,
   );
 
   if (!redirectUri || !redirectUri.startsWith("/") || redirectUri.startsWith("//")) {

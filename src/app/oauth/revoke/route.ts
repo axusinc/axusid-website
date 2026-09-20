@@ -17,9 +17,9 @@ export async function POST(request: Request) {
 
   try {
     const unwrapped = await unwrapRefreshToken(token);
-    token = unwrapped.backendRefreshToken;
+    token = unwrapped.tokenId;
   } catch {
-    // Token may already be a raw backend refresh token.
+    // Token may already be the raw native token (axus_access_token).
   }
 
   try {

@@ -1,8 +1,6 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import type { AuthCredentials } from "@/lib/auth-graphql";
-import { refreshWithBackend } from "@/lib/oauth/adapter";
 import {
   SESSION_COOKIE,
   clearSessionCookieOptions,
@@ -14,24 +12,6 @@ import {
   type IdPSession,
   type MultiSession,
 } from "@/lib/session";
-
-/** Refresh the access token this many ms before it expires. */
-const REFRESH_BUFFER_MS = 60_000;
-
-export function credentialsNeedRefresh(credentials: AuthCredentials): boolean {
-  const expiresAt = Date.parse(credentials.accessTokenExpiresAt);
-  if (!Number.isFinite(expiresAt)) {
-    return false;
-  }
-  return expiresAt - Date.now() <= REFRESH_BUFFER_MS;
-}
-
-export async function refreshSessionCredentials(
-  session: IdPSession,
-): Promise<IdPSession> {
-  const credentials = await refreshWithBackend(session.credentials.refreshToken);
-  return { ...session, credentials };
-}
 
 export async function persistSession(session: IdPSession): Promise<void> {
   const cookieStore = await cookies();
@@ -69,7 +49,8 @@ export async function persistMultiSession(multiSession: MultiSession): Promise<v
 }
 
 /**
- * Returns all valid sessions and active AUID, refreshing credentials as needed.
+ * Returns all signed-in sessions and the active AUID. Native tokens don't expire, so there is
+ * nothing to refresh; a revoked one surfaces as an authorization error on its next engine call.
  */
 export async function getValidMultiSession(): Promise<MultiSession | null> {
   const cookieStore = await cookies();
@@ -77,49 +58,11 @@ export async function getValidMultiSession(): Promise<MultiSession | null> {
   if (!multiSession || multiSession.accounts.length === 0) {
     return null;
   }
-
-  let updated = false;
-  const updatedAccounts: IdPSession[] = [];
-
-  for (const account of multiSession.accounts) {
-    if (credentialsNeedRefresh(account.credentials)) {
-      try {
-        const refreshed = await refreshSessionCredentials(account);
-        updatedAccounts.push(refreshed);
-        updated = true;
-      } catch {
-        // Drop account if refresh fails (e.g. expired or revoked refresh token)
-        updated = true;
-      }
-    } else {
-      updatedAccounts.push(account);
-    }
-  }
-
-  if (updatedAccounts.length === 0) {
-    await clearAllSessions();
-    return null;
-  }
-
-  let activeAuid = multiSession.activeAuid;
-  if (!updatedAccounts.some((acc) => acc.auid === activeAuid)) {
-    activeAuid = updatedAccounts[0].auid;
-  }
-
-  const result: MultiSession = {
-    activeAuid,
-    accounts: updatedAccounts,
-  };
-
-  if (updated) {
-    await persistMultiSession(result);
-  }
-
-  return result;
+  return multiSession;
 }
 
 /**
- * Returns the active IdP session, refreshing backend credentials when expired.
+ * Returns the active IdP session.
  */
 export async function getValidSession(): Promise<IdPSession | null> {
   const multi = await getValidMultiSession();

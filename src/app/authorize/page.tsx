@@ -196,7 +196,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     redirectUri: query.redirect_uri,
     scopes,
     userAuid: session.auid,
-    credentials: session.credentials,
+    tokenId: session.tokenId,
     codeChallenge: query.code_challenge,
     codeChallengeMethod: query.code_challenge ? "S256" : undefined,
     nonce: query.nonce,

@@ -4,7 +4,7 @@ import { DashboardShell } from "@/app/account/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormError } from "@/components/ui/form-message";
-import { getAuthSdkForSession, opaqueGraphqlBearer } from "@/lib/auth-graphql";
+import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError, isAuthError } from "@/lib/graphql-errors";
 import { listClientsByOwner } from "@/lib/oauth/client-store";
 import { getIssuer } from "@/lib/oauth/constants";
@@ -27,7 +27,7 @@ export default async function AccountPage() {
     accountInfos = await fetchAccountsDisplayInfo(
       multiSession.accounts,
       multiSession.activeAuid,
-      (credentials) => getAuthSdkForSession({ auid: "", credentials, oidcScopes: [], axusPermissions: [], consentedClients: [] }),
+      getAuthSdk,
     );
   } catch (error) {
     if (isAuthError(error)) {
@@ -78,13 +78,11 @@ export default async function AccountPage() {
     : (variations[0] ?? null);
   const fullName = defaultVariation?.displayName?.trim() || "";
   const username = user?.usernames?.defaultUsername ?? null;
-  const bearerToken = opaqueGraphqlBearer(session.credentials);
-  const refreshToken = session.credentials.refreshToken;
   const [clients, samlConfig, initialPasskeys, initialExternalIdentities, passwordStatus] = await Promise.all([
     listClientsByOwner(session.auid),
     getSamlConfigByAuid(session.auid),
-    getUserPasskeys(session.auid, bearerToken, undefined, refreshToken),
-    getUserExternalIdentities(session.auid, bearerToken),
+    getUserPasskeys(session.auid, session.tokenId),
+    getUserExternalIdentities(session.auid, session.tokenId),
     sdk.IsPasswordSet({ auid: session.auid }),
   ]);
   const issuer = getIssuer();

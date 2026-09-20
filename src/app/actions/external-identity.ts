@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { opaqueGraphqlBearer } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { getValidSession } from "@/lib/session-access";
 import { unlinkExternalIdentity } from "@/lib/google-oauth";
@@ -20,8 +19,7 @@ export async function unlinkExternalIdentityAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
-    const unlinked = await unlinkExternalIdentity(session.auid, externalIdentityId, bearer);
+    const unlinked = await unlinkExternalIdentity(session.auid, externalIdentityId, session.tokenId);
     if (!unlinked) {
       return {
         error:

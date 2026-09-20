@@ -1,8 +1,6 @@
 import "server-only";
 
-import { getAuthSdk, type AuthCredentials } from "@/lib/auth-graphql";
-import { wrapTokenWithBackend, refreshWithBackend } from "@/lib/oauth/adapter";
-import { isGraphqlClientError } from "@/lib/graphql-errors";
+import { getAuthSdk } from "@/lib/auth-graphql";
 
 export type PasskeyCredential = {
   id: string;
@@ -28,15 +26,13 @@ export type PasskeyLoginResponse = {
 export async function startPasskeyEnrollment(
   auid: string,
   relyingPartyId: string,
-  displayName?: string,
-  bearerToken?: string,
-  tokenId?: string,
+  displayName: string | undefined,
+  tokenId: string,
 ): Promise<PasskeyEnrollmentResponse> {
-  const sdk = getAuthSdk(bearerToken);
+  const sdk = getAuthSdk(tokenId);
   const data = await sdk.StartPasskeyRegistration({
     auid,
     displayName,
-    tokenId,
     relyingPartyId,
   });
   return data.startPasskeyRegistration;
@@ -46,17 +42,15 @@ export async function verifyPasskeyEnrollment(
   auid: string,
   challengeId: string,
   responseJson: string,
-  name?: string,
-  bearerToken?: string,
-  tokenId?: string,
+  name: string | undefined,
+  tokenId: string,
 ): Promise<boolean> {
-  const sdk = getAuthSdk(bearerToken);
+  const sdk = getAuthSdk(tokenId);
   const data = await sdk.FinishPasskeyRegistration({
     auid,
     challengeId,
     responseJson,
     name: name?.trim() || undefined,
-    tokenId,
   });
   return data.finishPasskeyRegistration;
 }
@@ -77,22 +71,22 @@ export async function loginWithPasskey(
   challengeId: string,
   responseJson: string,
   fallbackAuid?: string,
-): Promise<AuthCredentials & { auid: string }> {
+): Promise<{ auid: string; tokenId: string }> {
   const sdk = getAuthSdk();
   const data = await sdk.LoginWithPasskey({ challengeId, responseJson });
-  const resolvedAuid = data.loginWithPasskey.auid || fallbackAuid || "";
-  return wrapTokenWithBackend(resolvedAuid, data.loginWithPasskey.id);
+  return {
+    auid: data.loginWithPasskey.auid || fallbackAuid || "",
+    tokenId: data.loginWithPasskey.id,
+  };
 }
 
 export async function getUserPasskeys(
   auid: string,
-  bearerToken?: string,
-  tokenId?: string,
-  refreshToken?: string,
+  tokenId: string,
 ): Promise<PasskeyCredential[]> {
-  let sdk = getAuthSdk(bearerToken);
+  const sdk = getAuthSdk(tokenId);
   try {
-    const data = await sdk.Passkeys({ auid, tokenId });
+    const data = await sdk.Passkeys({ auid });
     return (data.passkeys ?? []).map((p) => ({
       id: p.credentialId,
       credentialId: p.credentialId,
@@ -104,29 +98,6 @@ export async function getUserPasskeys(
       lastUsedAt: p.lastUsedAt ?? null,
     }));
   } catch (error) {
-    if (refreshToken && isGraphqlClientError(error)) {
-      const msg = error.response.errors?.[0]?.message ?? "";
-      const code = error.response.errors?.[0]?.extensions?.code;
-      if (msg.toLowerCase().includes("expired") || code === "INVALID_CREDENTIALS" || code === "NOT_AUTHORIZED") {
-        try {
-          const freshCredentials = await refreshWithBackend(refreshToken);
-          sdk = getAuthSdk(freshCredentials.accessToken);
-          const data = await sdk.Passkeys({ auid, tokenId });
-          return (data.passkeys ?? []).map((p) => ({
-            id: p.credentialId,
-            credentialId: p.credentialId,
-            name: p.name ?? null,
-            transports: p.transports ?? [],
-            backupEligible: p.backupEligible,
-            backedUp: p.backedUp,
-            createdAt: p.createdAt,
-            lastUsedAt: p.lastUsedAt ?? null,
-          }));
-        } catch (refreshError) {
-          console.error("[getUserPasskeys refresh error]:", refreshError);
-        }
-      }
-    }
     console.error("[getUserPasskeys error]:", error);
     return [];
   }
@@ -136,16 +107,14 @@ export async function updatePasskeyName(
   auid: string,
   passkeyId: string,
   name: string,
-  bearerToken?: string,
-  tokenId?: string,
+  tokenId: string,
 ): Promise<boolean> {
-  const sdk = getAuthSdk(bearerToken);
+  const sdk = getAuthSdk(tokenId);
   try {
     const data = await sdk.UpdatePasskeyName({
       auid,
       credentialId: passkeyId,
       name,
-      tokenId,
     });
     return data.updatePasskeyName;
   } catch (error) {
@@ -157,15 +126,13 @@ export async function updatePasskeyName(
 export async function deletePasskey(
   auid: string,
   passkeyId: string,
-  bearerToken?: string,
-  tokenId?: string,
+  tokenId: string,
 ): Promise<boolean> {
-  const sdk = getAuthSdk(bearerToken);
+  const sdk = getAuthSdk(tokenId);
   try {
     const data = await sdk.DeletePasskey({
       auid,
       credentialId: passkeyId,
-      tokenId,
     });
     return data.deletePasskey;
   } catch (error) {

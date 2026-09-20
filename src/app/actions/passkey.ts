@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getAuthSdkForSession, opaqueGraphqlBearer } from "@/lib/auth-graphql";
+import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { getValidSession, addAccountToSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
@@ -83,14 +83,7 @@ export async function startPasskeyLoginAction(
   }
 
   try {
-    const loginPermissions = axusPermissions.length > 0
-      ? [
-          ...new Set([
-            ...axusPermissions,
-            ...(auid ? [`identity.${auid}.credentials.issue`] : []),
-          ]),
-        ]
-      : undefined;
+    const loginPermissions = axusPermissions.length > 0 ? axusPermissions : undefined;
     const effectiveRp = (await resolveRp(rp)) || "localhost";
     const loginResponse = await startPasskeyLogin(
       effectiveRp,
@@ -154,9 +147,9 @@ export async function loginWithPasskeyAction(params: {
     }
   }
 
-  let credentials;
+  let login;
   try {
-    credentials = await loginWithPasskey(challengeId, credentialResponse, auid);
+    login = await loginWithPasskey(challengeId, credentialResponse, auid);
   } catch (error) {
     return {
       error: formatGraphqlError(error, undefined, "Passkey authentication failed."),
@@ -164,8 +157,8 @@ export async function loginWithPasskeyAction(params: {
   }
 
   const session: IdPSession = {
-    auid: credentials.auid,
-    credentials,
+    auid: login.auid,
+    tokenId: login.tokenId,
     oidcScopes,
     axusPermissions,
     consentedClients: [],
@@ -191,7 +184,6 @@ export async function startPasskeyEnrollmentAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
     const sdk = getAuthSdkForSession(session);
     const usernames = await sdk.Usernames({ auid: session.auid });
     const passkeyUsername = usernames.usernames?.defaultUsername?.trim();
@@ -201,7 +193,7 @@ export async function startPasskeyEnrollmentAction(
     }
 
     const effectiveRp = (await resolveRp(rp)) || "localhost";
-    const response = await startPasskeyEnrollment(session.auid, effectiveRp, displayName, bearer);
+    const response = await startPasskeyEnrollment(session.auid, effectiveRp, displayName, session.tokenId);
     return { enrollmentResponse: response, passkeyUsername };
   } catch (error) {
     return {
@@ -221,13 +213,12 @@ export async function verifyPasskeyEnrollmentAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
     await verifyPasskeyEnrollment(
       session.auid,
       challengeId,
       credentialResponse,
       name,
-      bearer,
+      session.tokenId,
     );
 
     revalidatePath("/account");
@@ -254,8 +245,7 @@ export async function updatePasskeyNameAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
-    const success = await updatePasskeyName(session.auid, passkeyId, trimmedName, bearer);
+    const success = await updatePasskeyName(session.auid, passkeyId, trimmedName, session.tokenId);
     if (!success) {
       return { error: "Failed to update passkey name." };
     }
@@ -278,8 +268,7 @@ export async function deletePasskeyAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
-    const deleted = await deletePasskey(session.auid, passkeyId, bearer);
+    const deleted = await deletePasskey(session.auid, passkeyId, session.tokenId);
     if (!deleted) {
       return {
         error: "This passkey cannot be removed. Add another way to sign in first.",

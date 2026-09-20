@@ -4,35 +4,12 @@ mutation LoginWithPassword($auid: ID!, $password: String!, $permissions: [String
   }
 }
 
-mutation WrapTokenInCredentials($auid: ID!, $tokenId: String) {
-  wrapTokenInCredentials(auid: $auid, tokenId: $tokenId) {
-    auid
-    accessToken
-    refreshToken
-    accessTokenExpiresAt
-  }
-}
-
-mutation RefreshCredentials($refreshToken: String!) {
-  refreshCredentials(refreshToken: $refreshToken) {
-    accessToken
-    refreshToken
-    accessTokenExpiresAt
-  }
-}
-
-mutation RevokeCredentials($refreshToken: String!) {
-  revokeCredentials(refreshToken: $refreshToken)
-}
-
 mutation CreateUser(
   $contextAuid: ID
-  $tokenId: String
   $registrationKey: ID!
 ) {
   createUser(
     contextAuid: $contextAuid
-    tokenId: $tokenId
     registrationKey: $registrationKey
   ) {
     auid
@@ -44,10 +21,9 @@ mutation CreateUser(
 
 mutation SetPassword(
   $auid: ID!
-  $tokenId: String
   $password: String!
 ) {
-  setPassword(auid: $auid, tokenId: $tokenId, password: $password)
+  setPassword(auid: $auid, password: $password)
 }
 
 query IsPasswordSet($auid: ID!) {
@@ -69,16 +45,18 @@ mutation LoginWithExternalIdentity(
 
 mutation LinkExternalIdentity(
   $auid: ID!
-  $tokenId: String
   $authentication: ExternalAuthenticationInput!
 ) {
   linkExternalIdentity(
     auid: $auid
-    tokenId: $tokenId
     authentication: $authentication
   ) {
     id
     providerId
     createdAt
   }
+}
+
+mutation RevokeToken {
+  revokeToken
 }

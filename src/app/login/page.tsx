@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
-import { getAuthSdkForSession } from "@/lib/auth-graphql";
+import { getAuthSdk } from "@/lib/auth-graphql";
 import { resolveOAuthFlowMetadata } from "@/lib/oauth/flow-metadata";
 import { getValidMultiSession, getValidSession } from "@/lib/session-access";
 import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
@@ -65,14 +65,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     ? await fetchAccountsDisplayInfo(
         multiSession.accounts,
         multiSession.activeAuid,
-        (credentials) =>
-          getAuthSdkForSession({
-            auid: "",
-            credentials,
-            oidcScopes: [],
-            axusPermissions: [],
-            consentedClients: [],
-          }),
+        getAuthSdk,
       )
     : [];
 

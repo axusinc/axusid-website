@@ -11,7 +11,7 @@ import {
   getPrimaryDomainError,
   isGraphqlClientError,
 } from "@/lib/graphql-errors";
-import { loginWithBackend, wrapTokenWithBackend } from "@/lib/oauth/adapter";
+import { loginWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
 import {
   getOAuthClient,
@@ -226,9 +226,9 @@ export async function loginAction(
     }
   }
 
-  let credentials;
+  let tokenId;
   try {
-    credentials = await loginWithBackend(
+    tokenId = await loginWithBackend(
       auid,
       password,
       axusPermissions.length > 0 ? axusPermissions : undefined,
@@ -241,7 +241,7 @@ export async function loginAction(
 
   const session: IdPSession = {
     auid,
-    credentials,
+    tokenId,
     oidcScopes,
     axusPermissions,
     consentedClients: [],
@@ -483,9 +483,9 @@ export async function denyConsentAction(formData: FormData) {
 }
 
 export async function ensureRegistrationUsername(
-  sdk: ReturnType<typeof getAuthSdk>,
   params: { auid: string; tokenId: string; username: string },
 ) {
+  const sdk = getAuthSdk(params.tokenId);
   const maxAttempts = 5;
   let lastError: unknown;
 
@@ -506,7 +506,6 @@ export async function ensureRegistrationUsername(
 
       await sdk.ChangeUsername({
         auid: params.auid,
-        tokenId: params.tokenId,
         oldUsername,
         newUsername: params.username,
       });
@@ -581,15 +580,14 @@ export async function registerAction(
       const auid = result.createUser.auid;
       const tokenId = result.createUser.token.id;
 
-      await ensureRegistrationUsername(sdk, {
+      await ensureRegistrationUsername({
         auid,
         tokenId,
         username: requestedUsername,
       });
 
-      await sdk.LinkExternalIdentity({
+      await getAuthSdk(tokenId).LinkExternalIdentity({
         auid,
-        tokenId,
         authentication: {
           providerId: getGoogleProviderId(),
           refreshToken: pendingGoogle.refreshToken,
@@ -597,15 +595,14 @@ export async function registerAction(
         },
       });
 
-      const credentials = await wrapTokenWithBackend(auid, tokenId);
       await setGoogleRegistrationName({
         auid,
-        credentials,
+        tokenId,
         profile: pendingGoogle,
       });
       const session: IdPSession = {
         auid,
-        credentials,
+        tokenId,
         oidcScopes: ["openid"],
         axusPermissions: [],
         consentedClients: [],
@@ -649,17 +646,16 @@ export async function registerAction(
     const auid = result.createUser.auid;
     const tokenId = result.createUser.token.id;
 
-    await ensureRegistrationUsername(sdk, {
+    await ensureRegistrationUsername({
       auid,
       tokenId,
       username: requestedUsername,
     });
-    await sdk.SetPassword({ auid, tokenId, password });
+    await getAuthSdk(tokenId).SetPassword({ auid, password });
 
-    const credentials = await wrapTokenWithBackend(auid, tokenId);
     const session: IdPSession = {
       auid,
-      credentials,
+      tokenId,
       oidcScopes: ["openid"],
       axusPermissions: [],
       consentedClients: [],
@@ -727,12 +723,12 @@ export async function createNestedAccountAction(
     const auid = result.createUser.auid;
     const tokenId = result.createUser.token.id;
 
-    await ensureRegistrationUsername(sdk, {
+    await ensureRegistrationUsername({
       auid,
       tokenId,
       username: requestedUsername || registrationKey,
     });
-    await sdk.SetPassword({ auid, tokenId, password });
+    await getAuthSdk(tokenId).SetPassword({ auid, password });
 
     revalidatePath("/account");
     return {

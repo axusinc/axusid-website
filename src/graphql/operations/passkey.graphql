@@ -1,5 +1,5 @@
-query Passkeys($auid: ID!, $tokenId: String) {
-  passkeys(auid: $auid, tokenId: $tokenId) {
+query Passkeys($auid: ID!) {
+  passkeys(auid: $auid) {
     credentialId
     auid
     name
@@ -11,23 +11,23 @@ query Passkeys($auid: ID!, $tokenId: String) {
   }
 }
 
-mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String, $relyingPartyId: String!) {
-  startPasskeyRegistration(auid: $auid, tokenId: $tokenId, displayName: $displayName, relyingPartyId: $relyingPartyId) {
+mutation StartPasskeyRegistration($auid: ID!, $displayName: String, $relyingPartyId: String!) {
+  startPasskeyRegistration(auid: $auid, displayName: $displayName, relyingPartyId: $relyingPartyId) {
     challengeId
     optionsJson
   }
 }
 
-mutation FinishPasskeyRegistration($auid: ID!, $tokenId: String, $challengeId: ID!, $responseJson: String!, $name: String) {
-  finishPasskeyRegistration(auid: $auid, tokenId: $tokenId, challengeId: $challengeId, responseJson: $responseJson, name: $name)
+mutation FinishPasskeyRegistration($auid: ID!, $challengeId: ID!, $responseJson: String!, $name: String) {
+  finishPasskeyRegistration(auid: $auid, challengeId: $challengeId, responseJson: $responseJson, name: $name)
 }
 
-mutation UpdatePasskeyName($auid: ID!, $credentialId: ID!, $name: String!, $tokenId: String) {
-  updatePasskeyName(auid: $auid, credentialId: $credentialId, name: $name, tokenId: $tokenId)
+mutation UpdatePasskeyName($auid: ID!, $credentialId: ID!, $name: String!) {
+  updatePasskeyName(auid: $auid, credentialId: $credentialId, name: $name)
 }
 
-mutation DeletePasskey($auid: ID!, $credentialId: ID!, $tokenId: String) {
-  deletePasskey(auid: $auid, credentialId: $credentialId, tokenId: $tokenId)
+mutation DeletePasskey($auid: ID!, $credentialId: ID!) {
+  deletePasskey(auid: $auid, credentialId: $credentialId)
 }
 
 mutation StartPasskeyLogin($permissions: [String!], $relyingPartyId: String!) {

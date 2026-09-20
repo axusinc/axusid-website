@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       auid: record.userAuid,
       clientId: record.clientAuid,
       scopes: record.scopes,
-      credentials: record.credentials,
+      tokenId: record.tokenId,
       nonce: record.nonce,
     });
 

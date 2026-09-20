@@ -262,7 +262,7 @@ JSON bodies are also accepted by the token endpoint.
   "token_type": "Bearer",
   "expires_in": 3600,
   "scope": "openid profile offline_access",
-  "axus_access_token": "<opaque backend bearer>",
+  "axus_access_token": "<native AXUS ID token>",
   "id_token": "<JWT when openid scope granted>",
   "refresh_token": "<wrapped token when offline_access granted>"
 }
@@ -272,12 +272,12 @@ JSON bodies are also accepted by the token endpoint.
 
 | Token | Use in Winelore |
 |---|---|
-| `axus_access_token` | **Recommended** for AXUS GraphQL API calls. Opaque backend bearer. |
-| `access_token` | IdP JWT; valid for GraphQL **and** `/oauth/userinfo`. Carries `scope` claim. |
+| `axus_access_token` | The only token AXUS GraphQL accepts. Native AXUS ID token; it never expires, so store it like a password and revoke it via `/oauth/revoke`. |
+| `access_token` | IdP JWT for `/oauth/userinfo` and OIDC libraries. Carries `scope` claim. **Not** accepted by AXUS GraphQL. |
 | `id_token` | Parse client-side or server-side for identity claims (`sub`, profile fields). Verify signature via JWKS. |
 | `refresh_token` | Store securely; use to obtain new tokens without re-login. |
 
-Both `access_token` and `axus_access_token` authenticate GraphQL requests:
+Only `axus_access_token` authenticates GraphQL requests:
 
 ```http
 Authorization: Bearer <token>
@@ -374,7 +374,7 @@ All protected operations require:
 ```http
 POST {AUTH_GRAPHQL_ENDPOINT}
 Content-Type: application/json
-Authorization: Bearer <axus_access_token or access_token>
+Authorization: Bearer <axus_access_token>
 
 {"query":"...","variables":{...}}
 ```

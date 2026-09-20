@@ -1,9 +1,5 @@
 import { cookies } from "next/headers";
-import {
-  getAuthSdk,
-  opaqueGraphqlBearer,
-  type AuthCredentials,
-} from "@/lib/auth-graphql";
+import { getAuthSdk } from "@/lib/auth-graphql";
 import { buildGoogleNameElements } from "@/lib/profile-name";
 import {
   getOAuthClient,
@@ -11,7 +7,6 @@ import {
   partitionScopes,
   validateScopes,
 } from "@/lib/oauth/clients";
-import { wrapTokenWithBackend } from "@/lib/oauth/adapter";
 import type { IdPSession } from "@/lib/session";
 
 export const GOOGLE_OAUTH_COOKIE = "axusid_google_oauth";
@@ -312,35 +307,26 @@ export async function resolveExternalLoginScopes(redirectUri?: string): Promise<
 export async function loginWithGoogleIdentity(
   refreshToken: string,
   permissions: string[],
-): Promise<AuthCredentials & { auid: string }> {
-  const sdk = getAuthSdk();
-  const authenticate = (requestedPermissions?: string[]) =>
-    sdk.LoginWithExternalIdentity({
-      authentication: {
-        providerId: getGoogleProviderId(),
-        refreshToken: refreshToken,
-        clientId: getGoogleClientId(),
-      },
-      permissions: requestedPermissions?.length ? requestedPermissions : undefined,
-    });
-
-  const identityResult = await authenticate();
-  const auid = identityResult.loginWithExternalIdentity.auid;
-  const credentialPermission = `identity.${auid}.credentials.issue`;
-  const tokenResult = await authenticate(
-    permissions.length > 0
-      ? [...new Set([...permissions, credentialPermission])]
-      : undefined,
-  );
-
-  return wrapTokenWithBackend(auid, tokenResult.loginWithExternalIdentity.id);
+): Promise<{ auid: string; tokenId: string }> {
+  const result = await getAuthSdk().LoginWithExternalIdentity({
+    authentication: {
+      providerId: getGoogleProviderId(),
+      refreshToken: refreshToken,
+      clientId: getGoogleClientId(),
+    },
+    permissions: permissions.length > 0 ? permissions : undefined,
+  });
+  return {
+    auid: result.loginWithExternalIdentity.auid,
+    tokenId: result.loginWithExternalIdentity.id,
+  };
 }
 
 export async function linkGoogleIdentity(
   session: IdPSession,
   refreshToken: string,
 ): Promise<void> {
-  const sdk = getAuthSdk(opaqueGraphqlBearer(session.credentials));
+  const sdk = getAuthSdk(session.tokenId);
   await sdk.LinkExternalIdentity({
     auid: session.auid,
     authentication: {
@@ -361,13 +347,13 @@ export type ExternalIdentityUserInfo = {
 
 export async function setGoogleRegistrationName(params: {
   auid: string;
-  credentials: AuthCredentials;
+  tokenId: string;
   profile: Pick<ExternalIdentityUserInfo, "name" | "givenName" | "familyName">;
 }): Promise<void> {
   const elements = buildGoogleNameElements(params.profile);
   if (elements.length === 0) return;
 
-  const sdk = getAuthSdk(opaqueGraphqlBearer(params.credentials));
+  const sdk = getAuthSdk(params.tokenId);
   const maxAttempts = 5;
   let lastError: unknown;
 

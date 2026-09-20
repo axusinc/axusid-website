@@ -14,33 +14,20 @@ function getEndpoint(): string {
   return endpoint;
 }
 
-export type AuthCredentials = {
-  accessToken: string;
-  refreshToken: string;
-  accessTokenExpiresAt: string;
-};
-
-function credentialsExpiresInSeconds(credentials: AuthCredentials): number {
-  const expiresAt = Date.parse(credentials.accessTokenExpiresAt);
-  return Number.isFinite(expiresAt)
-    ? Math.max(60, Math.floor((expiresAt - Date.now()) / 1000))
-    : 43200;
-}
-
-/** Backend opaque bearer from login/refresh. */
-export function opaqueGraphqlBearer(credentials: AuthCredentials): string {
-  return credentials.accessToken;
-}
+/**
+ * Lifetime of the OAuth access tokens this IdP signs. The native token behind one never expires,
+ * so this only bounds how long a leaked access token stays usable without a refresh.
+ */
+export const ACCESS_TOKEN_TTL_SECONDS = 12 * 60 * 60;
 
 /**
- * IdP JWT access token accepted by the auth GraphQL API as an alternative
- * to the opaque backend token. Permissions are carried in the scope claim.
+ * OAuth access token (JWT) for apps. The engine only accepts native tokens, so this is
+ * checked by this IdP alone (e.g. /oauth/userinfo). Permissions are carried in the scope claim.
  */
 export async function signGraphqlAccessToken(params: {
   auid: string;
   permissions: string[];
   oidcScopes: string[];
-  credentials: AuthCredentials;
   clientId?: string;
 }): Promise<string> {
   return signAccessToken({
@@ -48,7 +35,7 @@ export async function signGraphqlAccessToken(params: {
     aud: params.clientId ?? getIssuer(),
     scope: params.permissions.join(" "),
     oidcScope: params.oidcScopes.join(" "),
-    expiresInSeconds: credentialsExpiresInSeconds(params.credentials),
+    expiresInSeconds: ACCESS_TOKEN_TTL_SECONDS,
   });
 }
 
@@ -68,6 +55,7 @@ export function createAuthGraphqlClient(
   return new GraphQLClient(getEndpoint(), { headers });
 }
 
+/** Calls the engine as the holder of [bearerToken], a native token id. */
 export function getAuthSdk(
   bearerToken?: string,
   extraHeaders?: Record<string, string>,
@@ -79,15 +67,5 @@ export function getAuthSdkForSession(
   session: IdPSession,
   extraHeaders?: Record<string, string>,
 ) {
-  return getAuthSdk(opaqueGraphqlBearer(session.credentials), extraHeaders);
-}
-
-export async function getAuthSdkForSessionJwt(session: IdPSession) {
-  const bearerToken = await signGraphqlAccessToken({
-    auid: session.auid,
-    permissions: session.axusPermissions,
-    oidcScopes: session.oidcScopes,
-    credentials: session.credentials,
-  });
-  return getAuthSdk(bearerToken);
+  return getAuthSdk(session.tokenId, extraHeaders);
 }

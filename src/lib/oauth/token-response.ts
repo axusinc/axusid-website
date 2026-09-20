@@ -1,9 +1,8 @@
 import "server-only";
 
 import {
-  opaqueGraphqlBearer,
+  ACCESS_TOKEN_TTL_SECONDS,
   signGraphqlAccessToken,
-  type AuthCredentials,
 } from "@/lib/auth-graphql";
 import { buildOidcClaims } from "@/lib/oauth/claims";
 import { signIdToken } from "@/lib/oauth/jwt";
@@ -11,7 +10,6 @@ import {
   unwrapRefreshToken,
   wrapRefreshToken,
 } from "@/lib/oauth/refresh-token";
-import { refreshWithBackend } from "@/lib/oauth/adapter";
 import { partitionScopes } from "@/lib/oauth/scopes";
 
 export type DualTokenResponse = {
@@ -20,38 +18,27 @@ export type DualTokenResponse = {
   expires_in: number;
   refresh_token?: string;
   id_token?: string;
+  /** Native AXUS ID token for calling the engine directly. It never expires; revoke it via /oauth/revoke. */
   axus_access_token: string;
   scope?: string;
 };
-
-function credentialsExpiresIn(credentials: AuthCredentials): number {
-  const expiresAt = Date.parse(credentials.accessTokenExpiresAt);
-  return Number.isFinite(expiresAt)
-    ? Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
-    : 43200;
-}
 
 export async function issueTokenResponse(params: {
   auid: string;
   clientId: string;
   scopes: string[];
-  credentials: AuthCredentials;
+  tokenId: string;
   nonce?: string;
 }): Promise<DualTokenResponse> {
   const { oidcScopes, axusPermissions } = partitionScopes(params.scopes);
   const permissionScopeString = axusPermissions.join(" ");
-  const expiresIn = credentialsExpiresIn(params.credentials);
-  const profileClaims = await buildOidcClaims(
-    params.auid,
-    opaqueGraphqlBearer(params.credentials),
-    oidcScopes,
-  );
+  const expiresIn = ACCESS_TOKEN_TTL_SECONDS;
+  const profileClaims = await buildOidcClaims(params.auid, params.tokenId, oidcScopes);
 
   const accessToken = await signGraphqlAccessToken({
     auid: params.auid,
     permissions: axusPermissions,
     oidcScopes,
-    credentials: params.credentials,
     clientId: params.clientId,
   });
 
@@ -59,7 +46,7 @@ export async function issueTokenResponse(params: {
     access_token: accessToken,
     token_type: "Bearer",
     expires_in: expiresIn,
-    axus_access_token: params.credentials.accessToken,
+    axus_access_token: params.tokenId,
     ...(permissionScopeString ? { scope: permissionScopeString } : {}),
   };
 
@@ -78,7 +65,7 @@ export async function issueTokenResponse(params: {
       auid: params.auid,
       clientId: params.clientId,
       scopes: params.scopes,
-      backendRefreshToken: params.credentials.refreshToken,
+      tokenId: params.tokenId,
       exp: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000, // 100 years refresh token lifetime
     });
   }
@@ -90,13 +77,12 @@ export async function refreshTokenResponse(
   wrappedRefreshToken: string,
 ): Promise<DualTokenResponse> {
   const payload = await unwrapRefreshToken(wrappedRefreshToken);
-  const credentials = await refreshWithBackend(payload.backendRefreshToken);
 
   return issueTokenResponse({
     auid: payload.auid,
     clientId: payload.clientId,
     scopes: payload.scopes,
-    credentials,
+    tokenId: payload.tokenId,
   });
 }
 

@@ -6,7 +6,8 @@ export type WrappedRefreshPayload = {
   auid: string;
   clientId: string;
   scopes: string[];
-  backendRefreshToken: string;
+  /** Native token the authorization granted; the refresh token carries it encrypted. */
+  tokenId: string;
   exp?: number;
 };
 
@@ -25,7 +26,7 @@ export async function unwrapRefreshToken(
     !data.auid ||
     !data.clientId ||
     !Array.isArray(data.scopes) ||
-    !data.backendRefreshToken
+    !data.tokenId
   ) {
     throw new Error("Invalid refresh token payload");
   }

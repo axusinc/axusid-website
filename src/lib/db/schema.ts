@@ -2,7 +2,6 @@ import {
   pgTable,
   text,
   timestamp,
-  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const oauthClients = pgTable("oauth_clients", {
@@ -19,7 +18,8 @@ export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
   redirectUri: text("redirect_uri").notNull(),
   scopes: text("scopes").array().notNull(),
   userAuid: text("user_auid").notNull(),
-  credentials: jsonb("credentials").notNull(),
+  // Encrypted native token id (secret-box).
+  tokenId: text("token_id").notNull(),
   codeChallenge: text("code_challenge"),
   nonce: text("nonce"),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),

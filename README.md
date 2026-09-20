@@ -93,8 +93,8 @@ Token exchange returns a dual-token response:
 }
 ```
 
-- `access_token` — IdP JWT for OIDC libraries, `/oauth/userinfo`, and AXUS GraphQL API calls
-- `axus_access_token` — backend opaque token for AXUS GraphQL API calls
+- `access_token` — IdP JWT for OIDC libraries and `/oauth/userinfo` (not accepted by AXUS GraphQL)
+- `axus_access_token` — native AXUS ID token, the only credential AXUS GraphQL accepts; it never expires
 - `id_token` — identity JWT when `openid` is granted
 - `refresh_token` — wrapped refresh token when `offline_access` is granted
 
@@ -112,16 +112,13 @@ Any signed-in AXUS ID user can register OAuth clients at `/developer/oauth/clien
 
 ## GraphQL mapping
 
-Protected GraphQL operations require an `Authorization: Bearer …` header. The backend accepts either:
-
-- the opaque backend token (`axus_access_token` from `/oauth/token`), or
-- the IdP JWT access token (`access_token` from `/oauth/token`, with permissions in the `scope` claim)
+Protected GraphQL operations require an `Authorization: Bearer <native token>` header, e.g. `axus_access_token` from `/oauth/token`. The header is the only way to pass a token, and the backend has no access/refresh credentials of its own: OAuth access and refresh tokens are issued and managed by this IdP.
 
 | OAuth2 concept | GraphQL operation |
 |---|---|
 | User login | `login(auid, password, permissions)` |
-| Token refresh | `refreshCredentials(refreshToken)` |
-| Token revoke | `revokeCredentials(refreshToken)` |
+| Token refresh | handled by this IdP (`/oauth/token`); native tokens don't expire |
+| Token revoke | `revokeToken` with the token as Bearer |
 | Registration | `createUser(username, password)` |
 | Password change | `changePassword(auid, newPassword)` with Bearer auth |
 
