@@ -5,7 +5,6 @@ import {
   SESSION_COOKIE,
   clearSessionCookieOptions,
   getMultiSession,
-  getSession,
   serializeMultiSession,
   serializeSession,
   sessionCookieOptions,

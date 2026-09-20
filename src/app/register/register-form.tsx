@@ -179,8 +179,16 @@ export function RegisterForm({
   initialUsername,
   pendingGoogle,
 }: RegisterFormProps) {
+  // Keep the same Google registration key when retrying the server action.
+  const googleRegistrationKeyRef = useRef<string | null>(null);
   const [state, formAction, pending] = useActionState(
-    registerAction,
+    (previousState: AuthActionState, formData: FormData) => {
+      if (pendingGoogle) {
+        googleRegistrationKeyRef.current ??= crypto.randomUUID();
+        formData.set("registrationKey", googleRegistrationKeyRef.current);
+      }
+      return registerAction(previousState, formData);
+    },
     initialState,
   );
   const [registrationKey, setRegistrationKey] = useState("");
@@ -202,12 +210,6 @@ export function RegisterForm({
     );
   const availabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const availabilityRequestRef = useRef(0);
-  // Stable key for the Google path — generated once on mount so that retrying
-  // the same server action doesn't call CreateUser with a fresh key each time.
-  const googleRegistrationKeyRef = useRef<string | null>(null);
-  if (!googleRegistrationKeyRef.current) {
-    googleRegistrationKeyRef.current = crypto.randomUUID();
-  }
 
   useEffect(() => {
     return () => {
@@ -444,7 +446,6 @@ export function RegisterForm({
         >
           {pendingGoogle ? (
             <>
-              <input type="hidden" name="registrationKey" value={googleRegistrationKeyRef.current!} />
               <input type="hidden" name="username" value={normalizedUsername} />
               {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
               {next ? <input type="hidden" name="next" value={next} /> : null}
