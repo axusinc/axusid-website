@@ -89,18 +89,22 @@ export default async function AccountPage() {
   // whose profile cannot be read is still listed, by its AUID.
   const connectedApps: ConnectedApp[] = await Promise.all(
     grants.map(async (grant) => {
-      let clientName = grant.clientAuid;
+      let application = {
+        displayName: grant.clientAuid,
+        username: null as string | null,
+        firstName: null as string | null,
+        lastName: null as string | null,
+      };
       try {
         const info = await resolveUserDisplayInfo(sdk, grant.clientAuid);
-        clientName = info.displayName || info.username || grant.clientAuid;
+        application = info;
       } catch {
         // Falls back to the AUID.
       }
 
       return {
         grantId: grant.id,
-        clientAuid: grant.clientAuid,
-        clientName,
+        application,
         scopes: grant.scopes,
         connectedAt: grant.createdAt.toISOString(),
         lastUsedAt: grant.lastUsedAt?.toISOString() ?? null,

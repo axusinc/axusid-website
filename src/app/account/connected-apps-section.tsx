@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
+import { AtSign, CalendarDays, Clock3, IdCard, KeyRound, RefreshCw, UserRound } from "lucide-react";
 import { SubsectionTitle } from "@/app/account/dashboard-ui";
 import {
   disconnectAppAction,
   type ConnectedAppActionState,
 } from "@/app/actions/connected-apps";
+import { AppRequestCard, type RequestingAppInfo } from "@/components/app-request-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
@@ -15,8 +17,7 @@ import { roundedRect } from "@/lib/design";
 
 export type ConnectedApp = {
   grantId: string;
-  clientAuid: string;
-  clientName: string;
+  application: RequestingAppInfo;
   scopes: string[];
   connectedAt: string;
   lastUsedAt: string | null;
@@ -35,58 +36,90 @@ function formatDate(value: string | null): string {
   });
 }
 
+const accessByScope = {
+  openid: { label: "Your AXUS ID identifier", Icon: IdCard },
+  profile: { label: "Your name and username", Icon: UserRound },
+  email: { label: "Your AXUS email address", Icon: AtSign },
+  offline_access: { label: "Stay signed in when you’re not using the app", Icon: RefreshCw },
+} as const;
+
 function AppCard({ app }: { app: ConnectedApp }) {
   const [state, formAction, pending] = useActionState(
     disconnectAppAction,
     initialState,
   );
   const { oidcScopes, axusPermissions } = partitionScopes(app.scopes);
+  const standardAccess = oidcScopes
+    .map((scope) => accessByScope[scope as keyof typeof accessByScope])
+    .filter((item): item is (typeof accessByScope)[keyof typeof accessByScope] => Boolean(item));
 
   return (
-    <div className={cn("border border-black/5 bg-neutral-50/80 p-4", roundedRect)}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <span className="block text-sm font-medium text-black">{app.clientName}</span>
-          <span className="mt-0.5 block font-mono text-xs text-neutral-500">
-            {app.clientAuid}
-          </span>
-        </div>
+    <article className={cn("overflow-hidden border border-black/[0.07] bg-white", roundedRect)}>
+      <div className="flex items-center justify-between gap-4 p-4 sm:p-5">
+        <AppRequestCard
+          app={app.application}
+          appName={app.application.displayName}
+          className="min-w-0 flex-1 border-0 bg-transparent p-0 pr-0 shadow-none"
+        />
         <form action={formAction}>
           <input type="hidden" name="grantId" value={app.grantId} />
           <Button
             type="submit"
-            variant="secondary"
+            size="sm"
+            variant="danger-ghost"
             disabled={pending}
-            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
           >
-            {pending ? "Disconnecting..." : "Disconnect"}
+            {pending ? "Disconnecting…" : "Disconnect"}
           </Button>
         </form>
       </div>
 
-      <dl className="mt-3 grid gap-1 text-xs text-neutral-500 sm:grid-cols-2">
-        <div>
-          <dt className="inline">Connected: </dt>
-          <dd className="inline text-neutral-700">{formatDate(app.connectedAt)}</dd>
-        </div>
-        <div>
-          <dt className="inline">Last used: </dt>
-          <dd className="inline text-neutral-700">{formatDate(app.lastUsedAt)}</dd>
-        </div>
-      </dl>
+      <div className="border-t border-black/[0.05] bg-neutral-50/70 px-4 py-4 sm:px-5">
+        <dl className="grid gap-2 text-xs text-neutral-500 sm:grid-cols-2 sm:gap-4">
+          <div className="flex items-center gap-2">
+            <CalendarDays aria-hidden className="h-3.5 w-3.5 text-neutral-400" />
+            <dt>Connected</dt>
+            <dd className="font-medium text-neutral-700">
+              <time dateTime={app.connectedAt}>{formatDate(app.connectedAt)}</time>
+            </dd>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock3 aria-hidden className="h-3.5 w-3.5 text-neutral-400" />
+            <dt>Last used</dt>
+            <dd className="font-medium text-neutral-700">
+              {app.lastUsedAt ? (
+                <time dateTime={app.lastUsedAt}>{formatDate(app.lastUsedAt)}</time>
+              ) : (
+                "Never"
+              )}
+            </dd>
+          </div>
+        </dl>
 
-      <ul className="mt-3 space-y-1 text-xs text-neutral-600">
-        {oidcScopes.map((scope) => (
-          <li key={scope}>Sign you in and read your basic profile ({scope})</li>
-        ))}
-        {axusPermissions.map((permission) => (
-          <li key={permission}>{formatPermissionLabel(permission)}</li>
-        ))}
-      </ul>
+        <div className="mt-4 border-t border-black/[0.05] pt-4">
+          <p className="text-xs font-medium uppercase tracking-[0.08em] text-neutral-500">
+            Access granted
+          </p>
+          <ul className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+            {standardAccess.map(({ label, Icon }) => (
+              <li key={label} className="flex items-center gap-2.5 text-sm text-neutral-700">
+                <Icon aria-hidden className="h-4 w-4 shrink-0 text-neutral-400" />
+                <span>{label}</span>
+              </li>
+            ))}
+            {axusPermissions.map((permission) => (
+              <li key={permission} className="flex items-center gap-2.5 text-sm text-neutral-700">
+                <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-brand" />
+                <span>{formatPermissionLabel(permission)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-      {state.error ? <FormError>{state.error}</FormError> : null}
-      {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
-    </div>
+        {state.error ? <FormError>{state.error}</FormError> : null}
+        {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
+      </div>
+    </article>
   );
 }
 
