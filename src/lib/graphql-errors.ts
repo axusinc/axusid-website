@@ -27,6 +27,7 @@ export type DomainErrorCode =
   | "DEFAULT_VARIATION_NOT_FOUND"
   // Auth
   | "TOKEN_REQUIRED"
+  | "TOKEN_INVALID"
   | "NOT_AUTHORIZED"
   | "INVALID_CREDENTIALS"
   | "INVALID_PASSWORD"
@@ -38,9 +39,7 @@ export type DomainErrorCode =
   | "INVALID_GRANT_ACTIVATION_STATE"
   | "GRANT_APPROVAL_DENIED"
   // Internal (rarely client-facing)
-  | "INVALID_TOKEN_ID"
-  | "INVALID_ACCESS_CREDENTIAL_ID"
-  | "INVALID_REFRESH_CREDENTIAL_ID";
+  | "INVALID_TOKEN_ID";
 
 export const DOMAIN_ERROR_CODES = {
   EMPTY_AUID: "EMPTY_AUID",
@@ -57,6 +56,8 @@ export const DOMAIN_ERROR_CODES = {
   INVALID_VARIATION_ID_FORMAT: "INVALID_VARIATION_ID_FORMAT",
   DEFAULT_VARIATION_NOT_FOUND: "DEFAULT_VARIATION_NOT_FOUND",
   TOKEN_REQUIRED: "TOKEN_REQUIRED",
+  /** The engine does not know this token: it was revoked, or it never existed. */
+  TOKEN_INVALID: "TOKEN_INVALID",
   NOT_AUTHORIZED: "NOT_AUTHORIZED",
   INVALID_CREDENTIALS: "INVALID_CREDENTIALS",
   INVALID_PASSWORD: "INVALID_PASSWORD",
@@ -67,8 +68,6 @@ export const DOMAIN_ERROR_CODES = {
   INVALID_GRANT_ACTIVATION_STATE: "INVALID_GRANT_ACTIVATION_STATE",
   GRANT_APPROVAL_DENIED: "GRANT_APPROVAL_DENIED",
   INVALID_TOKEN_ID: "INVALID_TOKEN_ID",
-  INVALID_ACCESS_CREDENTIAL_ID: "INVALID_ACCESS_CREDENTIAL_ID",
-  INVALID_REFRESH_CREDENTIAL_ID: "INVALID_REFRESH_CREDENTIAL_ID",
 } as const satisfies Record<DomainErrorCode, DomainErrorCode>;
 
 export interface GraphQlDomainError {
@@ -221,12 +220,30 @@ export function formatGraphqlError(
   return fallback;
 }
 
+/**
+ * Strictly "the engine does not know this token". Unlike isAuthError, this says the session is
+ * over rather than that the action was refused, so it is safe to sign the account out on.
+ */
+export function isTokenInvalidError(error: unknown): boolean {
+  if (getPrimaryDomainError(error)?.code === DOMAIN_ERROR_CODES.TOKEN_INVALID) {
+    return true;
+  }
+
+  return (
+    isGraphqlClientError(error) &&
+    error.response.errors?.some(
+      (item) => item.extensions?.code === DOMAIN_ERROR_CODES.TOKEN_INVALID,
+    ) === true
+  );
+}
+
 export function isAuthError(error: unknown): boolean {
   const domainError = getPrimaryDomainError(error);
   if (domainError) {
     if (
       domainError.code === DOMAIN_ERROR_CODES.NOT_AUTHORIZED ||
       domainError.code === DOMAIN_ERROR_CODES.TOKEN_REQUIRED ||
+      domainError.code === DOMAIN_ERROR_CODES.TOKEN_INVALID ||
       domainError.code === DOMAIN_ERROR_CODES.INVALID_CREDENTIALS
     ) {
       return true;
@@ -241,6 +258,7 @@ export function isAuthError(error: unknown): boolean {
       msg.includes("invalid_grant") ||
       code === "NOT_AUTHORIZED" ||
       code === "TOKEN_REQUIRED" ||
+      code === "TOKEN_INVALID" ||
       code === "INVALID_CREDENTIALS"
     ) {
       return true;
