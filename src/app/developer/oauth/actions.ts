@@ -2,10 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  validateRedirectUris,
-  SUPPORTED_SCOPES,
-} from "@/lib/oauth/constants";
+import { validateRedirectUris } from "@/lib/oauth/constants";
 import {
   deleteClient,
   saveOauthClient,
@@ -40,7 +37,6 @@ export async function saveOauthConfigAction(
     const redirectUris = parseRedirectUris(formData);
     await saveOauthClient(session.auid, {
       redirectUris,
-      allowedScopes: [...SUPPORTED_SCOPES],
     });
 
     revalidatePath("/account");

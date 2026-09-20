@@ -116,7 +116,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
 
   let scopes: string[];
   try {
-    scopes = validateScopes(client, normalizeScopes(query.scope));
+    scopes = validateScopes(normalizeScopes(query.scope));
   } catch (error) {
     return oauthRedirectError(
       query.redirect_uri,

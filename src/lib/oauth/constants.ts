@@ -3,7 +3,6 @@ import { isOidcScope, isValidPermissionKey } from "@/lib/oauth/scopes";
 export type OAuthClient = {
   auid: string;
   redirectUris: string[];
-  allowedScopes: string[];
   /** "opaque" (the default) or "jwt" for clients that verify access tokens offline. */
   accessTokenFormat: "opaque" | "jwt";
 };
@@ -32,10 +31,11 @@ export function normalizeScopes(scope?: string): string[] {
   return [...new Set(scope.trim().split(/\s+/).filter(Boolean))];
 }
 
-export function validateScopes(
-  _client: OAuthClient,
-  scopes: string[],
-): string[] {
+/**
+ * An app may ask for any permission key: what it actually gets is decided by the user at the
+ * consent screen and bounded by what their own account holds. Only the syntax is checked here.
+ */
+export function validateScopes(scopes: string[]): string[] {
   const invalidPermissions = scopes.filter(
     (scope) => !isOidcScope(scope) && !isValidPermissionKey(scope),
   );

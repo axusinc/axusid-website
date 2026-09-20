@@ -11,7 +11,6 @@ import { sql } from "drizzle-orm";
 export const oauthClients = pgTable("oauth_clients", {
   auid: text("auid").primaryKey(),
   redirectUris: text("redirect_uris").array().notNull(),
-  allowedScopes: text("allowed_scopes").array().notNull(),
   /**
    * "opaque" (the default) hands out a random string this server can revoke and that apps
    * check through introspection; "jwt" is for clients that need a self-contained,

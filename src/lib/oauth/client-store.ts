@@ -9,7 +9,6 @@ function rowToClient(row: OAuthClientRow): OAuthClient {
   return {
     auid: row.auid,
     redirectUris: row.redirectUris,
-    allowedScopes: row.allowedScopes,
     accessTokenFormat: row.accessTokenFormat === "jwt" ? "jwt" : "opaque",
   };
 }
@@ -34,7 +33,6 @@ export async function listClientsByOwner(auid: string): Promise<OAuthClient[]> {
 
 export type CreateClientInput = {
   redirectUris: string[];
-  allowedScopes: string[];
   ownerAuid: string;
 };
 
@@ -47,7 +45,6 @@ export async function createClient(
     .values({
       auid: input.ownerAuid,
       redirectUris: input.redirectUris,
-      allowedScopes: input.allowedScopes,
     })
     .returning();
 
@@ -56,7 +53,6 @@ export async function createClient(
 
 export type UpdateClientInput = {
   redirectUris: string[];
-  allowedScopes: string[];
 };
 
 export async function updateClient(
@@ -72,7 +68,6 @@ export async function updateClient(
     .update(oauthClients)
     .set({
       redirectUris: input.redirectUris,
-      allowedScopes: input.allowedScopes,
     })
     .where(eq(oauthClients.auid, clientId))
     .returning();
@@ -112,7 +107,6 @@ export async function getClientForOwner(
 
 export type SaveOauthClientInput = {
   redirectUris: string[];
-  allowedScopes: string[];
 };
 
 export async function saveOauthClient(
@@ -125,13 +119,11 @@ export async function saveOauthClient(
     .values({
       auid,
       redirectUris: input.redirectUris,
-      allowedScopes: input.allowedScopes,
     })
     .onConflictDoUpdate({
       target: oauthClients.auid,
       set: {
         redirectUris: input.redirectUris,
-        allowedScopes: input.allowedScopes,
       },
     })
     .returning();

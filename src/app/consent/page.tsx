@@ -87,7 +87,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
     const scopeParam = url.searchParams.get("scope");
     let scopes: string[];
     try {
-      scopes = validateScopes(client, normalizeScopes(scopeParam ?? ""));
+      scopes = validateScopes(normalizeScopes(scopeParam ?? ""));
     } catch {
       redirect("/");
     }

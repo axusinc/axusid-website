@@ -367,7 +367,7 @@ export async function consentAction(formData: FormData) {
     // it may act on. SAML has no such record, so it still rides along in the session.
     let scopes: string[];
     try {
-      scopes = validateScopes(client, normalizeScopes(url.searchParams.get("scope") ?? ""));
+      scopes = validateScopes(normalizeScopes(url.searchParams.get("scope") ?? ""));
     } catch {
       redirect("/");
     }
