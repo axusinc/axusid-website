@@ -43,6 +43,8 @@ export type AccessTokenClaims = {
   aud: string;
   scope: string;
   oidcScope: string;
+  /** Seconds since the epoch, as in the JWT itself. */
+  exp: number;
 };
 
 export async function signAccessToken(params: {
@@ -51,9 +53,11 @@ export async function signAccessToken(params: {
   scope: string;
   oidcScope?: string;
   expiresInSeconds: number;
+  /** Identifies this token, so one can be named in a log or a revocation list. */
+  jti?: string;
 }): Promise<string> {
   const key = await getPrivateKey();
-  return new SignJWT({
+  const jwt = new SignJWT({
     scope: params.scope,
     ...(params.oidcScope ? { oidc_scope: params.oidcScope } : {}),
   })
@@ -62,8 +66,13 @@ export async function signAccessToken(params: {
     .setSubject(params.sub)
     .setAudience(params.aud)
     .setIssuedAt()
-    .setExpirationTime(`${params.expiresInSeconds}s`)
-    .sign(key);
+    .setExpirationTime(`${params.expiresInSeconds}s`);
+
+  if (params.jti) {
+    jwt.setJti(params.jti);
+  }
+
+  return jwt.sign(key);
 }
 
 export async function signIdToken(params: {
@@ -113,6 +122,7 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenClaim
     scope: typeof payload.scope === "string" ? payload.scope : "",
     oidcScope:
       typeof payload.oidc_scope === "string" ? payload.oidc_scope : "",
+    exp: typeof payload.exp === "number" ? payload.exp : 0,
   };
 }
 

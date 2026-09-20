@@ -10,6 +10,7 @@ function rowToClient(row: OAuthClientRow): OAuthClient {
     auid: row.auid,
     redirectUris: row.redirectUris,
     allowedScopes: row.allowedScopes,
+    accessTokenFormat: row.accessTokenFormat === "jwt" ? "jwt" : "opaque",
   };
 }
 

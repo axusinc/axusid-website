@@ -2,6 +2,7 @@ import { oauthError } from "@/lib/oauth/adapter";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { consumeAuthorizationCode } from "@/lib/oauth/auth-code-store";
 import { getOAuthClient } from "@/lib/oauth/clients";
+import { findGrantById } from "@/lib/oauth/grants";
 import { verifyPkceChallenge } from "@/lib/oauth/pkce";
 import { extractBasicAuth, parseRequestBody, tokenRequestSchema } from "@/lib/oauth/schemas";
 import {
@@ -33,8 +34,16 @@ export async function POST(request: Request) {
   const payload = parsed.data;
 
   if (payload.grant_type === "refresh_token") {
+    const refreshClient = await getOAuthClient(payload.client_id);
+    if (!refreshClient) {
+      return oauthError("invalid_client", "Unknown client_id", 401);
+    }
+
     try {
-      const tokenResponse = await refreshTokenResponse(payload.refresh_token);
+      const tokenResponse = await refreshTokenResponse({
+        refreshToken: payload.refresh_token,
+        client: refreshClient,
+      });
       return Response.json(tokenResponse, {
         headers: {
           "Cache-Control": "no-store",
@@ -85,12 +94,16 @@ export async function POST(request: Request) {
     return oauthError("invalid_grant", "PKCE verification failed", 400);
   }
 
+  const grant = await findGrantById(record.grantId);
+  if (!grant) {
+    return oauthError("invalid_grant", "The authorization has been revoked", 400);
+  }
+
   try {
     const tokenResponse = await issueTokenResponse({
-      auid: record.userAuid,
-      clientId: record.clientAuid,
+      client,
+      grant,
       scopes: record.scopes,
-      tokenId: record.tokenId,
       nonce: record.nonce,
     });
 

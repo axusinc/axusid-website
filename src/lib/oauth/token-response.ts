@@ -1,14 +1,15 @@
 import "server-only";
 
-import {
-  ACCESS_TOKEN_TTL_SECONDS,
-  signGraphqlAccessToken,
-} from "@/lib/auth-graphql";
+import { issueAccessToken } from "@/lib/oauth/access-token";
+import { recordOAuthEvent } from "@/lib/oauth/audit";
 import { buildOidcClaims } from "@/lib/oauth/claims";
+import type { OAuthClient } from "@/lib/oauth/constants";
+import { touchGrant, type OAuthGrant } from "@/lib/oauth/grants";
 import { signIdToken } from "@/lib/oauth/jwt";
 import {
-  unwrapRefreshToken,
-  wrapRefreshToken,
+  RefreshTokenError,
+  issueRefreshToken,
+  redeemRefreshToken,
 } from "@/lib/oauth/refresh-token";
 import { partitionScopes } from "@/lib/oauth/scopes";
 
@@ -18,72 +19,112 @@ export type DualTokenResponse = {
   expires_in: number;
   refresh_token?: string;
   id_token?: string;
-  /** Native AXUS ID token for calling the engine directly. It never expires; revoke it via /oauth/revoke. */
+  /**
+   * The app's own native AXUS ID token, for calling the engine directly. It does not expire,
+   * and it dies with the authorization when the user disconnects the app.
+   */
   axus_access_token: string;
   scope?: string;
 };
 
-export async function issueTokenResponse(params: {
-  auid: string;
-  clientId: string;
+async function buildResponse(params: {
+  client: OAuthClient;
+  grant: OAuthGrant;
   scopes: string[];
-  tokenId: string;
   nonce?: string;
+  withRefreshToken: string | undefined;
 }): Promise<DualTokenResponse> {
   const { oidcScopes, axusPermissions } = partitionScopes(params.scopes);
   const permissionScopeString = axusPermissions.join(" ");
-  const expiresIn = ACCESS_TOKEN_TTL_SECONDS;
-  const profileClaims = await buildOidcClaims(params.auid, params.tokenId, oidcScopes);
 
-  const accessToken = await signGraphqlAccessToken({
-    auid: params.auid,
-    permissions: axusPermissions,
-    oidcScopes,
-    clientId: params.clientId,
+  const accessToken = await issueAccessToken({
+    client: params.client,
+    grant: params.grant,
+    scopes: params.scopes,
   });
 
   const response: DualTokenResponse = {
-    access_token: accessToken,
+    access_token: accessToken.token,
     token_type: "Bearer",
-    expires_in: expiresIn,
-    axus_access_token: params.tokenId,
+    expires_in: accessToken.expiresInSeconds,
+    axus_access_token: params.grant.tokenId,
     ...(permissionScopeString ? { scope: permissionScopeString } : {}),
   };
 
-  if (oidcScopes.includes("openid")) {
-    response.id_token = await signIdToken({
-      sub: params.auid,
-      aud: params.clientId,
-      expiresInSeconds: expiresIn,
-      claims: profileClaims,
-      nonce: params.nonce,
-    });
+  if (params.withRefreshToken) {
+    response.refresh_token = params.withRefreshToken;
   }
 
-  if (oidcScopes.includes("offline_access")) {
-    response.refresh_token = await wrapRefreshToken({
-      auid: params.auid,
-      clientId: params.clientId,
-      scopes: params.scopes,
-      tokenId: params.tokenId,
-      exp: Date.now() + 100 * 365 * 24 * 60 * 60 * 1000, // 100 years refresh token lifetime
+  if (oidcScopes.includes("openid")) {
+    const profileClaims = await buildOidcClaims(
+      params.grant.userAuid,
+      params.grant.tokenId,
+      oidcScopes,
+    );
+
+    response.id_token = await signIdToken({
+      sub: params.grant.userAuid,
+      aud: params.client.auid,
+      expiresInSeconds: accessToken.expiresInSeconds,
+      claims: profileClaims,
+      nonce: params.nonce,
     });
   }
 
   return response;
 }
 
-export async function refreshTokenResponse(
-  wrappedRefreshToken: string,
-): Promise<DualTokenResponse> {
-  const payload = await unwrapRefreshToken(wrappedRefreshToken);
+export async function issueTokenResponse(params: {
+  client: OAuthClient;
+  grant: OAuthGrant;
+  scopes: string[];
+  nonce?: string;
+}): Promise<DualTokenResponse> {
+  const { oidcScopes } = partitionScopes(params.scopes);
+  const refreshToken = oidcScopes.includes("offline_access")
+    ? await issueRefreshToken(params.grant.id)
+    : undefined;
 
-  return issueTokenResponse({
-    auid: payload.auid,
-    clientId: payload.clientId,
-    scopes: payload.scopes,
-    tokenId: payload.tokenId,
+  const response = await buildResponse({ ...params, withRefreshToken: refreshToken });
+
+  await recordOAuthEvent({
+    event: "token.issued",
+    userAuid: params.grant.userAuid,
+    clientAuid: params.client.auid,
+    grantId: params.grant.id,
+    detail: { scopes: params.scopes, offline: Boolean(refreshToken) },
   });
+
+  return response;
 }
 
-export { unwrapRefreshToken };
+export async function refreshTokenResponse(params: {
+  refreshToken: string;
+  client: OAuthClient;
+}): Promise<DualTokenResponse> {
+  const { grant, refreshToken } = await redeemRefreshToken(params.refreshToken);
+
+  // A refresh token belongs to the client it was issued to; presenting it as another client
+  // is a stolen token, not a mistake.
+  if (grant.clientAuid !== params.client.auid) {
+    throw new RefreshTokenError("Refresh token was issued to a different client");
+  }
+
+  await touchGrant(grant.id);
+
+  const response = await buildResponse({
+    client: params.client,
+    grant,
+    scopes: grant.scopes,
+    withRefreshToken: refreshToken,
+  });
+
+  await recordOAuthEvent({
+    event: "token.refreshed",
+    userAuid: grant.userAuid,
+    clientAuid: grant.clientAuid,
+    grantId: grant.id,
+  });
+
+  return response;
+}

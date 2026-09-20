@@ -12,6 +12,23 @@ import {
   type IdPSession,
   type MultiSession,
 } from "@/lib/session";
+import { revokeWithBackend } from "@/lib/oauth/adapter";
+
+/**
+ * Signing out revokes the session's native token. Native tokens never expire, so a session
+ * that is merely forgotten leaves a working token behind forever. Apps are unaffected: their
+ * tokens are separate authorizations, not children of this one.
+ */
+async function revokeSessionToken(tokenId: string | undefined): Promise<void> {
+  if (!tokenId) {
+    return;
+  }
+  try {
+    await revokeWithBackend(tokenId);
+  } catch {
+    // Already revoked, or the engine is unreachable - the session still ends here.
+  }
+}
 
 export async function persistSession(session: IdPSession): Promise<void> {
   const cookieStore = await cookies();
@@ -122,6 +139,7 @@ export async function removeAccountFromSession(auid: string): Promise<MultiSessi
   if (!existing) return null;
 
   const remaining = existing.accounts.filter((acc) => acc.auid !== auid);
+  await revokeSessionToken(existing.accounts.find((acc) => acc.auid === auid)?.tokenId);
 
   if (remaining.length === 0) {
     await clearAllSessions();
@@ -146,6 +164,11 @@ export async function removeAccountFromSession(auid: string): Promise<MultiSessi
  * Clears all signed-in sessions.
  */
 export async function clearAllSessions(): Promise<void> {
+  const existing = await getValidMultiSession();
+  for (const account of existing?.accounts ?? []) {
+    await revokeSessionToken(account.tokenId);
+  }
+
   const cookieStore = await cookies();
   try {
     cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);

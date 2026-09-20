@@ -27,7 +27,9 @@ export const tokenRequestSchema = z.discriminatedUnion("grant_type", [
   z.object({
     grant_type: z.literal("refresh_token"),
     refresh_token: z.string().min(1),
-    client_id: z.string().min(1).optional(),
+    // Required: a refresh token is bound to the client it was issued to, and that can only be
+    // checked if the client says who it is.
+    client_id: z.string().min(1),
   }),
 ]);
 

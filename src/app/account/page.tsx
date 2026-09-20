@@ -7,10 +7,16 @@ import { FormError } from "@/components/ui/form-message";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError, isAuthError } from "@/lib/graphql-errors";
 import { listClientsByOwner } from "@/lib/oauth/client-store";
+import { listGrantsForUser } from "@/lib/oauth/grants";
 import { getIssuer } from "@/lib/oauth/constants";
 import { getValidSession, getValidMultiSession, removeAccountFromSession } from "@/lib/session-access";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
-import { fetchUserProfileWithVariations, fetchAccountsDisplayInfo } from "@/lib/user-profile";
+import {
+  fetchUserProfileWithVariations,
+  fetchAccountsDisplayInfo,
+  resolveUserDisplayInfo,
+} from "@/lib/user-profile";
+import type { ConnectedApp } from "@/app/account/connected-apps-section";
 import { getUserPasskeys } from "@/lib/passkey-graphql";
 import { getUserExternalIdentities } from "@/lib/google-oauth";
 
@@ -78,14 +84,38 @@ export default async function AccountPage() {
     : (variations[0] ?? null);
   const fullName = defaultVariation?.displayName?.trim() || "";
   const username = user?.usernames?.defaultUsername ?? null;
-  const [clients, samlConfig, initialPasskeys, initialExternalIdentities, passwordStatus] = await Promise.all([
+  const [clients, grants, samlConfig, initialPasskeys, initialExternalIdentities, passwordStatus] = await Promise.all([
     listClientsByOwner(session.auid),
+    listGrantsForUser(session.auid),
     getSamlConfigByAuid(session.auid),
     getUserPasskeys(session.auid, session.tokenId),
     getUserExternalIdentities(session.auid, session.tokenId),
     sdk.IsPasswordSet({ auid: session.auid }),
   ]);
   const issuer = getIssuer();
+
+  // An app is another AXUS ID account, so its name is looked up like any other profile; an app
+  // whose profile cannot be read is still listed, by its AUID.
+  const connectedApps: ConnectedApp[] = await Promise.all(
+    grants.map(async (grant) => {
+      let clientName = grant.clientAuid;
+      try {
+        const info = await resolveUserDisplayInfo(sdk, grant.clientAuid);
+        clientName = info.displayName || info.username || grant.clientAuid;
+      } catch {
+        // Falls back to the AUID.
+      }
+
+      return {
+        grantId: grant.id,
+        clientAuid: grant.clientAuid,
+        clientName,
+        scopes: grant.scopes,
+        connectedAt: grant.createdAt.toISOString(),
+        lastUsedAt: grant.lastUsedAt?.toISOString() ?? null,
+      };
+    }),
+  );
 
   return (
     <DashboardShell>
@@ -99,6 +129,7 @@ export default async function AccountPage() {
           fullName={fullName}
           username={username}
           clients={clients}
+          connectedApps={connectedApps}
           issuer={issuer}
           samlConfig={samlConfig}
           initialPasskeys={initialPasskeys}

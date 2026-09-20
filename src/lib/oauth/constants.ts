@@ -4,6 +4,8 @@ export type OAuthClient = {
   auid: string;
   redirectUris: string[];
   allowedScopes: string[];
+  /** "opaque" (the default) or "jwt" for clients that verify access tokens offline. */
+  accessTokenFormat: "opaque" | "jwt";
 };
 
 export const SUPPORTED_SCOPES = [

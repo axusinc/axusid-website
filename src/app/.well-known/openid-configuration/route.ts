@@ -10,6 +10,10 @@ export async function GET() {
     userinfo_endpoint: `${issuer}/oauth/userinfo`,
     jwks_uri: `${issuer}/.well-known/jwks.json`,
     revocation_endpoint: `${issuer}/oauth/revoke`,
+    introspection_endpoint: `${issuer}/oauth/introspect`,
+    // Not part of OIDC discovery: where an app can send engine GraphQL with its OAuth access
+    // token instead of the native token from the token response.
+    axus_graphql_proxy_endpoint: `${issuer}/oauth/graphql`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],

@@ -1,7 +1,6 @@
 import "server-only";
 
 import { and, eq, isNull, lt } from "drizzle-orm";
-import { decryptJson, encryptJson } from "@/lib/crypto/secret-box";
 import { getDb } from "@/lib/db";
 import { oauthAuthorizationCodes } from "@/lib/db/schema";
 
@@ -11,8 +10,8 @@ export type AuthorizationCodeRecord = {
   redirectUri: string;
   scopes: string[];
   userAuid: string;
-  /** Native token the authorization grants the app. */
-  tokenId: string;
+  /** The authorization this code hands over. */
+  grantId: string;
   codeChallenge?: string;
   codeChallengeMethod?: "S256";
   nonce?: string;
@@ -25,7 +24,6 @@ export async function saveAuthorizationCode(
   record: AuthorizationCodeRecord,
 ): Promise<void> {
   const db = getDb();
-  const encryptedTokenId = await encryptJson(record.tokenId);
 
   await db.insert(oauthAuthorizationCodes).values({
     code: record.code,
@@ -33,7 +31,7 @@ export async function saveAuthorizationCode(
     redirectUri: record.redirectUri,
     scopes: record.scopes,
     userAuid: record.userAuid,
-    tokenId: encryptedTokenId,
+    grantId: record.grantId,
     codeChallenge: record.codeChallenge ?? null,
     nonce: record.nonce ?? null,
     expiresAt: record.expiresAt,
@@ -67,15 +65,13 @@ export async function consumeAuthorizationCode(
     .set({ consumedAt: now })
     .where(eq(oauthAuthorizationCodes.code, code));
 
-  const tokenId = await decryptJson<string>(row.tokenId);
-
   return {
     code: row.code,
     clientAuid: row.clientAuid,
     redirectUri: row.redirectUri,
     scopes: row.scopes,
     userAuid: row.userAuid,
-    tokenId,
+    grantId: row.grantId,
     codeChallenge: row.codeChallenge ?? undefined,
     codeChallengeMethod: row.codeChallenge ? "S256" : undefined,
     nonce: row.nonce ?? undefined,

@@ -1,8 +1,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Code2, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, Code2, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import {
+  ConnectedAppsSection,
+  type ConnectedApp,
+} from "@/app/account/connected-apps-section";
 import { DeveloperSection } from "@/app/account/developer-section";
 import { Avatar, SectionIntro } from "@/app/account/dashboard-ui";
 import { Logo } from "@/components/ui/logo";
@@ -18,7 +22,12 @@ import { VariationForms } from "./variation-forms";
 
 import type { ExternalIdentity } from "@/lib/google-oauth";
 
-type SectionId = "profile" | "security" | "nested-accounts" | "developer";
+type SectionId =
+  | "profile"
+  | "security"
+  | "connected-apps"
+  | "nested-accounts"
+  | "developer";
 
 type Variation = {
   id: string;
@@ -46,6 +55,7 @@ type AccountDashboardProps = {
   fullName: string;
   username: string | null;
   clients: OAuthClient[];
+  connectedApps: ConnectedApp[];
   issuer: string;
   samlConfig?: SamlConfig;
   initialPasskeys?: PasskeyCredential[];
@@ -60,12 +70,14 @@ const sections: {
 }[] = [
   { id: "profile", label: "Profile", Icon: UserRound },
   { id: "security", label: "Security", Icon: ShieldCheck },
+  { id: "connected-apps", label: "Connected apps", Icon: AppWindow },
   { id: "nested-accounts", label: "Nested accounts", Icon: UsersRound },
   { id: "developer", label: "Developer", Icon: Code2 },
 ];
 
 function parseSection(value: string | null): SectionId {
   if (value === "security") return "security";
+  if (value === "connected-apps") return "connected-apps";
   if (value === "nested-accounts") return "nested-accounts";
   if (value === "developer") return "developer";
   return "profile";
@@ -80,6 +92,11 @@ const sectionMeta: Record<SectionId, { title: string; description: string }> = {
   security: {
     title: "Security",
     description: "Manage how you sign in to your AXUS ID account.",
+  },
+  "connected-apps": {
+    title: "Connected apps",
+    description:
+      "Applications you have given access to your account, and what they may do with it.",
   },
   "nested-accounts": {
     title: "Nested accounts",
@@ -102,6 +119,7 @@ export function AccountDashboard({
   fullName,
   username,
   clients,
+  connectedApps,
   issuer,
   samlConfig,
   initialPasskeys = [],
@@ -261,6 +279,8 @@ export function AccountDashboard({
                 onEditingChange={handleEditingChange}
                 cancelRef={securityCancelRef}
               />
+            ) : active === "connected-apps" ? (
+              <ConnectedAppsSection apps={connectedApps} />
             ) : active === "nested-accounts" ? (
               <NestedAccountForm auid={auid} />
             ) : (

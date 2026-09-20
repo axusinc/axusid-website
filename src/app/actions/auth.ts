@@ -13,7 +13,13 @@ import {
 } from "@/lib/graphql-errors";
 import { SESSION_PERMISSIONS, loginWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
-import { getOAuthClient } from "@/lib/oauth/clients";
+import {
+  getOAuthClient,
+  normalizeScopes,
+  partitionScopes,
+  validateScopes,
+} from "@/lib/oauth/clients";
+import { grantAuthorization } from "@/lib/oauth/grants";
 
 import {
   addAccountToSession,
@@ -339,16 +345,15 @@ export async function consentAction(formData: FormData) {
     redirect("/");
   }
 
+  const client = isSaml ? undefined : await getOAuthClient(clientId);
+
   if (isSaml) {
     const samlConfig = await getSamlConfigByAuid(clientId);
     if (!samlConfig) {
       redirect("/");
     }
-  } else {
-    const client = await getOAuthClient(clientId);
-    if (!client) {
-      redirect("/");
-    }
+  } else if (!client) {
+    redirect("/");
   }
 
   const session = await getValidSession();
@@ -357,12 +362,31 @@ export async function consentAction(formData: FormData) {
     redirect(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
-  const updatedSession: IdPSession = {
-    ...session,
-    consentedClients: [...new Set([...session.consentedClients, clientId])],
-  };
+  if (client) {
+    // Consent for an OAuth app is a record of its own, holding the app's token and the scopes
+    // it may act on. SAML has no such record, so it still rides along in the session.
+    let scopes: string[];
+    try {
+      scopes = validateScopes(client, normalizeScopes(url.searchParams.get("scope") ?? ""));
+    } catch {
+      redirect("/");
+    }
 
-  await addAccountToSession(updatedSession);
+    await grantAuthorization({
+      userAuid: session.auid,
+      clientAuid: client.auid,
+      sessionTokenId: session.tokenId,
+      scopes,
+      axusPermissions: partitionScopes(scopes).axusPermissions,
+    });
+  } else {
+    const updatedSession: IdPSession = {
+      ...session,
+      consentedClients: [...new Set([...session.consentedClients, clientId])],
+    };
+
+    await addAccountToSession(updatedSession);
+  }
 
   let targetUri = redirectUri;
   if (targetUri.startsWith("/authorize")) {

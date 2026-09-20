@@ -6,7 +6,11 @@ import {
   validateRedirectUri,
   validateScopes,
 } from "@/lib/oauth/clients";
-import { issueAuthorizationToken } from "@/lib/oauth/adapter";
+import {
+  findActiveGrant,
+  grantAuthorization,
+  grantCoversScopes,
+} from "@/lib/oauth/grants";
 import {
   AUTH_CODE_TTL_MS,
   saveAuthorizationCode,
@@ -36,6 +40,19 @@ function oauthRedirectError(
     url.searchParams.set("state", state);
   }
   redirect(url.toString());
+}
+
+/**
+ * Consent is a server-side record, not a flag in the session cookie: it outlives sign-out, the
+ * user can see and revoke it, and asking for scopes beyond what was agreed to prompts again.
+ */
+async function hasConsentFor(
+  userAuid: string,
+  clientAuid: string,
+  scopes: string[],
+): Promise<boolean> {
+  const grant = await findActiveGrant(userAuid, clientAuid);
+  return Boolean(grant && grantCoversScopes(grant, scopes));
 }
 
 export default async function AuthorizePage({ searchParams }: AuthorizePageProps) {
@@ -147,8 +164,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
       );
     }
 
-    const hasConsented = session.consentedClients.includes(client.auid);
-    if (!hasConsented) {
+    if (!(await hasConsentFor(session.auid, client.auid, scopes))) {
       return oauthRedirectError(
         query.redirect_uri,
         "consent_required",
@@ -183,7 +199,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     }
 
     // 5. Handle prompt=consent or standard consent check
-    const hasConsented = session.consentedClients.includes(client.auid);
+    const hasConsented = await hasConsentFor(session.auid, client.auid, scopes);
     const forceConsent = promptTokens.has("consent") && queryParams.prompt_consent !== "done";
 
     if (!hasConsented || forceConsent) {
@@ -194,12 +210,14 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
   // The app gets its own token, scoped to what was consented to, rather than the user's
   // session token: revoking the app must not sign the user out, and an app must not inherit
   // the whole account.
-  let authorizationTokenId: string;
+  let grant;
   try {
-    authorizationTokenId = await issueAuthorizationToken({
-      sessionTokenId: session.tokenId,
+    grant = await grantAuthorization({
       userAuid: session.auid,
-      permissions: partitionScopes(scopes).axusPermissions,
+      clientAuid: client.auid,
+      sessionTokenId: session.tokenId,
+      scopes,
+      axusPermissions: partitionScopes(scopes).axusPermissions,
     });
   } catch {
     return oauthRedirectError(
@@ -217,7 +235,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     redirectUri: query.redirect_uri,
     scopes,
     userAuid: session.auid,
-    tokenId: authorizationTokenId,
+    grantId: grant.id,
     codeChallenge: query.code_challenge,
     codeChallengeMethod: "S256",
     nonce: query.nonce,
