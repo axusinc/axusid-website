@@ -1,9 +1,8 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AccountDashboard } from "@/app/account/account-dashboard";
-import { DashboardShell } from "@/app/account/dashboard-ui";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { FormError } from "@/components/ui/form-message";
+import { StatusPage } from "@/components/status-page";
+import { buttonVariants } from "@/components/ui/button";
 import { getAuthSdkForSession, opaqueGraphqlBearer } from "@/lib/auth-graphql";
 import { formatGraphqlError, isAuthError } from "@/lib/graphql-errors";
 import { listClientsByOwner } from "@/lib/oauth/client-store";
@@ -13,6 +12,8 @@ import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import { fetchUserProfileWithVariations, fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { getUserPasskeys } from "@/lib/passkey-graphql";
 import { getUserExternalIdentities } from "@/lib/google-oauth";
+
+export const metadata: Metadata = { title: "Account" };
 
 export default async function AccountPage() {
   const multiSession = await getValidMultiSession();
@@ -48,26 +49,16 @@ export default async function AccountPage() {
       redirect("/login");
     }
     return (
-      <DashboardShell>
-        <main className="relative mx-auto flex min-h-full w-full max-w-xl flex-1 items-center px-4 py-8 sm:px-6 sm:py-12">
-          <Card className="w-full rounded-[24px] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.09),0_3px_12px_rgba(0,0,0,0.04)] sm:p-8">
-            <FormError>
-              {formatGraphqlError(
-                error,
-                "account",
-                "Unable to load your account. Try again.",
-              )}
-            </FormError>
-            <div className="mt-4">
-              <a href="/account">
-                <Button type="button" variant="outline">
-                  Try again
-                </Button>
-              </a>
-            </div>
-          </Card>
-        </main>
-      </DashboardShell>
+      <StatusPage
+        tone="error"
+        title="We couldn’t load your account"
+        description={formatGraphqlError(error, "account", "Something went wrong on our side. Try again.")}
+        actions={
+      <a href="/account" className={buttonVariants({ className: "w-full sm:w-auto" })}>
+        Try again
+      </a>
+        }
+      />
     );
   }
 
@@ -90,24 +81,20 @@ export default async function AccountPage() {
   const issuer = getIssuer();
 
   return (
-    <DashboardShell>
-      <main className="relative min-h-screen w-full">
-        <AccountDashboard
-          auid={session.auid}
-          accounts={accountInfos}
-          currentAuid={session.auid}
-          defaultUsername={username}
-          defaultVariation={defaultVariation}
-          fullName={fullName}
-          username={username}
-          clients={clients}
-          issuer={issuer}
-          samlConfig={samlConfig}
-          initialPasskeys={initialPasskeys}
-          initialExternalIdentities={initialExternalIdentities}
-          initialHasPassword={passwordStatus.isPasswordSet}
-        />
-      </main>
-    </DashboardShell>
+    <AccountDashboard
+      auid={session.auid}
+      accounts={accountInfos}
+      currentAuid={session.auid}
+      defaultUsername={username}
+      defaultVariation={defaultVariation}
+      fullName={fullName}
+      username={username}
+      clients={clients}
+      issuer={issuer}
+      samlConfig={samlConfig}
+      initialPasskeys={initialPasskeys}
+      initialExternalIdentities={initialExternalIdentities}
+      initialHasPassword={passwordStatus.isPasswordSet}
+    />
   );
 }

@@ -1,21 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  Fingerprint,
-  KeyRound,
-  Plus,
-  Trash2,
-  Loader2,
-  Pencil,
-  Check,
-  X,
-} from "lucide-react";
-import { SubsectionTitle, StatusBadge } from "@/app/account/dashboard-ui";
+import { Fingerprint, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
-import { Input } from "@/components/ui/input";
+import { Input, inputClassName } from "@/components/ui/input";
 import { createPasskeyCredential } from "@/lib/webauthn";
 import {
   startPasskeyEnrollmentAction,
@@ -24,8 +16,7 @@ import {
   deletePasskeyAction,
 } from "@/app/actions/passkey";
 import type { PasskeyCredential } from "@/lib/passkey-graphql";
-import { roundedRect } from "@/lib/design";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 type PasskeySectionProps = {
   initialPasskeys?: PasskeyCredential[];
@@ -47,13 +38,13 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
 
     startTransition(async () => {
       try {
-        const nameToUse = passkeyName.trim() || "My Passkey";
+        const nameToUse = passkeyName.trim() || "My passkey";
 
         const rp = typeof window !== "undefined" ? window.location.hostname : undefined;
         // 1. Get enrollment challenge from backend
         const result = await startPasskeyEnrollmentAction(nameToUse, rp);
         if (result.error || !result.enrollmentResponse || !result.passkeyUsername) {
-          setError(result.error || "Failed to initiate passkey enrollment.");
+          setError(result.error || "We couldn’t start adding a passkey. Try again.");
           return;
         }
 
@@ -76,7 +67,7 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
         if (verifyResult.error) {
           setError(verifyResult.error);
         } else {
-          setSuccess(verifyResult.success || "Passkey registered successfully!");
+          setSuccess(verifyResult.success || "Passkey added. You can now use it to sign in.");
           const newPasskey: PasskeyCredential = {
             id: credential.id,
             credentialId: credential.id,
@@ -92,16 +83,16 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
           if (err.name === "InvalidStateError" || err.message.includes("already registered")) {
             setError("This passkey or security key is already registered on your account.");
           } else if (err.name === "NotAllowedError") {
-            setError("Passkey registration was canceled or timed out.");
+            setError("Adding the passkey was cancelled or timed out.");
           } else if (err.name === "SecurityError") {
-            setError("Passkey registration is not allowed on this domain.");
+            setError("Passkeys can’t be added on this domain.");
           } else if (err.name === "NotSupportedError") {
-            setError("Passkeys are not supported on this device or browser.");
+            setError("This device or browser doesn’t support passkeys.");
           } else {
-            setError(err.message || "An error occurred while registering passkey.");
+            setError(err.message || "Something went wrong while adding the passkey.");
           }
         } else {
-          setError("An error occurred while registering passkey.");
+          setError("Something went wrong while adding the passkey.");
         }
       }
     });
@@ -111,7 +102,7 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
     setError(null);
     setSuccess(null);
     setEditingId(passkey.id);
-    setEditingName(passkey.name || "My Passkey");
+    setEditingName(passkey.name || "My passkey");
   };
 
   const handleSaveRename = (passkeyId: string) => {
@@ -154,106 +145,77 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
   };
 
   return (
-    <Card className="mt-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 items-start gap-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white shadow-sm">
-            <Fingerprint className="h-5 w-5 text-neutral-700" />
-          </span>
-          <SubsectionTitle
-            title="Passkeys"
-            description="Use Touch ID, Face ID, security keys, or Windows Hello to sign in seamlessly without passwords."
-          />
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          {passkeys.length > 0 ? (
-            <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-emerald-50 px-3 text-xs font-medium text-emerald-700 leading-none">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-              {passkeys.length} {passkeys.length === 1 ? "passkey" : "passkeys"} active
-            </span>
+    <Card>
+      <CardHeader
+        icon={<Fingerprint aria-hidden />}
+        title="Passkeys"
+        description="Sign in with Face ID, Touch ID, Windows Hello or a security key. Faster than a password and resistant to phishing."
+        badge={
+          passkeys.length > 0 ? (
+            <Badge tone="success" dot>
+              {passkeys.length} active
+            </Badge>
           ) : (
-            <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-neutral-100 px-3 text-xs font-medium text-neutral-600 leading-none">
-              Not configured
-            </span>
-          )}
-
-          {!isAdding && (
-            <button
+            <Badge tone="warning">Recommended</Badge>
+          )
+        }
+        action={
+          isAdding ? null : (
+            <Button
               type="button"
-              className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-black/[0.04] px-3 text-xs font-medium text-neutral-700 transition-colors hover:bg-black/[0.07] hover:text-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10 leading-none"
+              variant={passkeys.length > 0 ? "secondary" : "primary"}
+              size="sm"
               onClick={() => {
                 setError(null);
                 setSuccess(null);
                 setIsAdding(true);
               }}
             >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              {passkeys.length > 0 ? "Add another" : "Add passkey"}
-            </button>
-          )}
-        </div>
-      </div>
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              Add passkey
+            </Button>
+          )
+        }
+      />
 
-      {error ? (
-        <div className="mt-4">
-          <FormError>{error}</FormError>
-        </div>
-      ) : null}
+      {error ? <FormError className="mt-5">{error}</FormError> : null}
+      {success ? <FormSuccess className="mt-5">{success}</FormSuccess> : null}
 
-      {success ? (
-        <div className="mt-4">
-          <FormSuccess>{success}</FormSuccess>
-        </div>
-      ) : null}
-
-      {isAdding && (
-        <div
-          className={cn(
-            "mt-5 border border-black/10 bg-neutral-50/70 p-4.5 space-y-4 transition-all",
-            roundedRect,
-          )}
+      {isAdding ? (
+        <form
+          className="mt-5 space-y-4 border-t border-black/[0.05] pt-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            handleAddPasskey();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !isPending) {
+              setIsAdding(false);
+              setPasskeyName("");
+            }
+          }}
         >
-          <div className="space-y-1.5">
-            <h4 className="text-xs font-semibold text-neutral-900">Name your passkey</h4>
-            <p className="text-[11px] text-neutral-500">
-              Give this passkey a name to help identify which device or key it belongs to.
-            </p>
-          </div>
-
           <Input
+            id="passkey-name"
             name="passkeyName"
-            label="Passkey Name"
-            placeholder="e.g. MacBook Touch ID, YubiKey 5C, iCloud Keychain"
+            label="Passkey name"
+            hint="Helps you recognise it later, e.g. “MacBook Touch ID” or “YubiKey”."
+            placeholder="My passkey"
             value={passkeyName}
             onChange={(e) => setPasskeyName(e.target.value)}
             disabled={isPending}
+            maxLength={64}
             autoFocus
           />
 
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="brand"
-              onClick={handleAddPasskey}
-              disabled={isPending}
-              className="gap-2"
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating passkey…
-                </>
-              ) : (
-                <>
-                  <Fingerprint className="h-4 w-4" />
-                  Register passkey
-                </>
-              )}
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" size="md" loading={isPending}>
+              {isPending ? "Waiting for your device…" : "Continue"}
             </Button>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
+              size="md"
               onClick={() => {
                 setIsAdding(false);
                 setPasskeyName("");
@@ -263,108 +225,91 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
               Cancel
             </Button>
           </div>
-        </div>
-      )}
+        </form>
+      ) : null}
 
-      <div className="mt-5 space-y-3">
-        {passkeys.length === 0 ? (
-          <div className="flex items-center justify-between py-3 px-4 border border-dashed border-black/10 rounded-xl text-xs text-neutral-500 bg-neutral-50/30">
-            <div className="flex items-center gap-2.5">
-              <Fingerprint className="h-4 w-4 text-neutral-400" />
-              <span>No passkeys enrolled yet. Add one for fast, passwordless sign in.</span>
-            </div>
-          </div>
-        ) : (
-          passkeys.map((passkey) => (
-            <div
-              key={passkey.id}
-              className={cn(
-                "flex items-center justify-between p-3.5 border border-black/5 bg-white/70 backdrop-blur-xs text-xs transition-all hover:border-black/10",
-                roundedRect,
+      {passkeys.length > 0 ? (
+        <ul className="mt-5 divide-y divide-black/[0.05] rounded-xl border border-black/[0.07]">
+          {passkeys.map((passkey) => (
+            <li key={passkey.id} className="flex flex-wrap items-center gap-3 px-3.5 py-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
+                <KeyRound aria-hidden className="h-4 w-4" />
+              </span>
+
+              {editingId === passkey.id ? (
+                <form
+                  className="flex min-w-0 flex-1 items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleSaveRename(passkey.id);
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className={cn(inputClassName, "h-9 min-w-0 flex-1")}
+                    aria-label="Passkey name"
+                    maxLength={64}
+                    autoFocus
+                    disabled={isPending}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setEditingId(null);
+                      }
+                    }}
+                  />
+                  <Button type="submit" size="sm" loading={isPending}>
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingId(null)}
+                    disabled={isPending}
+                  >
+                    Cancel
+                  </Button>
+                </form>
+              ) : (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-neutral-950">
+                      {passkey.name || "Passkey"}
+                    </p>
+                    <p className="text-[13px] text-neutral-500">Added {formatDate(passkey.createdAt)}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleStartRename(passkey)}
+                      disabled={isPending}
+                    >
+                      <Pencil aria-hidden className="h-3.5 w-3.5" />
+                      Rename
+                    </Button>
+                    <ConfirmButton
+                      confirmLabel="Remove"
+                      onConfirm={() => handleDeletePasskey(passkey.id)}
+                      disabled={isPending}
+                    >
+                      <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                      Remove
+                    </ConfirmButton>
+                  </div>
+                </>
               )}
-            >
-              <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5 text-black">
-                  <KeyRound className="h-4.5 w-4.5 text-neutral-700" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  {editingId === passkey.id ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        className="h-8 rounded-md border border-black/20 bg-white px-2.5 text-xs text-black focus:border-black focus:outline-none focus:ring-1 focus:ring-black"
-                        autoFocus
-                        disabled={isPending}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleSaveRename(passkey.id);
-                          } else if (e.key === "Escape") {
-                            setEditingId(null);
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSaveRename(passkey.id)}
-                        disabled={isPending}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-black text-white hover:bg-neutral-800 disabled:opacity-50"
-                        title="Save name"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        disabled={isPending}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-black/10 bg-white text-neutral-600 hover:bg-neutral-100 disabled:opacity-50"
-                        title="Cancel"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 group">
-                      <p className="font-semibold text-black truncate">
-                        {passkey.name || "Passkey"}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleStartRename(passkey)}
-                        disabled={isPending}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-neutral-400 hover:text-black focus:opacity-100"
-                        title="Rename passkey"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                  <p className="text-[11px] text-neutral-500">
-                    Added {new Date(passkey.createdAt).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
-                </div>
-              </div>
-
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-8 px-2.5 text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5 font-medium shrink-0"
-                onClick={() => handleDeletePasskey(passkey.id)}
-                disabled={isPending}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Remove
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
+            </li>
+          ))}
+        </ul>
+      ) : !isAdding ? (
+        <p className="mt-5 rounded-xl border border-dashed border-black/[0.1] px-4 py-3.5 text-sm text-neutral-500">
+          You haven’t added a passkey yet.
+        </p>
+      ) : null}
     </Card>
   );
 }

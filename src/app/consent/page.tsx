@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ConsentForm } from "./consent-form";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
@@ -11,6 +12,8 @@ import {
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
 import { resolveUserDisplayInfo, fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
+
+export const metadata: Metadata = { title: "Review access" };
 
 type ConsentPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -124,6 +127,8 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   return (
     <ConsentForm
       applicationUser={applicationUser}
+      redirectHost={redirectHost}
+      oidcScopes={oidcScopes}
       permissions={permissions}
       redirectUri={redirectUri}
       accounts={accountInfos}

@@ -1,10 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Fingerprint } from "lucide-react";
+import { ArrowLeft, ChevronRight, Fingerprint, Plus } from "lucide-react";
 import { useActionState, useState, useTransition } from "react";
-import { Avatar } from "@/app/account/dashboard-ui";
 import {
   checkUsernameAction,
   loginAction,
@@ -12,26 +10,27 @@ import {
   type AuthActionState,
 } from "@/app/actions/auth";
 import { loginWithPasskeyAction, startPasskeyLoginAction } from "@/app/actions/passkey";
-import { AuthShell } from "@/components/auth-shell";
+import { AppRequestCard, type RequestingAppInfo } from "@/components/app-request-card";
+import { AuthPanelHeading, AuthShell } from "@/components/auth-shell";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { FormError } from "@/components/ui/form-message";
+import { Divider } from "@/components/ui/divider";
+import { Alert, FormError } from "@/components/ui/form-message";
+import { GoogleButton } from "@/components/ui/google-button";
+import { IdentityLabel } from "@/components/ui/identity-label";
 import { Input } from "@/components/ui/input";
-import { roundedRect } from "@/lib/design";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Spinner } from "@/components/ui/spinner";
+import { focusRing, roundedRect } from "@/lib/design";
 import { cn, isRedirectError } from "@/lib/utils";
 import { getPasskeyCredential } from "@/lib/webauthn";
 import type { AccountItemInfo } from "@/lib/user-profile";
 
-export type TargetAppUserInfo = {
-  displayName: string;
-  username: string | null;
-  firstName: string | null;
-  lastName: string | null;
-};
+export type TargetAppUserInfo = RequestingAppInfo;
 
 type LoginFormProps = {
   isOAuthFlow?: boolean;
   targetAppName?: string | null;
-  targetHost?: string | null;
   targetAppUser?: TargetAppUserInfo | null;
   registeredUsername?: string;
   redirectUri?: string;
@@ -43,81 +42,12 @@ type LoginFormProps = {
 
 const initialState: AuthActionState = {};
 
-function renderIdentityHeading(
-  displayName: string,
-  username: string | null | undefined,
-  firstName?: string | null,
-  lastName?: string | null,
-) {
-  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-  const effectiveDisplay = fullName || displayName;
-  const normUsername = username?.trim().replace(/^@/, "");
-  const normDisplay = effectiveDisplay?.trim().replace(/^@/, "");
-  const hasDistinctName = Boolean(
-    normUsername &&
-      normDisplay &&
-      normDisplay.toLowerCase() !== normUsername.toLowerCase(),
-  );
-
-  if (hasDistinctName) {
-    return (
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-black">{effectiveDisplay}</p>
-        <p className="truncate text-xs text-neutral-500">@{normUsername}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-w-0 flex-1">
-      <p className="truncate text-sm font-semibold text-black">
-        {normUsername ? `@${normUsername}` : effectiveDisplay}
-      </p>
-    </div>
-  );
-}
-
-function renderAppIdentityHeading(
-  applicationUser: TargetAppUserInfo | null | undefined,
-  appName: string,
-) {
-  if (!applicationUser) {
-    return <p className="truncate text-lg font-semibold tracking-tight text-black">{appName}</p>;
-  }
-
-  const fullName = [applicationUser.firstName, applicationUser.lastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  const effectiveDisplay = fullName || applicationUser.displayName || appName;
-  const normUsername = applicationUser.username?.trim().replace(/^@/, "");
-  const normDisplay = effectiveDisplay?.trim().replace(/^@/, "");
-  const hasDistinctName = Boolean(
-    normUsername &&
-      normDisplay &&
-      normDisplay.toLowerCase() !== normUsername.toLowerCase(),
-  );
-
-  if (hasDistinctName) {
-    return (
-      <div>
-        <p className="truncate text-lg font-semibold tracking-tight text-black">{effectiveDisplay}</p>
-        <p className="truncate text-xs text-neutral-500">@{normUsername}</p>
-      </div>
-    );
-  }
-
-  return (
-    <p className="truncate text-lg font-semibold tracking-tight text-black">
-      {normUsername ? `@${normUsername}` : effectiveDisplay}
-    </p>
-  );
-}
+const linkClassName =
+  "font-semibold text-neutral-950 underline-offset-4 hover:underline rounded-sm " + focusRing;
 
 export function LoginForm({
   isOAuthFlow,
   targetAppName,
-  targetHost,
   targetAppUser,
   registeredUsername,
   redirectUri,
@@ -134,12 +64,7 @@ export function LoginForm({
     registeredUsername ? "password" : "identifier",
   );
   const [username, setUsername] = useState(registeredUsername ?? "");
-  const [showPassword, setShowPassword] = useState(false);
-  const [selectedAuid, setSelectedAuid] = useState(
-    existingAccounts.find((account) => account.isActive)?.auid ||
-      existingAccounts[0]?.auid ||
-      "",
-  );
+  const [selectedAuid, setSelectedAuid] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
   const [isUsernamePending, startUsernameTransition] = useTransition();
@@ -147,7 +72,7 @@ export function LoginForm({
   const [isSwitchPending, startSwitchTransition] = useTransition();
 
   const hasExistingAccounts = existingAccounts.length > 0;
-  const appName = targetAppName || "Application";
+  const appName = targetAppName || "the application";
 
   const createAccountParams = new URLSearchParams();
   if (redirectUri) createAccountParams.set("redirect_uri", redirectUri);
@@ -178,7 +103,7 @@ export function LoginForm({
           rp,
         );
         if (init.error || !init.loginResponse) {
-          setPasskeyError(init.error || "Unable to start passkey sign in.");
+          setPasskeyError(init.error || "We couldn’t start passkey sign-in. Try again.");
           return;
         }
 
@@ -202,7 +127,7 @@ export function LoginForm({
           return;
         }
         setPasskeyError(
-          error instanceof Error ? error.message : "Passkey sign in failed.",
+          error instanceof Error ? error.message : "Passkey sign-in failed. Try again.",
         );
       }
     });
@@ -245,67 +170,49 @@ export function LoginForm({
     });
   };
 
+  const oauthContext = isOAuthFlow ? (
+    <AppRequestCard app={targetAppUser} appName={appName} />
+  ) : null;
+  const oauthStep = isOAuthFlow ? { current: 1, total: 2 } : undefined;
+
+  const passkeyButton = (label: string, disabled: boolean) => (
+    <Button
+      type="button"
+      variant="secondary"
+      className="w-full gap-3"
+      loading={isPasskeyPending}
+      disabled={disabled}
+      onClick={handlePasskeySignIn}
+    >
+      {isPasskeyPending ? null : <Fingerprint className="h-[18px] w-[18px]" aria-hidden />}
+      {isPasskeyPending ? "Waiting for passkey…" : label}
+    </Button>
+  );
+
   if (!showCredentialsForm && hasExistingAccounts) {
     return (
       <AuthShell
-        variant="sign-in"
-        signInStep={isOAuthFlow ? 1 : undefined}
-        maxWidthClass="max-w-[920px]"
-        title="Choose an account"
+        step={oauthStep}
+        title={isOAuthFlow ? `Continue to ${appName}` : "Choose an account"}
         description={
           isOAuthFlow
-            ? `Select an identity to continue to ${appName}.`
-            : "Pick an identity to continue to your AXUS account."
+            ? "Choose which AXUS ID to use. You can review what’s shared on the next step."
+            : "Pick an account that’s already signed in on this device."
         }
+        context={oauthContext}
       >
-        <div className="space-y-6">
-          {/* Target App Identity Box (Identical structure & design as Step 2) */}
-          {isOAuthFlow ? (
-            <div
-              className={cn(
-                "space-y-4 border border-black/10 bg-white/70 p-5 backdrop-blur-sm shadow-xs",
-                roundedRect,
-              )}
-            >
-              <div className="flex items-center gap-3.5">
-                <Avatar
-                  size="md"
-                  firstName={targetAppUser?.firstName ?? null}
-                  lastName={targetAppUser?.lastName ?? null}
-                  username={targetAppUser?.username ?? null}
-                  className="h-11 w-11 text-sm font-bold shadow-xs ring-2 ring-black/5"
-                />
-                <div className="min-w-0 flex-1">
-                  {renderAppIdentityHeading(targetAppUser, appName)}
-                  <p className="mt-1 text-sm leading-relaxed text-neutral-500">
-                    Wants you to sign in with your AXUS ID.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="mb-2">
-              <h2 className="text-xl font-semibold tracking-tight text-black">Your accounts</h2>
-              <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
-                Continue with an account that is already signed in on this device.
-              </p>
-            </div>
-          )}
+        <AuthPanelHeading
+          title="Choose an account"
+          description="Accounts signed in on this device."
+        />
 
-          {/* Identity Selection Cards */}
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-              Choose an identity
-            </p>
+        <ul className="space-y-2" aria-busy={isSwitchPending}>
+          {existingAccounts.map((account) => {
+            const isSelected = account.auid === selectedAuid && isSwitchPending;
 
-            {existingAccounts.map((account) => {
-              const isActive = account.auid === selectedAuid;
-
-              return (
-                <form
-                  key={account.auid}
-                  action={(formData) => handleSelectAccount(account.auid, formData)}
-                >
+            return (
+              <li key={account.auid}>
+                <form action={(formData) => handleSelectAccount(account.auid, formData)}>
                   <input type="hidden" name="auid" value={account.auid} />
                   {redirectUri ? (
                     <input type="hidden" name="redirect_uri" value={redirectUri} />
@@ -315,61 +222,68 @@ export function LoginForm({
                     type="submit"
                     disabled={isSwitchPending}
                     className={cn(
-                      "group flex w-full cursor-pointer items-center justify-between border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5 disabled:cursor-wait disabled:opacity-60",
+                      "group flex w-full cursor-pointer items-center gap-3 border border-black/[0.08] bg-white px-3.5 py-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-[border-color,background-color,box-shadow] hover:border-black/15 hover:bg-neutral-50 disabled:cursor-wait",
                       roundedRect,
-                      isActive
-                        ? "border-black/15 bg-neutral-100/90 shadow-xs"
-                        : "border-black/[0.06] bg-white/70 hover:border-black/10 hover:bg-white hover:shadow-sm",
+                      focusRing,
+                      isSwitchPending && !isSelected && "opacity-50",
                     )}
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Avatar
-                        firstName={account.firstName}
-                        lastName={account.lastName}
-                        username={account.username}
-                        size="md"
-                        className="ring-2 ring-black/[0.04]"
+                    <Avatar
+                      firstName={account.firstName}
+                      lastName={account.lastName}
+                      displayName={account.displayName}
+                      username={account.username}
+                      seed={account.auid}
+                    />
+                    <IdentityLabel
+                      className="flex-1"
+                      displayName={account.displayName}
+                      username={account.username}
+                      firstName={account.firstName}
+                      lastName={account.lastName}
+                    />
+                    {isSelected ? (
+                      <Spinner className="text-neutral-400" />
+                    ) : (
+                      <ChevronRight
+                        aria-hidden
+                        className="h-4 w-4 shrink-0 text-neutral-300 transition-transform group-hover:translate-x-0.5 group-hover:text-neutral-500"
                       />
-                      {renderIdentityHeading(
-                        account.displayName,
-                        account.username,
-                        account.firstName,
-                        account.lastName,
-                      )}
-                    </div>
+                    )}
                   </button>
                 </form>
-              );
-            })}
+              </li>
+            );
+          })}
 
+          <li>
             <button
               type="button"
               onClick={() => {
                 setShowCredentialsForm(true);
                 setCredentialStep("identifier");
               }}
+              disabled={isSwitchPending}
               className={cn(
-                "flex w-full cursor-pointer items-center gap-3 border border-dashed border-black/10 bg-neutral-50/60 px-4 py-3 text-left text-sm font-medium text-neutral-600 transition-all hover:border-black/15 hover:bg-neutral-100 hover:text-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5",
+                "flex w-full cursor-pointer items-center gap-3 border border-dashed border-black/[0.12] px-3.5 py-3 text-left text-sm font-medium text-neutral-600 transition-colors hover:border-black/20 hover:bg-neutral-50 hover:text-neutral-950 disabled:opacity-50",
                 roundedRect,
+                focusRing,
               )}
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.05] text-lg font-light">
-                +
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
+                <Plus aria-hidden className="h-4 w-4" />
               </span>
               Use another account
             </button>
-          </div>
+          </li>
+        </ul>
 
-          <p className="mt-7 text-center text-sm text-neutral-500">
-            Need a new identity?{" "}
-            <Link
-              href={createAccountHref}
-              className="font-semibold text-black underline-offset-4 hover:underline"
-            >
-              Create an AXUS ID
-            </Link>
-          </p>
-        </div>
+        <p className="mt-8 text-center text-sm text-neutral-500">
+          Need a new identity?{" "}
+          <Link href={createAccountHref} className={linkClassName}>
+            Create an AXUS ID
+          </Link>
+        </p>
       </AuthShell>
     );
   }
@@ -377,134 +291,69 @@ export function LoginForm({
   if (credentialStep === "identifier") {
     return (
       <AuthShell
-        variant="sign-in"
-        signInStep={isOAuthFlow ? 1 : undefined}
-        maxWidthClass="max-w-[920px]"
-        title={hasExistingAccounts ? "Add another account" : "Welcome back"}
+        step={oauthStep}
+        title={
+          isOAuthFlow
+            ? `Sign in to continue to ${appName}`
+            : hasExistingAccounts
+              ? "Add another account"
+              : "Welcome back"
+        }
         description={
           isOAuthFlow
-            ? `Sign in with AXUS ID to continue to ${appName}.`
-            : "Enter your username first. We’ll ask for your password on the next step."
+            ? "Use your AXUS ID. You’ll review what’s shared before anything leaves your account."
+            : "Sign in to manage your profile, security and connected apps."
         }
+        context={oauthContext}
       >
-        {isOAuthFlow ? (
-          <div
-            className={cn(
-              "space-y-4 border border-black/10 bg-white/70 p-5 backdrop-blur-sm shadow-xs mb-6",
-              roundedRect,
-            )}
+        <AuthPanelHeading title="Sign in" description="Enter the username of your AXUS ID." />
+
+        <form className="space-y-4" onSubmit={handleUsernameSubmit} aria-busy={isUsernamePending} noValidate>
+          <Input
+            id="login-username"
+            name="username"
+            label="Username"
+            value={username}
+            onChange={(event) => {
+              setUsername(event.target.value);
+              setUsernameError(null);
+            }}
+            error={usernameError || undefined}
+            placeholder="your-username"
+            autoComplete="username webauthn"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoFocus
+            required
+          />
+
+          <Button
+            type="submit"
+            className="w-full"
+            loading={isUsernamePending}
+            disabled={isPasskeyPending}
           >
-            <div className="flex items-center gap-3.5">
-              <Avatar
-                size="md"
-                firstName={targetAppUser?.firstName ?? null}
-                lastName={targetAppUser?.lastName ?? null}
-                username={targetAppUser?.username ?? null}
-                className="h-11 w-11 text-sm font-bold shadow-xs ring-2 ring-black/5"
-              />
-              <div className="min-w-0 flex-1">
-                {renderAppIdentityHeading(targetAppUser, appName)}
-                <p className="mt-1 text-sm leading-relaxed text-neutral-500">
-                  Wants you to sign in with your AXUS ID.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-7">
-            <h2 className="text-xl font-semibold tracking-tight text-black">Enter your username</h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
-              Use the username connected to your AXUS ID.
-            </p>
-          </div>
-        )}
+            {isUsernamePending ? "Checking…" : "Continue"}
+          </Button>
+        </form>
 
-        <div className="space-y-5">
-          <form
-            className="space-y-5"
-            onSubmit={handleUsernameSubmit}
-            aria-busy={isUsernamePending}
-          >
-            <Input
-              id="login-username"
-              name="username"
-              label="Username"
-              value={username}
-              onChange={(event) => {
-                setUsername(event.target.value);
-                setUsernameError(null);
-              }}
-              error={usernameError || undefined}
-              placeholder="Enter your username"
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              autoFocus
-              required
-              className="h-12 bg-white"
-            />
-
-            <Button
-              type="submit"
-              variant="brand"
-              className="h-11 w-full text-sm font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:translate-y-0"
-              disabled={isUsernamePending || isPasskeyPending}
-            >
-              {isUsernamePending ? "Checking username…" : "Continue"}
-            </Button>
-          </form>
-
+        <div className="mt-4 space-y-4">
           {passkeyError ? <FormError>{passkeyError}</FormError> : null}
           {authError ? <FormError>{authError}</FormError> : null}
 
-          <div className="relative py-1">
-            <div className="absolute inset-0 flex items-center" aria-hidden>
-              <span className="w-full border-t border-black/[0.07]" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400">
-                Or
-              </span>
-            </div>
+          <Divider label="or" />
+
+          <div className="space-y-2.5">
+            <GoogleButton href={googleSignInHref} />
+            {passkeyButton("Sign in with a passkey", isUsernamePending)}
           </div>
-
-          <a
-            href={googleSignInHref}
-            className={cn(
-              "inline-flex h-11 w-full items-center justify-center gap-3 border border-black/10 bg-white/70 px-4 text-sm font-semibold text-black transition-all hover:-translate-y-px hover:border-black/15 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:translate-y-0",
-              roundedRect,
-            )}
-          >
-            <Image
-              src="/google-g.svg"
-              width={18}
-              height={18}
-              alt=""
-              aria-hidden
-              className="h-[18px] w-[18px]"
-            />
-            Continue with Google
-          </a>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full gap-3 bg-white/70 text-sm font-semibold transition-all hover:-translate-y-px hover:border-black/15 hover:shadow-sm active:translate-y-0"
-            disabled={isUsernamePending || isPasskeyPending}
-            onClick={handlePasskeySignIn}
-          >
-            <Fingerprint className="h-5 w-5" aria-hidden />
-            {isPasskeyPending ? "Checking passkey…" : "Continue with a passkey"}
-          </Button>
         </div>
 
-        <div className="mt-7 space-y-3 text-center text-sm text-neutral-500">
+        <div className="mt-8 space-y-3 text-center text-sm text-neutral-500">
           <p>
             New to AXUS ID?{" "}
-            <Link
-              href={createAccountHref}
-              className="font-semibold text-black underline-offset-4 hover:underline"
-            >
+            <Link href={createAccountHref} className={linkClassName}>
               Create an account
             </Link>
           </p>
@@ -512,8 +361,12 @@ export function LoginForm({
             <button
               type="button"
               onClick={() => setShowCredentialsForm(false)}
-              className="font-medium text-neutral-500 underline-offset-4 transition-colors hover:text-black hover:underline"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950",
+                focusRing,
+              )}
             >
+              <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
               Back to signed-in accounts
             </button>
           ) : null}
@@ -522,112 +375,74 @@ export function LoginForm({
     );
   }
 
+  const normalizedUsername = username.replace(/^@/, "");
+
   return (
     <AuthShell
-      variant="sign-in"
-      signInStep={isOAuthFlow ? 1 : undefined}
-      maxWidthClass="max-w-[920px]"
-      title="Confirm it’s you"
-      description="Enter your password to finish signing in to your AXUS ID."
+      step={oauthStep}
+      title={isOAuthFlow ? `Sign in to continue to ${appName}` : "Confirm it’s you"}
+      description="Enter your password to finish signing in."
+      context={oauthContext}
     >
-      <div className="mb-7">
-        <h2 className="text-xl font-semibold tracking-tight text-black">Enter your password</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
-          Signing in as the account below.
-        </p>
-      </div>
+      <AuthPanelHeading title="Enter your password" />
 
-      <button
-        type="button"
-        onClick={() => {
-          setPasskeyError(null);
-          setCredentialStep("identifier");
-        }}
+      <div
         className={cn(
-          "group mb-6 flex w-full items-center gap-3 border border-black/[0.06] bg-neutral-50/80 px-4 py-3 text-left transition-all hover:border-black/10 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5",
+          "mb-5 flex items-center gap-3 border border-black/[0.06] bg-neutral-50 py-2.5 pl-2.5 pr-2",
           roundedRect,
         )}
-        aria-label={`Change account from ${username}`}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-sm font-semibold uppercase text-white shadow-sm">
-          {username.charAt(0) || "A"}
+        <Avatar size="sm" username={normalizedUsername} displayName={normalizedUsername} />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-950">
+          @{normalizedUsername}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-neutral-500">AXUS ID</span>
-          <span className="block truncate text-sm font-semibold text-black">
-            @{username.replace(/^@/, "")}
-          </span>
-        </span>
-        <span className="text-xs font-semibold text-neutral-400 transition-colors group-hover:text-black">
-          Change
-        </span>
-      </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setPasskeyError(null);
+            setCredentialStep("identifier");
+          }}
+          aria-label={`Use a different account than @${normalizedUsername}`}
+        >
+          Switch
+        </Button>
+      </div>
 
       {registeredUsername ? (
-        <p className="mb-5 rounded-[12px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Your account is ready. Use the password you just created to sign in.
-        </p>
+        <Alert tone="success" className="mb-5">
+          Your account is ready. Sign in with the password you just created.
+        </Alert>
       ) : null}
 
-      <form action={formAction} className="space-y-5">
+      <form action={formAction} className="space-y-4">
         <input type="hidden" name="username" value={username} />
         {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
         {next ? <input type="hidden" name="next" value={next} /> : null}
 
-        <div className="relative">
-          <Input
-            id="login-password"
-            name="password"
-            label="Password"
-            type={showPassword ? "text" : "password"}
-            placeholder="Enter your password"
-            autoComplete="current-password"
-            autoFocus
-            required
-            className="h-12 bg-white pr-16"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((visible) => !visible)}
-            className="absolute right-3 top-[36px] rounded-md px-2 py-1 text-xs font-semibold text-neutral-500 transition-colors hover:bg-black/[0.04] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10"
-            aria-label={showPassword ? "Hide password" : "Show password"}
-          >
-            {showPassword ? "Hide" : "Show"}
-          </button>
-        </div>
+        <PasswordInput
+          id="login-password"
+          name="password"
+          label="Password"
+          placeholder="Enter your password"
+          autoComplete="current-password"
+          autoFocus
+          required
+        />
 
         {state.error ? <FormError>{state.error}</FormError> : null}
         {passkeyError ? <FormError>{passkeyError}</FormError> : null}
 
-        <Button
-          type="submit"
-          variant="brand"
-          className="h-11 w-full text-sm font-semibold shadow-sm transition-all hover:-translate-y-px hover:shadow-md active:translate-y-0"
-          disabled={pending || isPasskeyPending}
-        >
+        <Button type="submit" className="w-full" loading={pending} disabled={isPasskeyPending}>
           {pending ? "Signing in…" : "Sign in"}
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 w-full gap-3 bg-white/70 text-sm font-semibold transition-all hover:-translate-y-px hover:border-black/15 hover:shadow-sm active:translate-y-0"
-          disabled={pending || isPasskeyPending}
-          onClick={handlePasskeySignIn}
-        >
-          <Fingerprint className="h-5 w-5" aria-hidden />
-          {isPasskeyPending ? "Checking passkey…" : "Use a passkey instead"}
         </Button>
       </form>
 
-      <button
-        type="button"
-        onClick={() => setCredentialStep("identifier")}
-        className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-neutral-500 transition-colors hover:text-black"
-      >
-        <span aria-hidden>←</span>
-        Back to username
-      </button>
+      <div className="mt-4 space-y-4">
+        <Divider label="or" />
+        {passkeyButton("Use a passkey instead", pending)}
+      </div>
     </AuthShell>
   );
 }

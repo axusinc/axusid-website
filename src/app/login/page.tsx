@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
@@ -5,6 +6,8 @@ import { resolveOAuthFlowMetadata } from "@/lib/oauth/flow-metadata";
 import { getValidMultiSession, getValidSession } from "@/lib/session-access";
 import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { LoginForm } from "./login-form";
+
+export const metadata: Metadata = { title: "Sign in" };
 
 type LoginPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -80,7 +83,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <LoginForm
       isOAuthFlow={flowMeta.isOAuthFlow}
       targetAppName={flowMeta.appName}
-      targetHost={flowMeta.targetHost}
       targetAppUser={flowMeta.applicationUser}
       registeredUsername={registered}
       redirectUri={redirectUri}

@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { suggestUsernameFromEmailAction } from "@/app/actions/auth";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getValidSession } from "@/lib/session-access";
 import { getPendingGoogleRegistration } from "@/lib/google-oauth";
 import { RegisterForm } from "./register-form";
+
+export const metadata: Metadata = { title: "Create account" };
 
 type RegisterPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

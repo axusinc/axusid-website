@@ -5,8 +5,12 @@ import { useState, useRef, useEffect, useTransition, useOptimistic } from "react
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { logoutAction, logoutAllAction, switchAccountAction } from "@/app/actions/auth";
-import { Avatar } from "@/app/account/dashboard-ui";
-import { popoverSurface, roundedRect } from "@/lib/design";
+import { ChevronDown, LogOut, UserPlus } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { IdentityLabel } from "@/components/ui/identity-label";
+import { Spinner } from "@/components/ui/spinner";
+import { eyebrow, focusRing, popoverSurface } from "@/lib/design";
 import { cn } from "@/lib/utils";
 import type { AccountItemInfo } from "@/lib/user-profile";
 
@@ -85,17 +89,27 @@ export function UserAccountSwitcher({
         setIsOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
 
   const activeAccount = accounts.find((acc) => acc.auid === optimisticAuid) || accounts[0];
 
   if (!activeAccount) return null;
+
+  const otherAccounts = accounts.filter((account) => account.auid !== activeAccount.auid);
 
   const handleSwitchAccount = (targetAuid: string) => {
     if (targetAuid === optimisticAuid) return;
@@ -147,143 +161,117 @@ export function UserAccountSwitcher({
     <div
       ref={dropdownRef}
       style={getPopoverStyle()}
+      role="dialog"
+      aria-label="Accounts"
       className={cn(
-        "w-72 sm:w-80 max-w-[calc(100vw-24px)] p-3 animate-[fadeIn_0.15s_ease-out]",
+        "w-80 max-w-[calc(100vw-24px)] overflow-hidden animate-[fadeIn_0.15s_ease-out]",
         popoverSurface,
-        roundedRect,
-        direction === "up" && align === "left" && "origin-bottom-left",
-        direction === "up" && align === "right" && "origin-bottom-right",
-        direction === "down" && align === "left" && "origin-top-left",
-        direction === "down" && align === "right" && "origin-top-right",
+        "rounded-2xl",
       )}
     >
-      <div className="px-2 pt-0.5 pb-2 flex items-center justify-between border-b border-black/5 mb-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-          Signed-in Accounts
-        </p>
-        <span className="text-[10px] font-semibold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full">
-          {accounts.length}
-        </span>
+      <div className="flex items-center gap-3 border-b border-black/[0.06] p-4">
+        <Avatar
+          firstName={activeAccount.firstName}
+          lastName={activeAccount.lastName}
+          displayName={activeAccount.displayName}
+          username={activeAccount.username}
+          seed={activeAccount.auid}
+        />
+        <IdentityLabel
+          className="flex-1"
+          displayName={activeAccount.displayName}
+          username={activeAccount.username}
+          firstName={activeAccount.firstName}
+          lastName={activeAccount.lastName}
+        />
+        <form action={logoutAction}>
+          <input type="hidden" name="auid" value={activeAccount.auid} />
+          <Button type="submit" variant="secondary" size="sm">
+            Sign out
+          </Button>
+        </form>
       </div>
 
-      {/* Account List */}
-      <div className="space-y-1.5">
-        {accounts.map((account) => {
-          const isActive = account.auid === activeAccount.auid;
-          const usernameDisplay = account.username ? `@${account.username}` : null;
-
-          return (
-            <div
-              key={account.auid}
-              className={cn(
-                "group flex items-center justify-between p-2.5 transition-all border",
-                roundedRect,
-                isActive
-                  ? "border-black/15 bg-neutral-100/90 shadow-2xs"
-                  : "border-black/5 bg-white/50 hover:bg-neutral-50 hover:border-black/10",
-              )}
-            >
-              {isActive ? (
-                <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <Avatar
-                    firstName={account.firstName}
-                    lastName={account.lastName}
-                    username={account.username}
-                    size="sm"
-                    className="h-8 w-8 text-xs font-bold shrink-0 ring-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-semibold text-black truncate">
-                        {account.displayName}
-                      </p>
-                      <span className="shrink-0 text-[10px] font-semibold text-neutral-600 bg-black/[0.06] px-2 py-0.5 rounded-md">
-                        Active
-                      </span>
-                    </div>
-                    {usernameDisplay && (
-                      <p className="text-[11px] text-neutral-500 truncate">
-                        {usernameDisplay}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : (
+      {otherAccounts.length > 0 ? (
+        <div className="border-b border-black/[0.06] p-1.5">
+          <p className={cn(eyebrow, "px-2.5 pb-1 pt-2")}>Switch account</p>
+          <ul>
+            {otherAccounts.map((account) => (
+              <li key={account.auid} className="group flex items-center rounded-xl hover:bg-black/[0.04]">
                 <button
                   type="button"
                   onClick={() => handleSwitchAccount(account.auid)}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus:outline-none cursor-pointer"
+                  className={cn(
+                    "flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left",
+                    focusRing,
+                  )}
                 >
                   <Avatar
+                    size="sm"
                     firstName={account.firstName}
                     lastName={account.lastName}
+                    displayName={account.displayName}
                     username={account.username}
-                    size="sm"
-                    className="h-8 w-8 text-xs font-semibold shrink-0 ring-0 opacity-90 group-hover:opacity-100"
+                    seed={account.auid}
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-neutral-800 group-hover:text-black truncate">
-                      {account.displayName}
-                    </p>
-                    {usernameDisplay && (
-                      <p className="text-[11px] text-neutral-500 truncate">
-                        {usernameDisplay}
-                      </p>
+                  <IdentityLabel
+                    className="flex-1"
+                    displayName={account.displayName}
+                    username={account.username}
+                    firstName={account.firstName}
+                    lastName={account.lastName}
+                  />
+                </button>
+                <form action={logoutAction} className="pr-1.5">
+                  <input type="hidden" name="auid" value={account.auid} />
+                  <button
+                    type="submit"
+                    title="Sign out of this account"
+                    aria-label={`Sign out of ${account.username ? `@${account.username}` : account.displayName}`}
+                    className={cn(
+                      "flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-neutral-400 opacity-100 transition hover:bg-red-50 hover:text-red-600 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100",
+                      focusRing,
                     )}
-                  </div>
-                </button>
-              )}
+                  >
+                    <LogOut aria-hidden className="h-4 w-4" />
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-              {/* Individual Account Sign Out */}
-              <form action={logoutAction} className="ml-1.5 shrink-0">
-                <input type="hidden" name="auid" value={account.auid} />
-                <button
-                  type="submit"
-                  title="Sign out of this account"
-                  className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-lg cursor-pointer"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </button>
-              </form>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Action Options */}
-      <div className="mt-2.5 pt-2 border-t border-black/5 space-y-1.5">
+      <div className="p-1.5">
         <Link
           href="/login?add_account=true"
           className={cn(
-            "flex w-full items-center gap-2.5 px-3 py-2 border border-dashed border-black/15 bg-neutral-50/60 hover:bg-neutral-100/90 text-neutral-700 hover:text-black text-xs font-medium transition-all cursor-pointer",
-            roundedRect,
+            "flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-black/[0.04] hover:text-neutral-950",
+            focusRing,
           )}
           onClick={() => setIsOpen(false)}
         >
-          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-black/5 text-neutral-700">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <span>Add another account</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-black/15 text-neutral-500">
+            <UserPlus aria-hidden className="h-4 w-4" />
+          </span>
+          Add another account
         </Link>
-
-        <form action={logoutAllAction}>
-          <button
-            type="submit"
-            className={cn(
-              "flex w-full items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50/80 transition-colors cursor-pointer",
-              roundedRect,
-            )}
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Sign out of all accounts
-          </button>
-        </form>
+        {accounts.length > 1 ? (
+          <form action={logoutAllAction}>
+            <button
+              type="submit"
+              className={cn(
+                "flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-red-50 hover:text-red-700",
+                focusRing,
+              )}
+            >
+              <span className="flex h-8 w-8 items-center justify-center">
+                <LogOut aria-hidden className="h-4 w-4" />
+              </span>
+              Sign out of all accounts
+            </button>
+          </form>
+        ) : null}
       </div>
     </div>
   );
@@ -295,57 +283,40 @@ export function UserAccountSwitcher({
         type="button"
         onClick={toggleOpen}
         className={cn(
-          "group relative inline-flex items-center gap-2 border border-black/10 bg-white/80 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-all hover:bg-white hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 shadow-2xs cursor-pointer",
-          roundedRect,
-          isOpen && "ring-2 ring-black/15 bg-white border-black/20 shadow-xs",
-          isPending && "opacity-80 cursor-wait",
+          "group inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-black/[0.08] bg-white py-1 pl-1 pr-2.5 text-sm font-medium text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-black/15",
+          focusRing,
+          isOpen && "border-black/15 ring-4 ring-black/[0.06]",
+          isPending && "cursor-wait opacity-80",
         )}
         aria-expanded={isOpen}
-        aria-haspopup="true"
-        title="Switch account"
+        aria-haspopup="dialog"
+        aria-label={`Account menu for ${activeUsernameText}`}
       >
-        <div className="relative flex items-center shrink-0">
-          <Avatar
-            firstName={activeAccount.firstName}
-            lastName={activeAccount.lastName}
-            username={activeAccount.username}
-            size="sm"
-            className="h-6 w-6 ring-0 text-[10px]"
-          />
-          {accounts.length > 1 && (
-            <span className="ml-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white leading-none">
-              {accounts.length}
-            </span>
-          )}
-        </div>
-        <span className="text-xs font-semibold text-neutral-900 truncate max-w-[120px]">
-          {activeUsernameText}
-        </span>
+        <Avatar
+          size="sm"
+          firstName={activeAccount.firstName}
+          lastName={activeAccount.lastName}
+          displayName={activeAccount.displayName}
+          username={activeAccount.username}
+          seed={activeAccount.auid}
+        />
+        <span className="hidden max-w-[140px] truncate min-[420px]:inline">{activeUsernameText}</span>
+        {accounts.length > 1 ? (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-neutral-100 px-1.5 text-[11px] font-semibold text-neutral-600">
+            {accounts.length}
+          </span>
+        ) : null}
         {isPending ? (
-          <svg className="h-3.5 w-3.5 text-neutral-400 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
+          <Spinner className="h-3.5 w-3.5 text-neutral-400" />
         ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
+          <ChevronDown
+            aria-hidden
             className={cn(
               "h-3.5 w-3.5 text-neutral-400 transition-transform duration-200",
-              isOpen && "rotate-180 text-black",
+              isOpen && "rotate-180 text-neutral-900",
+              direction === "up" && !isOpen && "rotate-180",
             )}
-          >
-            <path
-              fillRule="evenodd"
-              d={
-                direction === "up"
-                  ? "M14.78 11.78a.75.75 0 0 1-1.06 0L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z"
-                  : "M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
-              }
-              clipRule="evenodd"
-            />
-          </svg>
+          />
         )}
       </button>
 
@@ -353,4 +324,3 @@ export function UserAccountSwitcher({
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -13,13 +13,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AXUS ID",
-  description: "Modern identity and OAuth2 authorization for AXUS.",
+  title: {
+    template: "%s · AXUS ID",
+    default: "AXUS ID — One account for everything",
+  },
+  description:
+    "AXUS ID is a secure single sign-on account with passkeys, multiple identities and OAuth 2.0, OpenID Connect and SAML support.",
+  applicationName: "AXUS ID",
   icons: {
     icon: "/icon-tm.png",
     shortcut: "/icon-tm.png",
     apple: "/icon-tm.png",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#fafafa",
 };
 
 export default function RootLayout({
@@ -32,7 +41,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-white text-black">
+      <body className="flex min-h-full flex-col bg-background text-foreground">
         {children}
       </body>
     </html>

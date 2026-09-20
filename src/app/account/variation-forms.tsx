@@ -9,15 +9,13 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { GripVertical } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Plus, X } from "lucide-react";
 import {
   changeUsernameAction,
   updateVariationFieldAction,
   type VariationActionState,
 } from "@/app/account/variation-actions";
 import {
-  CopyChip,
-  DataBlock,
   DataRow,
   inlineInputClassName,
   inlineTextareaClassName,
@@ -26,6 +24,7 @@ import {
 } from "@/app/account/dashboard-ui";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { CopyField } from "@/components/ui/copy-field";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
 import type { NamePartType, NameSeparatorType } from "@/graphql/sdk";
 import {
@@ -59,7 +58,7 @@ type EditableField = "name" | "username" | "status" | "description";
 
 const initialState: VariationActionState = {};
 
-const empty = <span className="text-neutral-400">—</span>;
+const empty = <span className="text-neutral-400">Not set</span>;
 
 const namePartLabels: Record<NamePartType, string> = {
   TITLE: "Title",
@@ -316,7 +315,7 @@ function EditableNameField({
   };
 
   return (
-    <DataBlock
+    <DataRow
       label="Name"
       hint={
         isAdvanced
@@ -353,10 +352,11 @@ function EditableNameField({
         {!isAdvanced ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500">
+              <label htmlFor={`${formId}-first`} className="mb-1.5 block text-[13px] font-medium text-neutral-600">
                 First name
               </label>
               <input
+                id={`${formId}-first`}
                 type="text"
                 placeholder="First name"
                 value={firstName}
@@ -366,10 +366,11 @@ function EditableNameField({
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500">
+              <label htmlFor={`${formId}-last`} className="mb-1.5 block text-[13px] font-medium text-neutral-600">
                 Last name
               </label>
               <input
+                id={`${formId}-last`}
                 type="text"
                 placeholder="Last name"
                 value={lastName}
@@ -394,9 +395,9 @@ function EditableNameField({
               <div key={part.id} className="relative">
                 {isDragOverTop ? (
                   <div className="absolute -top-1.5 left-0 right-0 z-10 flex items-center gap-1 pointer-events-none">
-                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
-                    <div className="h-0.5 flex-1 bg-blue-600 rounded-full shadow-sm" />
-                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
+                    <div className="h-2 w-2 rounded-full bg-neutral-900 shadow-sm" />
+                    <div className="h-0.5 flex-1 bg-neutral-900 rounded-full shadow-sm" />
+                    <div className="h-2 w-2 rounded-full bg-neutral-900 shadow-sm" />
                   </div>
                 ) : null}
 
@@ -406,7 +407,7 @@ function EditableNameField({
                   onDragOver={(event) => handleDragOver(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                   onDragEnd={handleDragEnd}
-                  className={`grid gap-2 rounded-xl border p-2 transition-all sm:grid-cols-[auto_140px_160px_minmax(0,1fr)_auto] ${
+                  className={`grid gap-2 rounded-xl border p-2 transition-colors sm:grid-cols-[auto_140px_160px_minmax(0,1fr)_auto] ${
                     draggedIndex === index
                       ? "border-dashed border-neutral-300 bg-neutral-100 opacity-40"
                       : "border-black/[0.06] bg-neutral-50/70"
@@ -477,35 +478,35 @@ function EditableNameField({
                       onClick={() => movePart(index, -1)}
                       disabled={index === 0}
                       aria-label={`Move name part ${index + 1} up`}
-                      className="h-8 w-8 rounded-lg text-neutral-500 hover:bg-black/[0.05] hover:text-black disabled:opacity-25"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-black/[0.05] hover:text-black disabled:opacity-25"
                     >
-                      ↑
+                      <ArrowUp aria-hidden className="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"
                       onClick={() => movePart(index, 1)}
                       disabled={index === parts.length - 1}
                       aria-label={`Move name part ${index + 1} down`}
-                      className="h-8 w-8 rounded-lg text-neutral-500 hover:bg-black/[0.05] hover:text-black disabled:opacity-25"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-black/[0.05] hover:text-black disabled:opacity-25"
                     >
-                      ↓
+                      <ArrowDown aria-hidden className="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"
                       onClick={() => removePart(part.id)}
                       aria-label={`Remove name part ${index + 1}`}
-                      className="h-8 w-8 rounded-lg text-neutral-500 hover:bg-red-50 hover:text-red-700"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-red-50 hover:text-red-700"
                     >
-                      ×
+                      <X aria-hidden className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
 
                 {isDragOverBottom ? (
                   <div className="absolute -bottom-1.5 left-0 right-0 z-10 flex items-center gap-1 pointer-events-none">
-                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
-                    <div className="h-0.5 flex-1 bg-blue-600 rounded-full shadow-sm" />
-                    <div className="h-2 w-2 rounded-full bg-blue-600 shadow-sm" />
+                    <div className="h-2 w-2 rounded-full bg-neutral-900 shadow-sm" />
+                    <div className="h-0.5 flex-1 bg-neutral-900 rounded-full shadow-sm" />
+                    <div className="h-2 w-2 rounded-full bg-neutral-900 shadow-sm" />
                   </div>
                 ) : null}
               </div>
@@ -521,9 +522,10 @@ function EditableNameField({
                 type="button"
                 onClick={addPart}
                 disabled={parts.length >= 16}
-                className="text-sm font-medium text-neutral-500 transition-colors hover:text-black disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-neutral-600 transition-colors hover:text-black disabled:opacity-40"
               >
-                + Add name part
+                <Plus aria-hidden className="h-3.5 w-3.5" />
+                Add name part
               </button>
               <button
                 type="button"
@@ -533,9 +535,9 @@ function EditableNameField({
                   setLastName(readNamePart(serialized, "FAMILY_NAME") ?? "");
                   setIsAdvanced(false);
                 }}
-                className="text-xs text-neutral-400 hover:text-neutral-700 underline-offset-4 hover:underline"
+                className="text-[13px] text-neutral-500 hover:text-neutral-900 underline-offset-4 hover:underline"
               >
-                Switch to simple field
+                Switch to first / last name
               </button>
             </>
           ) : (
@@ -547,19 +549,17 @@ function EditableNameField({
                 );
                 setIsAdvanced(true);
               }}
-              className="text-xs text-neutral-400 hover:text-neutral-700 underline-offset-4 hover:underline"
+              className="text-[13px] text-neutral-500 hover:text-neutral-900 underline-offset-4 hover:underline"
             >
-              + Advanced name builder
+              Use advanced name builder
             </button>
           )}
         </div>
       </form>
       {state.error ? (
-        <p className="mt-2">
-          <FormError>{state.error}</FormError>
-        </p>
+        <FormError className="mt-3">{state.error}</FormError>
       ) : null}
-    </DataBlock>
+    </DataRow>
   );
 }
 
@@ -611,9 +611,7 @@ function EditableUsernameField({
         />
       </form>
       {state.error ? (
-        <p className="mt-2">
-          <FormError>{state.error}</FormError>
-        </p>
+        <FormError className="mt-3">{state.error}</FormError>
       ) : null}
     </DataRow>
   );
@@ -641,7 +639,7 @@ function EditableStatusField({
   }, [state.success, onDone]);
 
   return (
-    <DataBlock
+    <DataRow
       label="Status message"
       hint="A short line shown on your profile"
       action={
@@ -668,11 +666,9 @@ function EditableStatusField({
         />
       </form>
       {state.error ? (
-        <p className="mt-2">
-          <FormError>{state.error}</FormError>
-        </p>
+        <FormError className="mt-3">{state.error}</FormError>
       ) : null}
-    </DataBlock>
+    </DataRow>
   );
 }
 
@@ -698,7 +694,7 @@ function EditableBioField({
   }, [state.success, onDone]);
 
   return (
-    <DataBlock
+    <DataRow
       label="Bio"
       hint="A longer description about you"
       action={
@@ -725,11 +721,9 @@ function EditableBioField({
         />
       </form>
       {state.error ? (
-        <p className="mt-2">
-          <FormError>{state.error}</FormError>
-        </p>
+        <FormError className="mt-3">{state.error}</FormError>
       ) : null}
-    </DataBlock>
+    </DataRow>
   );
 }
 
@@ -746,8 +740,6 @@ export function VariationForms({
 }: ProfileFormProps) {
   const router = useRouter();
   const [editingField, setEditingField] = useState<EditableField | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
 
   const cancelEditing = () => {
@@ -771,34 +763,18 @@ export function VariationForms({
     }
   });
 
-  const copyAuid = async () => {
-    try {
-      await navigator.clipboard.writeText(auid);
-      setCopied(true);
-      setCopyError(null);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopyError("Unable to copy. Select and copy manually.");
-      setTimeout(() => setCopyError(null), 3000);
-    }
-  };
-
   const fullName = defaultVariation?.displayName?.trim() || "";
 
   return (
     <Card>
-      {banner ? (
-        <div className="mb-5">
-          <FormSuccess>{banner}</FormSuccess>
-        </div>
-      ) : null}
+      {banner ? <FormSuccess className="mb-5">{banner}</FormSuccess> : null}
 
       {!defaultVariation ? (
         <p className="text-sm text-neutral-500">
-          No profile found. Contact support if this looks wrong.
+          We couldn’t find a profile for this account. Contact support if this looks wrong.
         </p>
       ) : (
-        <dl className="[&>div:first-child]:pt-0">
+        <dl>
           {editingField === "name" ? (
             <EditableNameField
               variation={defaultVariation}
@@ -812,8 +788,8 @@ export function VariationForms({
               action={
                 <Button
                   type="button"
-                  variant="ghost"
-                  className="h-8 px-3"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setEditingField("name")}
                 >
                   {fieldActionLabel(Boolean(fullName))}
@@ -838,8 +814,8 @@ export function VariationForms({
                 defaultUsername ? (
                   <Button
                     type="button"
-                    variant="ghost"
-                    className="h-8 px-3"
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setEditingField("username")}
                   >
                     Edit
@@ -858,14 +834,14 @@ export function VariationForms({
               onCancel={cancelEditing}
             />
           ) : (
-            <DataBlock
+            <DataRow
               label="Status message"
               hint="A short line shown on your profile"
               action={
                 <Button
                   type="button"
-                  variant="ghost"
-                  className="h-8 px-3"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setEditingField("status")}
                 >
                   {fieldActionLabel(Boolean(defaultVariation.status))}
@@ -873,7 +849,7 @@ export function VariationForms({
               }
             >
               {defaultVariation.status || empty}
-            </DataBlock>
+            </DataRow>
           )}
 
           {editingField === "description" ? (
@@ -883,14 +859,14 @@ export function VariationForms({
               onCancel={cancelEditing}
             />
           ) : (
-            <DataBlock
+            <DataRow
               label="Bio"
               hint="A longer description about you"
               action={
                 <Button
                   type="button"
-                  variant="ghost"
-                  className="h-8 px-3"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setEditingField("description")}
                 >
                   {fieldActionLabel(Boolean(defaultVariation.description))}
@@ -902,22 +878,17 @@ export function VariationForms({
               ) : (
                 empty
               )}
-            </DataBlock>
+            </DataRow>
           )}
         </dl>
       )}
 
-      <div className="mt-6 border-t border-black/[0.04] pt-6">
+      <div className="mt-6 border-t border-black/[0.05] pt-6">
         <SubsectionTitle
           title="AUID"
-          description="Your unique AXUS ID. Share with support if you need help with your account."
+          description="Your permanent account identifier. Support may ask for it; it never changes."
         />
-        <CopyChip value={auid} copied={copied} onCopy={copyAuid} />
-        {copyError ? (
-          <p className="mt-2">
-            <FormError>{copyError}</FormError>
-          </p>
-        ) : null}
+        <CopyField value={auid} />
       </div>
     </Card>
   );

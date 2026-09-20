@@ -3,16 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Check,
-  Dices,
-  Eye,
-  EyeOff,
-  LoaderCircle,
-  UserRound,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Check, Dices, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   checkUsernameAvailabilityAction,
@@ -20,14 +11,22 @@ import {
   registerAction,
   type AuthActionState,
 } from "@/app/actions/auth";
-import { AuthShell } from "@/components/auth-shell";
+import { AuthPanelHeading, AuthShell } from "@/components/auth-shell";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Divider } from "@/components/ui/divider";
 import { FormError } from "@/components/ui/form-message";
+import { GoogleButton } from "@/components/ui/google-button";
 import { Input } from "@/components/ui/input";
-import { roundedRect } from "@/lib/design";
+import { PasswordInput } from "@/components/ui/password-input";
+import { Spinner } from "@/components/ui/spinner";
+import { focusRing, roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 
 const initialState: AuthActionState = {};
+
+const linkClassName =
+  "font-semibold text-neutral-950 underline-offset-4 hover:underline rounded-sm " + focusRing;
 
 type RegisterFormProps = {
   redirectUri?: string;
@@ -97,11 +96,11 @@ function getPasswordStrength(password: string) {
   if (/[^A-Za-z0-9]/.test(password)) score++;
 
   if (score <= 2) {
-    return { level: 1, label: "Weak", color: "bg-amber-500" };
+    return { level: 1, label: "Weak", color: "bg-red-500" };
   }
 
   if (score <= 4) {
-    return { level: 2, label: "Good", color: "bg-blue-500" };
+    return { level: 2, label: "Good", color: "bg-amber-500" };
   }
 
   return { level: 3, label: "Strong", color: "bg-emerald-500" };
@@ -158,13 +157,13 @@ function PendingGoogleAvatar({
         alt={name || "Google avatar"}
         referrerPolicy="no-referrer"
         onError={() => setImgError(true)}
-        className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-black/5"
+        className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-black/10"
       />
     );
   }
 
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-xs ring-2 ring-black/5">
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-black/10">
       <Image src="/google-g.svg" width={20} height={20} alt="" aria-hidden />
     </span>
   );
@@ -232,15 +231,15 @@ export function RegisterForm({
     authError === "google_unavailable"
       ? "Google account creation is currently unavailable. Try again later."
       : authError === "google_cancelled"
-        ? "Google sign up was cancelled."
+        ? "Google sign-up was cancelled."
         : authError === "google_failed"
-          ? "Google sign up failed. Try again."
+          ? "We couldn’t sign you up with Google. Try again."
           : authError === "already_linked"
             ? "That Google account is already linked to another AXUS ID."
             : authError === "username_taken"
-              ? "That username is already in use. Please choose another username."
+              ? "That username is taken. Choose another one."
               : authError === "invalid_username"
-                ? "Please choose a valid username."
+                ? "Choose a valid username."
                 : authError;
 
   const performUsernameAvailabilityCheck = (
@@ -264,7 +263,7 @@ export function RegisterForm({
         message:
           result.error ||
           (result.reason === "taken"
-            ? "That username is already in use."
+            ? "That username is taken."
             : "We couldn’t check that username."),
       });
     });
@@ -292,55 +291,75 @@ export function RegisterForm({
   };
 
   const footerContent = (
-    <div className="mt-7 text-center text-sm text-neutral-500">
-      Already have an account?{" "}
-      <Link
-        href={signInHref}
-        className="font-semibold text-black underline-offset-4 hover:underline"
-      >
+    <p className="mt-8 text-center text-sm text-neutral-500">
+      Already have an AXUS ID?{" "}
+      <Link href={signInHref} className={linkClassName}>
         Sign in
       </Link>
-    </div>
+    </p>
   );
+
+  const isCheckingUsername = isUsernamePending || usernameAvailability.status === "checking";
+  const usernameStatusIcon =
+    usernameAvailability.status === "checking" ? (
+      <span className="flex h-8 w-8 items-center justify-center text-neutral-400" title="Checking availability">
+        <Spinner />
+      </span>
+    ) : usernameAvailability.status === "available" ? (
+      <span className="flex h-8 w-8 items-center justify-center text-emerald-600" title="Username is available">
+        <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+      </span>
+    ) : usernameAvailability.status === "taken" || usernameAvailability.status === "error" ? (
+      <span
+        className={cn(
+          "flex h-8 w-8 items-center justify-center",
+          usernameAvailability.status === "taken" ? "text-red-600" : "text-amber-600",
+        )}
+        title={usernameAvailability.message}
+      >
+        <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+      </span>
+    ) : null;
+
+  const usernameHint =
+    usernameAvailability.status === "available" && normalizedUsername
+      ? <span className="text-emerald-700">@{normalizedUsername} is available.</span>
+      : usernameAvailability.status === "taken" || usernameAvailability.status === "error"
+        ? <span className="text-red-600">{usernameAvailability.message}</span>
+        : "At least 4 characters. Letters, numbers and underscores work best.";
 
   if (stage === "identity") {
     return (
       <AuthShell
-        variant="sign-in"
-        signInStep={1}
-        maxWidthClass="max-w-[920px]"
+        step={pendingGoogle ? undefined : { current: 1, total: 2 }}
         title={contextAuid ? "Create another identity" : "Create your AXUS ID"}
         description={
           pendingGoogle
-            ? "Choose how people will find you. Your Google account will be linked automatically."
-            : "Choose how people will find you. You’ll secure your account next."
+            ? "Pick a username and you’re done. Your Google account will be linked for sign-in."
+            : "One account for every app that supports AXUS ID. It takes less than a minute."
         }
-
       >
         {pendingGoogle ? (
           <div
             className={cn(
-              "mb-6 flex items-center justify-between border border-black/10 bg-neutral-50/90 p-4 shadow-xs",
+              "mb-6 flex items-center gap-3 border border-black/[0.06] bg-neutral-50 p-3",
               roundedRect,
             )}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <PendingGoogleAvatar picture={pendingGoogle.picture} name={pendingGoogle.name} />
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                  Connected with Google
-                </p>
-                <p className="truncate text-sm font-semibold text-black">
-                  {pendingGoogle.name || pendingGoogle.email || "Google Account"}
-                </p>
-                {pendingGoogle.email && pendingGoogle.name ? (
-                  <p className="truncate text-xs text-neutral-500">{pendingGoogle.email}</p>
-                ) : null}
-              </div>
+            <PendingGoogleAvatar picture={pendingGoogle.picture} name={pendingGoogle.name} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-neutral-500">Signing up with Google</p>
+              <p className="truncate text-sm font-semibold text-neutral-950">
+                {pendingGoogle.name || pendingGoogle.email || "Google account"}
+              </p>
+              {pendingGoogle.email && pendingGoogle.name ? (
+                <p className="truncate text-xs text-neutral-500">{pendingGoogle.email}</p>
+              ) : null}
             </div>
-
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 startClearGoogleTransition(async () => {
                   await clearPendingGoogleRegistrationAction();
@@ -353,35 +372,29 @@ export function RegisterForm({
                   router.push(query ? `/register?${query}` : "/register");
                 });
               }}
-              className="ml-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-black/[0.06] hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/10 disabled:opacity-50"
-              aria-label="Cancel Google signup"
-              title="Cancel Google signup"
-              disabled={isClearGooglePending}
+              aria-label="Cancel Google sign-up"
+              title="Cancel Google sign-up"
+              loading={isClearGooglePending}
             >
-              {isClearGooglePending ? (
-                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin text-neutral-500" />
-              ) : (
-                <X aria-hidden="true" className="h-4 w-4" />
-              )}
-            </button>
+              {isClearGooglePending ? null : <X aria-hidden className="h-4 w-4" />}
+            </Button>
           </div>
         ) : null}
 
-        <div className="mb-7">
-          <h2 className="text-xl font-semibold tracking-tight text-black">
-            Choose your username
-          </h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
-            Pick something memorable, or generate a fresh suggestion.
-          </p>
-        </div>
+        <AuthPanelHeading
+          title="Choose your username"
+          description={
+            contextAuid
+              ? "This identity will live alongside your current account."
+              : "This is how you’ll sign in. You can change it later."
+          }
+        />
 
         <form
           action={pendingGoogle ? formAction : undefined}
-          className="space-y-5"
-          aria-busy={
-            isUsernamePending || usernameAvailability.status === "checking" || pending
-          }
+          className="space-y-4"
+          aria-busy={isCheckingUsername || pending}
+          noValidate
           onSubmit={(event) => {
             if (pendingGoogle) {
               if (!normalizedUsername) {
@@ -452,170 +465,83 @@ export function RegisterForm({
             </>
           ) : null}
 
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
-            <div className="relative">
-              <Input
-                id="register-username"
-                name="username"
-                label="Username"
-                value={customUsername}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setCustomUsername(value);
-                  setUsernameError(null);
-                  scheduleUsernameAvailabilityCheck(value);
-                }}
-                error={usernameError || undefined}
-                placeholder="Choose a username"
-                autoComplete="username"
-                autoCapitalize="none"
-                spellCheck={false}
-                minLength={4}
-                autoFocus
-                required
-                className="pr-11"
-              />
-
-              {usernameAvailability.status === "checking" ? (
-                <span
-                  className="absolute right-3 top-[34px] flex h-7 w-7 items-center justify-center text-neutral-400"
-                  title="Checking availability"
-                >
-                  <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
-                </span>
-              ) : usernameAvailability.status === "available" ? (
-                <span
-                  className="absolute right-3 top-[34px] flex h-7 w-7 items-center justify-center text-emerald-600"
-                  title="Username is available"
-                >
-                  <Check aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={2.5} />
-                </span>
-              ) : usernameAvailability.status === "taken" ? (
-                <span
-                  className="absolute right-3 top-[34px] flex h-7 w-7 items-center justify-center text-red-600"
-                  title={usernameAvailability.message}
-                >
-                  <X aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={2.5} />
-                </span>
-              ) : usernameAvailability.status === "error" ? (
-                <span
-                  className="absolute right-3 top-[34px] flex h-7 w-7 items-center justify-center text-amber-600"
-                  title={usernameAvailability.message}
-                >
-                  <X aria-hidden="true" className="h-4.5 w-4.5" strokeWidth={2.5} />
-                </span>
-              ) : null}
-
-              <span className="sr-only" aria-live="polite" aria-atomic="true">
-                {usernameAvailability.status === "checking"
-                  ? "Checking username availability"
-                  : usernameAvailability.status === "available"
-                    ? "Username is available"
-                    : usernameAvailability.status === "taken" ||
-                        usernameAvailability.status === "error"
-                      ? usernameAvailability.message
-                      : ""}
-              </span>
-            </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+            <Input
+              id="register-username"
+              name={pendingGoogle ? undefined : "username"}
+              label="Username"
+              value={customUsername}
+              onChange={(event) => {
+                const value = event.target.value;
+                setCustomUsername(value);
+                setUsernameError(null);
+                scheduleUsernameAvailabilityCheck(value);
+              }}
+              error={usernameError || undefined}
+              hint={usernameHint}
+              placeholder="your-username"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              minLength={4}
+              autoFocus
+              required
+              trailing={usernameStatusIcon}
+            />
 
             <Button
               type="button"
-              variant="outline"
-              className="h-11 gap-2 px-3.5"
+              variant="secondary"
+              className="mt-[26px] px-3.5"
               onClick={() => {
                 const suggestion = generateRandomUsername();
                 setCustomUsername(suggestion);
                 setUsernameError(null);
                 scheduleUsernameAvailabilityCheck(suggestion);
               }}
+              title="Suggest a random username"
             >
-              <Dices aria-hidden="true" className="h-4 w-4" />
-              Random
+              <Dices aria-hidden className="h-4 w-4" />
+              <span className="hidden min-[400px]:inline">Suggest</span>
             </Button>
           </div>
 
-          <div
-            className={cn(
-              "flex gap-3 border border-black/[0.06] bg-neutral-50/80 px-4 py-3.5",
-              roundedRect,
-            )}
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-neutral-600">
-              <UserRound aria-hidden="true" className="h-4 w-4" />
-            </span>
-            <div className="pt-0.5">
-              <p className="text-sm font-medium text-black">
-                {contextAuid ? "Connected to your account" : "You can change this later"}
-              </p>
-              <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">
-                {contextAuid
-                  ? "This new identity will be available alongside your current one."
-                  : "Your username is public, unique, and can be changed later."}
-              </p>
-            </div>
-          </div>
+          <span className="sr-only" aria-live="polite" aria-atomic="true">
+            {usernameAvailability.status === "checking"
+              ? "Checking username availability"
+              : usernameAvailability.status === "available"
+                ? "Username is available"
+                : usernameAvailability.status === "taken" ||
+                    usernameAvailability.status === "error"
+                  ? usernameAvailability.message
+                  : ""}
+          </span>
 
           {state.error ? <FormError>{state.error}</FormError> : null}
           {authErrorMessage ? <FormError>{authErrorMessage}</FormError> : null}
 
           <Button
             type="submit"
-            variant="brand"
-            className="h-11 w-full text-sm font-semibold shadow-sm"
-            disabled={
-              isUsernamePending ||
-              usernameAvailability.status === "checking" ||
-              usernameAvailability.status === "taken" ||
-              pending
-            }
+            className="w-full"
+            loading={pending || isCheckingUsername}
+            disabled={usernameAvailability.status === "taken"}
           >
-            {pending ? (
-              <>
-                <LoaderCircle aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
-                Creating account with Google…
-              </>
-            ) : isUsernamePending || usernameAvailability.status === "checking" ? (
-              <>
-                <LoaderCircle aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
-                Checking username…
-              </>
-            ) : pendingGoogle ? (
-              contextAuid ? "Create identity with Google" : "Create AXUS ID with Google"
-            ) : (
-              "Continue"
-            )}
+            {pending
+              ? "Creating your account…"
+              : isCheckingUsername
+                ? "Checking username…"
+                : pendingGoogle
+                  ? contextAuid
+                    ? "Create identity"
+                    : "Create AXUS ID"
+                  : "Continue"}
           </Button>
 
           {!pendingGoogle ? (
             <>
-              <div className="relative py-1">
-                <div className="absolute inset-0 flex items-center" aria-hidden>
-                  <span className="w-full border-t border-black/[0.07]" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400">
-                    Or
-                  </span>
-                </div>
-              </div>
-
-              <a
-                href={googleInitHref}
-                className={cn(
-                  "inline-flex h-11 w-full items-center justify-center gap-3 border border-black/10 bg-white/70 px-4 text-sm font-semibold text-black transition-all hover:-translate-y-px hover:border-black/15 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:translate-y-0",
-                  roundedRect,
-                )}
-              >
-                <Image
-                  src="/google-g.svg"
-                  width={18}
-                  height={18}
-                  alt=""
-                  aria-hidden
-                  className="h-[18px] w-[18px]"
-                />
-                Continue with Google
-              </a>
+              <Divider label="or" />
+              <GoogleButton href={googleInitHref} label="Sign up with Google" />
             </>
           ) : null}
         </form>
@@ -626,36 +552,30 @@ export function RegisterForm({
 
   return (
     <AuthShell
-      variant="sign-in"
-      signInStep={2}
-      maxWidthClass="max-w-[920px]"
+      step={{ current: 2, total: 2 }}
       title="Secure your account"
-      description="Create a password for your new AXUS ID."
-
+      description="Set a password now. You can add a passkey for faster, phishing-resistant sign-in once you’re in."
     >
-      <button
-        type="button"
-        onClick={() => setStage("identity")}
+      <AuthPanelHeading title="Create a password" />
+
+      <div
         className={cn(
-          "mb-7 flex w-full items-center gap-3 border border-black/[0.06] bg-neutral-50/80 px-4 py-3 text-left transition-colors hover:border-black/10 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5",
+          "mb-5 flex items-center gap-3 border border-black/[0.06] bg-neutral-50 py-2.5 pl-2.5 pr-2",
           roundedRect,
         )}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/[0.06] text-neutral-700">
-          <UserRound aria-hidden="true" className="h-4 w-4" />
+        <Avatar size="sm" username={normalizedUsername} displayName={normalizedUsername} />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-950">
+          @{normalizedUsername}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-neutral-500">Username</span>
-          <span className="block truncate text-sm font-semibold text-black">
-            {normalizedUsername ? `@${normalizedUsername}` : "Assigned automatically"}
-          </span>
-        </span>
-        <span className="text-xs font-semibold text-neutral-500">Change</span>
-      </button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setStage("identity")} disabled={pending}>
+          Change
+        </Button>
+      </div>
 
       <form
         action={formAction}
-        className="space-y-5"
+        className="space-y-4"
         aria-busy={pending}
         onSubmit={(event) => {
           setConfirmTouched(true);
@@ -672,151 +592,84 @@ export function RegisterForm({
           <input type="hidden" name="contextAuid" value={contextAuid} />
         ) : null}
 
-        <div className="space-y-4">
-          <div className="relative">
-            <Input
-              id="register-password"
-              name="password"
-              label="Password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Create a password"
-              autoComplete="new-password"
-              className="pr-12"
-              autoFocus
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((visible) => !visible)}
-              className="absolute right-3 top-[34px] flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-black/[0.05] hover:text-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/5"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? (
-                <EyeOff aria-hidden="true" className="h-4 w-4" />
-              ) : (
-                <Eye aria-hidden="true" className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          {password ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-neutral-500">
-                <span>Password strength</span>
-                <span className="font-semibold text-neutral-700">{strength.label}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5" aria-label={`${strength.label} password`}>
-                {[1, 2, 3].map((segment) => (
-                  <span
-                    key={segment}
-                    className={cn(
-                      "h-1.5 rounded-full transition-colors",
-                      segment <= strength.level ? strength.color : "bg-neutral-100",
-                    )}
-                  />
-                ))}
-              </div>
-              <p className="text-xs leading-relaxed text-neutral-500">
-                Use 8 or more characters. Numbers, symbols, and uppercase letters make it stronger.
-              </p>
-            </div>
-          ) : null}
-
-          <Input
-            id="register-confirm-password"
-            name="confirmPassword"
-            label="Confirm password"
-            type={showPassword ? "text" : "password"}
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            onBlur={() => setConfirmTouched(true)}
-            error={confirmError}
-            placeholder="Repeat your password"
+        <div>
+          <PasswordInput
+            id="register-password"
+            name="password"
+            label="Password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            visible={showPassword}
+            onVisibleChange={setShowPassword}
+            placeholder="Create a password"
             autoComplete="new-password"
+            autoFocus
             required
           />
+
+          <div className="mt-2.5 space-y-1.5" aria-live="polite">
+            <div className="grid grid-cols-3 gap-1.5" aria-hidden>
+              {[1, 2, 3].map((segment) => (
+                <span
+                  key={segment}
+                  className={cn(
+                    "h-1 rounded-full transition-colors duration-300",
+                    segment <= strength.level ? strength.color : "bg-neutral-200/70",
+                  )}
+                />
+              ))}
+            </div>
+            <p className="flex justify-between gap-3 text-[13px] text-neutral-500">
+              <span>Use 8+ characters with a mix of letters, numbers and symbols.</span>
+              {strength.label ? (
+                <span className="shrink-0 font-medium text-neutral-800">{strength.label}</span>
+              ) : null}
+            </p>
+          </div>
         </div>
 
-        {pending ? (
-          <div
-            className={cn(
-              "flex items-center gap-3 border border-black/[0.06] bg-neutral-50/80 px-4 py-3.5",
-              roundedRect,
-            )}
-          >
-            <LoaderCircle
-              aria-hidden="true"
-              className="h-5 w-5 shrink-0 animate-spin text-neutral-600"
-            />
-            <div>
-              <p className="text-sm font-medium text-black">Creating your AXUS ID</p>
-              <p className="mt-0.5 text-xs text-neutral-500">
-                This usually takes only a few seconds.
-              </p>
-            </div>
-          </div>
-        ) : null}
+        <PasswordInput
+          id="register-confirm-password"
+          name="confirmPassword"
+          label="Confirm password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          onBlur={() => setConfirmTouched(true)}
+          visible={showPassword}
+          onVisibleChange={setShowPassword}
+          error={confirmError}
+          placeholder="Repeat your password"
+          autoComplete="new-password"
+          required
+        />
 
         {state.error ? <FormError>{state.error}</FormError> : null}
         {authErrorMessage ? <FormError>{authErrorMessage}</FormError> : null}
 
-        <div className="flex gap-3">
+        <div className="flex gap-2.5 pt-1">
           <Button
             type="button"
-            variant="outline"
-            className="h-11 w-12 shrink-0 px-0"
+            variant="secondary"
+            className="w-11 px-0"
             onClick={() => setStage("identity")}
             disabled={pending}
             aria-label="Back to username"
           >
-            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+            <ArrowLeft aria-hidden className="h-4 w-4" />
           </Button>
           <Button
             type="submit"
-            variant="brand"
-            className="h-11 flex-1 text-sm font-semibold shadow-sm"
-            disabled={
-              pending || !registrationKey || !password || !confirmPassword || !passwordsMatch
-            }
+            className="flex-1"
+            loading={pending}
+            disabled={!registrationKey || !password || !confirmPassword || !passwordsMatch}
           >
             {pending
-              ? "Creating account…"
+              ? "Creating your account…"
               : contextAuid
                 ? "Create identity"
                 : "Create AXUS ID"}
           </Button>
         </div>
-
-        <div className="relative py-1">
-          <div className="absolute inset-0 flex items-center" aria-hidden>
-            <span className="w-full border-t border-black/[0.07]" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-white px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-400">
-              Or
-            </span>
-          </div>
-        </div>
-
-        <a
-          href={googleInitHref}
-          className={cn(
-            "inline-flex h-11 w-full items-center justify-center gap-3 border border-black/10 bg-white/70 px-4 text-sm font-semibold text-black transition-all hover:-translate-y-px hover:border-black/15 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:translate-y-0",
-            roundedRect,
-          )}
-        >
-          <Image
-            src="/google-g.svg"
-            width={18}
-            height={18}
-            alt=""
-            aria-hidden
-            className="h-[18px] w-[18px]"
-          />
-          Continue with Google
-        </a>
       </form>
       {footerContent}
     </AuthShell>

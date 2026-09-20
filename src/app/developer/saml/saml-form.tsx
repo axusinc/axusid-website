@@ -1,5 +1,6 @@
 "use client";
 
+import { FileKey2 } from "lucide-react";
 import { useActionState } from "react";
 import {
   saveSamlConfigAction,
@@ -7,12 +8,13 @@ import {
   type SamlActionState,
 } from "@/app/developer/saml/actions";
 import { SubsectionTitle } from "@/app/account/dashboard-ui";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmButton } from "@/components/ui/confirm-button";
+import { CopyField } from "@/components/ui/copy-field";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
 import { Input } from "@/components/ui/input";
-import { roundedRect } from "@/lib/design";
-import { cn } from "@/lib/utils";
 
 const initialState: SamlActionState = {};
 
@@ -27,38 +29,6 @@ type SamlFormProps = {
   };
 };
 
-function IdpDetail({
-  label,
-  value,
-  href,
-}: {
-  label: string;
-  value: string;
-  href?: string;
-}) {
-  return (
-    <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
-      <span className="block text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
-        {label}
-      </span>
-      {href ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 block break-all font-mono text-xs text-black hover:underline"
-        >
-          {value}
-        </a>
-      ) : (
-        <span className="mt-1 block break-all font-mono text-xs text-black select-all">
-          {value}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export function SamlForm({ auid, issuer, config }: SamlFormProps) {
   const [state, formAction, pending] = useActionState(
     saveSamlConfigAction,
@@ -71,79 +41,89 @@ export function SamlForm({ auid, issuer, config }: SamlFormProps) {
   const metadataUrl = `${issuer}/saml/metadata/${auid}`;
 
   return (
-    <div className="space-y-8">
-      <Card>
-        <SubsectionTitle
-          title="SAML single sign-on"
-          description="AXUS ID acts as the Identity Provider (IdP). Enter your app's Service Provider (SP) details below."
+    <Card>
+      <CardHeader
+        icon={<FileKey2 aria-hidden />}
+        title="SAML 2.0"
+        description="AXUS ID acts as the identity provider (IdP). Enter your service provider (SP) details."
+        badge={
+          config ? (
+            <Badge tone="success" dot>
+              Active
+            </Badge>
+          ) : (
+            <Badge>Not configured</Badge>
+          )
+        }
+      />
+
+      <form action={formAction} className="mt-6 space-y-4 border-t border-black/[0.05] pt-6">
+        <Input
+          id="saml-entity-id"
+          name="entityId"
+          label="SP entity ID"
+          placeholder="https://app.example.com/saml/metadata"
+          defaultValue={config?.entityId}
+          className="font-mono text-[13px]"
+          spellCheck={false}
+          required
         />
 
-        <form action={formAction} className="mt-6 space-y-5">
-          <Input
-            name="entityId"
-            label="SP Entity ID"
-            placeholder="https://app.example.com/saml/metadata"
-            defaultValue={config?.entityId}
-            required
-          />
+        <Input
+          id="saml-acs-url"
+          name="acsUrl"
+          label="Assertion Consumer Service (ACS) URL"
+          placeholder="https://app.example.com/saml/acs"
+          defaultValue={config?.acsUrl}
+          className="font-mono text-[13px]"
+          spellCheck={false}
+          required
+        />
 
-          <Input
-            name="acsUrl"
-            label="SP Assertion Consumer Service (ACS) URL"
-            placeholder="https://app.example.com/saml/acs"
-            defaultValue={config?.acsUrl}
-            required
-          />
+        <Input
+          id="saml-slo-url"
+          name="sloUrl"
+          label="Single logout URL"
+          hint="Optional."
+          placeholder="https://app.example.com/saml/slo"
+          defaultValue={config?.sloUrl || ""}
+          className="font-mono text-[13px]"
+          spellCheck={false}
+        />
 
-          <Input
-            name="sloUrl"
-            label="SP Single Logout URL (optional)"
-            placeholder="https://app.example.com/saml/slo"
-            defaultValue={config?.sloUrl || ""}
-          />
+        {state.error ? <FormError>{state.error}</FormError> : null}
+        {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
 
-          {state.error ? <FormError>{state.error}</FormError> : null}
-          {state.success ? <FormSuccess>{state.success}</FormSuccess> : null}
-
-          <Button type="submit" variant="brand" className="w-full" disabled={pending}>
-            {pending ? "Saving..." : "Save SAML settings"}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button type="submit" size="md" loading={pending}>
+            {pending ? "Saving…" : config ? "Save changes" : "Enable SAML"}
           </Button>
-        </form>
+          {config ? (
+            <ConfirmButton confirmLabel="Remove SAML" submitForm="delete-saml-config" size="md">
+              Remove SAML
+            </ConfirmButton>
+          ) : null}
+        </div>
+      </form>
+      {config ? <form id="delete-saml-config" action={deleteSamlConfigAction} hidden /> : null}
 
-        {config ? (
-          <form action={deleteSamlConfigAction} className="mt-4">
-            <Button
-              type="submit"
-              variant="outline"
-              className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              Remove SAML configuration
-            </Button>
-          </form>
-        ) : null}
-      </Card>
-
-      <Card>
+      <div className="mt-6 border-t border-black/[0.05] pt-6">
         <SubsectionTitle
-          title="IdP details for your SP"
-          description="Copy these into your Service Provider's SAML configuration."
+          title="Identity provider details"
+          description="Copy these into your service provider’s SAML configuration."
         />
-
-        <div className="mt-6 space-y-4">
-          <IdpDetail label="IdP Entity ID (Issuer)" value={idpEntityId} />
-          <IdpDetail label="IdP SSO URL" value={idpSsoUrl} />
-          <IdpDetail label="IdP SLO URL" value={idpSloUrl} />
-          <IdpDetail
+        <div className="grid gap-4 sm:grid-cols-2">
+          <CopyField label="Metadata URL" value={metadataUrl} />
+          <CopyField label="IdP entity ID (issuer)" value={idpEntityId} />
+          <CopyField label="SSO URL" value={idpSsoUrl} />
+          <CopyField label="SLO URL" value={idpSloUrl} />
+          <CopyField
             label="NameID format"
             value="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
-          />
-          <IdpDetail
-            label="Metadata URL"
-            value={metadataUrl}
-            href={`/saml/metadata/${auid}`}
+            className="sm:col-span-2"
           />
         </div>
-      </Card>
-    </div>
+      </div>
+    </Card>
   );
 }

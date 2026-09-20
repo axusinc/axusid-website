@@ -1,4 +1,8 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { StatusPage } from "@/components/status-page";
+import { buttonVariants } from "@/components/ui/button";
 import {
   getOAuthClient,
   normalizeScopes,
@@ -14,6 +18,14 @@ import {
   authorizeQuerySchema,
 } from "@/lib/oauth/schemas";
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
+
+export const metadata: Metadata = { title: "Sign in" };
+
+const homeAction = (
+  <Link href="/" className={buttonVariants({ variant: "secondary", className: "w-full sm:w-auto" })}>
+    Go to AXUS ID
+  </Link>
+);
 
 type AuthorizePageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -55,14 +67,18 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
 
   if (!parsed.success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-12">
-        <div className="w-full max-w-md space-y-4 border border-black/5 bg-white p-6 shadow-sm rounded-xl">
-          <h1 className="text-lg font-semibold text-neutral-900">Invalid Request</h1>
-          <p className="text-sm text-neutral-600">
-            {parsed.error.issues[0]?.message ?? "The authorization request is invalid."}
-          </p>
-        </div>
-      </div>
+      <StatusPage
+        tone="error"
+        title="Invalid sign-in request"
+        description={
+          <>
+            The app that sent you here made a malformed request
+            {parsed.error.issues[0]?.message ? <> ({parsed.error.issues[0].message})</> : null}. Go
+            back to the app and try again, or contact its developer.
+          </>
+        }
+        actions={homeAction}
+      />
     );
   }
 
@@ -71,27 +87,31 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
 
   if (!client) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-12">
-        <div className="w-full max-w-md space-y-4 border border-black/5 bg-white p-6 shadow-sm rounded-xl">
-          <h1 className="text-lg font-semibold text-neutral-900">Unknown Client</h1>
-          <p className="text-sm text-neutral-600">
-            The client ID &ldquo;{query.client_id}&rdquo; is not registered.
-          </p>
-        </div>
-      </div>
+      <StatusPage
+        tone="error"
+        title="Unknown application"
+        description={
+          <>
+            No application is registered with the client ID{" "}
+            <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-xs text-neutral-700">
+              {query.client_id}
+            </code>
+            . Contact the app’s developer.
+          </>
+        }
+        actions={homeAction}
+      />
     );
   }
 
   if (!validateRedirectUri(client, query.redirect_uri)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-12">
-        <div className="w-full max-w-md space-y-4 border border-black/5 bg-white p-6 shadow-sm rounded-xl">
-          <h1 className="text-lg font-semibold text-neutral-900">Invalid Redirect URI</h1>
-          <p className="text-sm text-neutral-600">
-            The redirect URI is not registered for this client application.
-          </p>
-        </div>
-      </div>
+      <StatusPage
+        tone="error"
+        title="Redirect not allowed"
+        description="This app asked to send you to an address it hasn’t registered with AXUS ID. For your safety, sign-in was stopped. Contact the app’s developer."
+        actions={homeAction}
+      />
     );
   }
 

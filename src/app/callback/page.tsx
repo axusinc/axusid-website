@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { AuthShell } from "@/components/auth-shell";
-import { FormError } from "@/components/ui/form-message";
-import { roundedRect } from "@/lib/design";
-import { cn } from "@/lib/utils";
+import { StatusPage } from "@/components/status-page";
+import { buttonVariants } from "@/components/ui/button";
+import { CopyField } from "@/components/ui/copy-field";
+
+export const metadata: Metadata = { title: "Authorization result" };
 
 export default async function CallbackPage({
   searchParams,
@@ -12,39 +14,44 @@ export default async function CallbackPage({
   const params = await searchParams;
   const code = typeof params.code === "string" ? params.code : undefined;
   const error = typeof params.error === "string" ? params.error : undefined;
+  const errorDescription =
+    typeof params.error_description === "string" ? params.error_description : undefined;
 
   return (
-    <AuthShell
+    <StatusPage
+      tone={error ? "error" : "success"}
       title={error ? "Authorization failed" : "Authorization complete"}
       description={
-        error
-          ? "The OAuth request could not be completed."
-          : "Your application received an authorization code."
+        error ? (
+          <>
+            The request could not be completed:{" "}
+            <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-xs text-neutral-700">
+              {error}
+            </code>
+            {errorDescription ? <> — {errorDescription}</> : null}
+          </>
+        ) : (
+          "This test callback received an authorization code."
+        )
+      }
+      actions={
+        <Link href="/" className={buttonVariants({ variant: "secondary", className: "w-full sm:w-auto" })}>
+          Back to AXUS ID
+        </Link>
       }
     >
-      <div className="space-y-4 text-sm text-neutral-600">
-        {error ? <FormError>{error}</FormError> : null}
-        {code ? (
-          <div className={cn("border border-black/5 bg-neutral-50/80 px-4 py-3", roundedRect)}>
-            <p className="text-xs uppercase tracking-[0.18em] text-neutral-400">
-              Authorization code
-            </p>
-            <p className="mt-2 break-all font-mono text-xs text-black">{code}</p>
-            <p className="mt-4 text-xs leading-relaxed text-neutral-500">
-              Exchange this code at <code>/oauth/token</code>. The response includes
-              an IdP JWT as <code>access_token</code> (also accepted by AXUS GraphQL
-              APIs), an opaque <code>axus_access_token</code> for the same APIs,
-              and optionally <code>id_token</code> and <code>refresh_token</code>.
-            </p>
-          </div>
-        ) : null}
-        <Link
-          href="/"
-          className={cn("inline-flex h-11 w-full items-center justify-center bg-black px-4 text-sm font-medium text-white transition hover:bg-neutral-800", roundedRect)}
-        >
-          Back home
-        </Link>
-      </div>
-    </AuthShell>
+      {code ? (
+        <div className="space-y-3">
+          <CopyField label="Authorization code" value={code} />
+          <p className="text-xs leading-relaxed text-neutral-500">
+            Exchange it at <code className="font-mono text-neutral-700">/oauth/token</code>. The
+            response includes an IdP JWT <code className="font-mono text-neutral-700">access_token</code>,
+            an opaque <code className="font-mono text-neutral-700">axus_access_token</code> for AXUS
+            GraphQL APIs, and optionally <code className="font-mono text-neutral-700">id_token</code>{" "}
+            and <code className="font-mono text-neutral-700">refresh_token</code>.
+          </p>
+        </div>
+      ) : null}
+    </StatusPage>
   );
 }

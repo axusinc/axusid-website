@@ -1,5 +1,8 @@
+import { twMerge } from "tailwind-merge";
+
+/** Joins class names, letting later Tailwind utilities override conflicting earlier ones. */
 export function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+  return twMerge(classes.filter(Boolean).join(" "));
 }
 
 export function isRedirectError(error: unknown): boolean {
@@ -16,3 +19,10 @@ export function isRedirectError(error: unknown): boolean {
   return false;
 }
 
+
+/** Formats an ISO date as e.g. "Sep 19, 2026" in the viewer's locale. */
+export function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
