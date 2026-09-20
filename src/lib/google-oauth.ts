@@ -1,12 +1,6 @@
 import { cookies } from "next/headers";
 import { getAuthSdk } from "@/lib/auth-graphql";
 import { buildGoogleNameElements } from "@/lib/profile-name";
-import {
-  getOAuthClient,
-  normalizeScopes,
-  partitionScopes,
-  validateScopes,
-} from "@/lib/oauth/clients";
 import type { IdPSession } from "@/lib/session";
 
 export const GOOGLE_OAUTH_COOKIE = "axusid_google_oauth";
@@ -279,29 +273,6 @@ export async function exchangeGoogleCode(params: {
     idToken: result.id_token,
     accessToken: result.access_token,
   };
-}
-
-export async function resolveExternalLoginScopes(redirectUri?: string): Promise<{
-  oidcScopes: string[];
-  axusPermissions: string[];
-}> {
-  if (!redirectUri?.startsWith("/authorize")) {
-    return { oidcScopes: ["openid"], axusPermissions: [] };
-  }
-
-  const url = new URL(redirectUri, "http://localhost");
-  const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-  if (!clientId) {
-    throw new Error("The authorization request is missing its client ID");
-  }
-
-  const client = await getOAuthClient(clientId);
-  if (!client) {
-    throw new Error("The authorization request has an unknown client");
-  }
-
-  const scopes = validateScopes(client, normalizeScopes(url.searchParams.get("scope") ?? ""));
-  return partitionScopes(scopes);
 }
 
 export async function loginWithGoogleIdentity(

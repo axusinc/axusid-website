@@ -601,6 +601,14 @@ export type LinkExternalIdentityMutationVariables = Exact<{
 
 export type LinkExternalIdentityMutation = { linkExternalIdentity: { id: string, providerId: string, createdAt: string } };
 
+export type LoginWithTokenMutationVariables = Exact<{
+  auid: string | number;
+  permissions?: Array<string> | string | null | undefined;
+}>;
+
+
+export type LoginWithTokenMutation = { loginWithToken: { id: string } };
+
 export type RevokeTokenMutationVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -867,6 +875,13 @@ export const LinkExternalIdentityDocument = gql`
     id
     providerId
     createdAt
+  }
+}
+    `;
+export const LoginWithTokenDocument = gql`
+    mutation LoginWithToken($auid: ID!, $permissions: [String!]) {
+  loginWithToken(auid: $auid, permissions: $permissions) {
+    id
   }
 }
     `;
@@ -1173,6 +1188,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     LinkExternalIdentity(variables: LinkExternalIdentityMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LinkExternalIdentityMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<LinkExternalIdentityMutation>({ document: LinkExternalIdentityDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LinkExternalIdentity', 'mutation', variables);
+    },
+    LoginWithToken(variables: LoginWithTokenMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithTokenMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<LoginWithTokenMutation>({ document: LoginWithTokenDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithToken', 'mutation', variables);
     },
     RevokeToken(variables?: RevokeTokenMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RevokeTokenMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<RevokeTokenMutation>({ document: RevokeTokenDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RevokeToken', 'mutation', variables);

@@ -16,13 +16,13 @@ import {
   getGoogleRedirectUri,
   linkGoogleIdentity,
   loginWithGoogleIdentity,
-  resolveExternalLoginScopes,
   setGoogleRegistrationName,
   type GoogleOAuthState,
 } from "@/lib/google-oauth";
 import { DOMAIN_ERROR_CODES, getPrimaryDomainError } from "@/lib/graphql-errors";
 import { addAccountToSession, getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
+import { SESSION_PERMISSIONS } from "@/lib/oauth/adapter";
 
 function loginRedirect(
   request: NextRequest,
@@ -131,18 +131,12 @@ export async function GET(request: NextRequest) {
       return accountRedirect(request, "linked");
     }
 
-    const { oidcScopes, axusPermissions } = await resolveExternalLoginScopes(
-      oauthState.redirectUri,
-    );
-
     // First try logging into an existing account linked with this Google identity
     try {
-      const login = await loginWithGoogleIdentity(refreshToken, axusPermissions);
+      const login = await loginWithGoogleIdentity(refreshToken, SESSION_PERMISSIONS);
       const session: IdPSession = {
         auid: login.auid,
         tokenId: login.tokenId,
-        oidcScopes,
-        axusPermissions,
         consentedClients: [],
       };
 
@@ -200,8 +194,6 @@ export async function GET(request: NextRequest) {
         const session: IdPSession = {
           auid,
           tokenId,
-          oidcScopes,
-          axusPermissions,
           consentedClients: [],
         };
 

@@ -7,8 +7,12 @@ export const authorizeQuerySchema = z.object({
   scope: z.string().optional(),
   state: z.string().optional(),
   nonce: z.string().optional(),
-  code_challenge: z.string().optional(),
-  code_challenge_method: z.literal("S256").optional(),
+  // PKCE is mandatory. There are no client secrets here, so the code challenge is the only
+  // thing tying an authorization code to the client that asked for it.
+  code_challenge: z.string().min(43, "code_challenge is required (PKCE)"),
+  code_challenge_method: z.literal("S256", {
+    message: "code_challenge_method must be S256",
+  }),
   prompt: z.string().optional(),
 });
 
@@ -18,18 +22,21 @@ export const tokenRequestSchema = z.discriminatedUnion("grant_type", [
     code: z.string().min(1),
     redirect_uri: z.string().url(),
     client_id: z.string().min(1),
-    client_secret: z.string().optional(),
-    code_verifier: z.string().optional(),
+    code_verifier: z.string().min(43, "code_verifier is required (PKCE)"),
   }),
   z.object({
     grant_type: z.literal("refresh_token"),
     refresh_token: z.string().min(1),
     client_id: z.string().min(1).optional(),
-    client_secret: z.string().optional(),
   }),
 ]);
 
-export function extractBasicAuth(request: Request): { clientId?: string; clientSecret?: string } {
+/**
+ * Clients have no secrets, but some libraries still send the client id through Basic auth, so
+ * the id is read from there when the body does not carry one. Anything in the password half is
+ * ignored.
+ */
+export function extractBasicAuth(request: Request): { clientId?: string } {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Basic ")) {
     return {};
@@ -41,10 +48,8 @@ export function extractBasicAuth(request: Request): { clientId?: string; clientS
       return {};
     }
     const clientId = credentials.substring(0, colonIndex);
-    const clientSecret = credentials.substring(colonIndex + 1);
     return {
       clientId: clientId ? decodeURIComponent(clientId) : undefined,
-      clientSecret: clientSecret ? decodeURIComponent(clientSecret) : undefined,
     };
   } catch {
     return {};

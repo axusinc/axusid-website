@@ -9,7 +9,7 @@ import { getValidSession, addAccountToSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
-import { getOAuthClient, normalizeScopes, partitionScopes, validateScopes } from "@/lib/oauth/clients";
+import { SESSION_PERMISSIONS } from "@/lib/oauth/adapter";
 import {
   startPasskeyEnrollment,
   verifyPasskeyEnrollment,
@@ -64,30 +64,11 @@ export async function startPasskeyLoginAction(
     }
   }
 
-  let axusPermissions: string[] = [];
-  if (redirectUri && redirectUri.startsWith("/authorize")) {
-    try {
-      const url = new URL(redirectUri, "http://localhost");
-      const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-      const scopeParam = url.searchParams.get("scope");
-      if (clientId) {
-        const client = await getOAuthClient(clientId);
-        if (client) {
-          const validated = validateScopes(client, normalizeScopes(scopeParam ?? ""));
-          axusPermissions = partitionScopes(validated).axusPermissions;
-        }
-      }
-    } catch {
-      // Ignore scope parsing errors for ceremony start
-    }
-  }
-
   try {
-    const loginPermissions = axusPermissions.length > 0 ? axusPermissions : undefined;
     const effectiveRp = (await resolveRp(rp)) || "localhost";
     const loginResponse = await startPasskeyLogin(
       effectiveRp,
-      loginPermissions,
+      SESSION_PERMISSIONS,
     );
     return { loginResponse, auid };
   } catch (error) {
@@ -118,35 +99,6 @@ export async function loginWithPasskeyAction(params: {
     }
   }
 
-  const isOAuthFlow = !!redirectUri?.startsWith("/authorize");
-  let oidcScopes = ["openid"];
-  let axusPermissions: string[] = [];
-
-  if (isOAuthFlow && redirectUri) {
-    let url: URL;
-    try {
-      url = new URL(redirectUri, "http://localhost");
-    } catch {
-      return { error: "Invalid redirect_uri." };
-    }
-    const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-    const scopeParam = url.searchParams.get("scope");
-
-    if (clientId) {
-      const client = await getOAuthClient(clientId);
-      if (client) {
-        try {
-          const validatedScopes = validateScopes(client, normalizeScopes(scopeParam ?? ""));
-          const partitioned = partitionScopes(validatedScopes);
-          oidcScopes = partitioned.oidcScopes;
-          axusPermissions = partitioned.axusPermissions;
-        } catch (err) {
-          return { error: err instanceof Error ? err.message : "Invalid scope." };
-        }
-      }
-    }
-  }
-
   let login;
   try {
     login = await loginWithPasskey(challengeId, credentialResponse, auid);
@@ -159,8 +111,6 @@ export async function loginWithPasskeyAction(params: {
   const session: IdPSession = {
     auid: login.auid,
     tokenId: login.tokenId,
-    oidcScopes,
-    axusPermissions,
     consentedClients: [],
   };
 

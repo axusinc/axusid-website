@@ -35,6 +35,9 @@ type Mutation {
     acceptParent(auid: ID!, parentAuid: ID!): Parents!
     reorderParents(auid: ID!, parentAuids: [ID!]!): Parents!
     setPassword(auid: ID!, password: String!): Boolean!
+    # `permissions` lists exactly what the new token may do. Omitting it, or passing an empty
+    # list, issues a token with no permissions at all - ask for "*" to get everything the
+    # authenticating identity holds.
     loginWithPassword(auid: ID!, password: String!, permissions: [String!]): Token!
     loginWithExternalIdentity(authentication: ExternalAuthenticationInput!, permissions: [String!]): AuthenticatedToken!
     loginWithToken(auid: ID!, permissions: [String!]): Token!

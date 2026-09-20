@@ -1,16 +1,16 @@
 import "server-only";
 
 import { fromBase64Url, toBase64Url } from "@/lib/oauth/pkce";
-import { partitionScopes } from "@/lib/oauth/scopes";
 
 export const SESSION_COOKIE = "axusid_session";
 
 export type IdPSession = {
   auid: string;
-  /** Native AXUS ID token; the engine's only credential. */
+  /**
+   * Native AXUS ID token for the user's own session, holding everything the account holds.
+   * Apps never see it: each authorization gets its own narrower token.
+   */
   tokenId: string;
-  oidcScopes: string[];
-  axusPermissions: string[];
   consentedClients: string[];
 };
 
@@ -21,13 +21,11 @@ export type MultiSession = {
 
 type LegacySessionPayload = IdPSession & {
   exp: number;
-  /** @deprecated Legacy field — partitioned on read */
-  scopes?: string[];
 };
 
 type MultiSessionPayload = {
   activeAuid: string;
-  accounts: Array<IdPSession & { scopes?: string[] }>;
+  accounts: IdPSession[];
   exp: number;
 };
 
@@ -63,25 +61,10 @@ async function verify(value: string, signature: string): Promise<boolean> {
   return expected === signature;
 }
 
-function parseAccountPayload(rawAccount: IdPSession & { scopes?: string[] }): IdPSession {
-  if (rawAccount.oidcScopes && rawAccount.axusPermissions) {
-    return {
-      auid: rawAccount.auid,
-      tokenId: rawAccount.tokenId,
-      oidcScopes: rawAccount.oidcScopes,
-      axusPermissions: rawAccount.axusPermissions,
-      consentedClients: rawAccount.consentedClients ?? [],
-    };
-  }
-
-  const legacyScopes = rawAccount.scopes ?? [];
-  const { oidcScopes, axusPermissions } = partitionScopes(legacyScopes);
-
+function parseAccountPayload(rawAccount: IdPSession): IdPSession {
   return {
     auid: rawAccount.auid,
     tokenId: rawAccount.tokenId,
-    oidcScopes,
-    axusPermissions,
     consentedClients: rawAccount.consentedClients ?? [],
   };
 }

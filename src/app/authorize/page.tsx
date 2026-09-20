@@ -2,9 +2,11 @@ import { redirect } from "next/navigation";
 import {
   getOAuthClient,
   normalizeScopes,
+  partitionScopes,
   validateRedirectUri,
   validateScopes,
 } from "@/lib/oauth/clients";
+import { issueAuthorizationToken } from "@/lib/oauth/adapter";
 import {
   AUTH_CODE_TTL_MS,
   saveAuthorizationCode,
@@ -189,6 +191,25 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     }
   }
 
+  // The app gets its own token, scoped to what was consented to, rather than the user's
+  // session token: revoking the app must not sign the user out, and an app must not inherit
+  // the whole account.
+  let authorizationTokenId: string;
+  try {
+    authorizationTokenId = await issueAuthorizationToken({
+      sessionTokenId: session.tokenId,
+      userAuid: session.auid,
+      permissions: partitionScopes(scopes).axusPermissions,
+    });
+  } catch {
+    return oauthRedirectError(
+      query.redirect_uri,
+      "server_error",
+      query.state,
+      "Could not issue a token for this authorization",
+    );
+  }
+
   const code = await generateOpaqueCode();
   await saveAuthorizationCode({
     code,
@@ -196,9 +217,9 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     redirectUri: query.redirect_uri,
     scopes,
     userAuid: session.auid,
-    tokenId: session.tokenId,
+    tokenId: authorizationTokenId,
     codeChallenge: query.code_challenge,
-    codeChallengeMethod: query.code_challenge ? "S256" : undefined,
+    codeChallengeMethod: "S256",
     nonce: query.nonce,
     // eslint-disable-next-line react-hooks/purity
     expiresAt: new Date(Date.now() + AUTH_CODE_TTL_MS),

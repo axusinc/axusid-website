@@ -20,9 +20,6 @@ export async function POST(request: Request) {
       body.client_id = body.auid;
     }
   }
-  if (!body.client_secret && basicAuth.clientSecret) {
-    body.client_secret = basicAuth.clientSecret;
-  }
 
   const parsed = tokenRequestSchema.safeParse(body);
 
@@ -75,18 +72,17 @@ export async function POST(request: Request) {
     return oauthError("invalid_grant", "redirect_uri mismatch", 400);
   }
 
-  if (record.codeChallenge) {
-    if (!payload.code_verifier) {
-      return oauthError("invalid_grant", "code_verifier required for PKCE", 400);
-    }
-    const pkceValid = await verifyPkceChallenge(
-      payload.code_verifier,
-      record.codeChallenge,
-    );
+  if (!record.codeChallenge) {
+    return oauthError("invalid_grant", "Authorization code was issued without PKCE", 400);
+  }
 
-    if (!pkceValid) {
-      return oauthError("invalid_grant", "PKCE verification failed", 400);
-    }
+  const pkceValid = await verifyPkceChallenge(
+    payload.code_verifier,
+    record.codeChallenge,
+  );
+
+  if (!pkceValid) {
+    return oauthError("invalid_grant", "PKCE verification failed", 400);
   }
 
   try {

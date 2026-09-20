@@ -57,6 +57,12 @@ mutation LinkExternalIdentity(
   }
 }
 
+mutation LoginWithToken($auid: ID!, $permissions: [String!]) {
+  loginWithToken(auid: $auid, permissions: $permissions) {
+    id
+  }
+}
+
 mutation RevokeToken {
   revokeToken
 }

@@ -11,14 +11,9 @@ import {
   getPrimaryDomainError,
   isGraphqlClientError,
 } from "@/lib/graphql-errors";
-import { loginWithBackend } from "@/lib/oauth/adapter";
+import { SESSION_PERMISSIONS, loginWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
-import {
-  getOAuthClient,
-  normalizeScopes,
-  partitionScopes,
-  validateScopes,
-} from "@/lib/oauth/clients";
+import { getOAuthClient } from "@/lib/oauth/clients";
 
 import {
   addAccountToSession,
@@ -187,52 +182,9 @@ export async function loginAction(
     };
   }
 
-  const isOAuthFlow = redirectUri.startsWith("/authorize");
-  let oidcScopes = ["openid"];
-  let axusPermissions: string[] = [];
-
-  if (isOAuthFlow) {
-    let url: URL;
-    try {
-      url = new URL(redirectUri, "http://localhost");
-    } catch {
-      return { error: "Invalid redirect_uri." };
-    }
-    const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-    const scopeParam = url.searchParams.get("scope");
-
-    if (!clientId) {
-      return { error: "Invalid redirect_uri: client_id or auid is missing." };
-    }
-
-    const client = await getOAuthClient(clientId);
-    if (!client) {
-      return { error: "Unknown OAuth client." };
-    }
-
-    try {
-      const validatedScopes = validateScopes(
-        client,
-        normalizeScopes(scopeParam ?? ""),
-      );
-      const partitioned = partitionScopes(validatedScopes);
-      oidcScopes = partitioned.oidcScopes;
-      axusPermissions = partitioned.axusPermissions;
-    } catch (error) {
-      return {
-        error:
-          error instanceof Error ? error.message : "Invalid requested scopes.",
-      };
-    }
-  }
-
   let tokenId;
   try {
-    tokenId = await loginWithBackend(
-      auid,
-      password,
-      axusPermissions.length > 0 ? axusPermissions : undefined,
-    );
+    tokenId = await loginWithBackend(auid, password, SESSION_PERMISSIONS);
   } catch (error) {
     return {
       error: formatGraphqlError(error, "login", "Unable to sign in. Try again."),
@@ -242,8 +194,6 @@ export async function loginAction(
   const session: IdPSession = {
     auid,
     tokenId,
-    oidcScopes,
-    axusPermissions,
     consentedClients: [],
   };
 
@@ -603,8 +553,6 @@ export async function registerAction(
       const session: IdPSession = {
         auid,
         tokenId,
-        oidcScopes: ["openid"],
-        axusPermissions: [],
         consentedClients: [],
       };
 
@@ -656,8 +604,6 @@ export async function registerAction(
     const session: IdPSession = {
       auid,
       tokenId,
-      oidcScopes: ["openid"],
-      axusPermissions: [],
       consentedClients: [],
     };
 
