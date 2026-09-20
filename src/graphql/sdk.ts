@@ -16,14 +16,6 @@ export type Scalars = {
   Float: { input: number; output: number; }
 };
 
-export type SchemaAuthCredentials = {
-  __typename?: 'AuthCredentials';
-  accessToken: Scalars['String']['output'];
-  accessTokenExpiresAt: Scalars['String']['output'];
-  auid: Scalars['ID']['output'];
-  refreshToken: Scalars['String']['output'];
-};
-
 export type SchemaAuthenticatedToken = {
   __typename?: 'AuthenticatedToken';
   auid: Scalars['ID']['output'];
@@ -99,11 +91,10 @@ export type SchemaMutation = {
   loginWithPassword: SchemaToken;
   loginWithToken: SchemaToken;
   loginWithTotp: SchemaAuthenticatedToken;
-  refreshCredentials: SchemaAuthCredentials;
   removeUsername: SchemaUsernames;
   reorderParents: SchemaParents;
   requestParent: SchemaParents;
-  revokeCredentials: Scalars['Boolean']['output'];
+  revokeToken: Scalars['Boolean']['output'];
   setDefaultVariation: SchemaDefaultVariation;
   setPassword: Scalars['Boolean']['output'];
   startPasskeyLogin: SchemaPasskeyCeremony;
@@ -112,27 +103,23 @@ export type SchemaMutation = {
   unlinkExternalIdentity: Scalars['Boolean']['output'];
   updatePasskeyName: Scalars['Boolean']['output'];
   verifyTotpEnrollment: Scalars['Boolean']['output'];
-  wrapTokenInCredentials: SchemaAuthCredentials;
 };
 
 
 export type SchemaMutationAcceptParentArgs = {
   auid: Scalars['ID']['input'];
   parentAuid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationAddUsernameArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
 
 export type SchemaMutationChangeDefaultUsernameArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
@@ -140,7 +127,6 @@ export type SchemaMutationChangeDefaultUsernameArgs = {
 export type SchemaMutationChangeDescriptionArgs = {
   auid: Scalars['ID']['input'];
   text?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -148,7 +134,6 @@ export type SchemaMutationChangeDescriptionArgs = {
 export type SchemaMutationChangeNameArgs = {
   auid: Scalars['ID']['input'];
   elements: Array<SchemaNameElementInput>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -159,7 +144,6 @@ export type SchemaMutationChangeStatusArgs = {
   emoji?: InputMaybe<Scalars['String']['input']>;
   expiresAt?: InputMaybe<Scalars['String']['input']>;
   text?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -168,14 +152,12 @@ export type SchemaMutationChangeUsernameArgs = {
   auid: Scalars['ID']['input'];
   newUsername: Scalars['String']['input'];
   oldUsername: Scalars['String']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationChangeVariationIconArgs = {
   auid: Scalars['ID']['input'];
   icon?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -183,21 +165,18 @@ export type SchemaMutationChangeVariationIconArgs = {
 export type SchemaMutationChangeVariationLocationIdArgs = {
   auid: Scalars['ID']['input'];
   locationId?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
 
 export type SchemaMutationClearDescriptionArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
 
 export type SchemaMutationClearStatusArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -205,7 +184,6 @@ export type SchemaMutationClearStatusArgs = {
 export type SchemaMutationCreateUserArgs = {
   contextAuid?: InputMaybe<Scalars['ID']['input']>;
   registrationKey: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -214,14 +192,12 @@ export type SchemaMutationCreateVariationArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
   locationId?: InputMaybe<Scalars['String']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationDeletePasskeyArgs = {
   auid: Scalars['ID']['input'];
   credentialId: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -230,14 +206,12 @@ export type SchemaMutationFinishPasskeyRegistrationArgs = {
   challengeId: Scalars['ID']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   responseJson: Scalars['String']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationLinkExternalIdentityArgs = {
   auid: Scalars['ID']['input'];
   authentication: SchemaExternalAuthenticationInput;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -263,7 +237,6 @@ export type SchemaMutationLoginWithPasswordArgs = {
 export type SchemaMutationLoginWithTokenArgs = {
   auid: Scalars['ID']['input'];
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -273,14 +246,8 @@ export type SchemaMutationLoginWithTotpArgs = {
 };
 
 
-export type SchemaMutationRefreshCredentialsArgs = {
-  refreshToken: Scalars['String']['input'];
-};
-
-
 export type SchemaMutationRemoveUsernameArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   username: Scalars['String']['input'];
 };
 
@@ -288,25 +255,17 @@ export type SchemaMutationRemoveUsernameArgs = {
 export type SchemaMutationReorderParentsArgs = {
   auid: Scalars['ID']['input'];
   parentAuids: Array<Scalars['ID']['input']>;
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationRequestParentArgs = {
   auid: Scalars['ID']['input'];
   parentAuid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type SchemaMutationRevokeCredentialsArgs = {
-  refreshToken: Scalars['String']['input'];
 };
 
 
 export type SchemaMutationSetDefaultVariationArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
   variationId: Scalars['ID']['input'];
 };
 
@@ -314,7 +273,6 @@ export type SchemaMutationSetDefaultVariationArgs = {
 export type SchemaMutationSetPasswordArgs = {
   auid: Scalars['ID']['input'];
   password: Scalars['String']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -328,20 +286,18 @@ export type SchemaMutationStartPasskeyRegistrationArgs = {
   auid: Scalars['ID']['input'];
   displayName?: InputMaybe<Scalars['String']['input']>;
   relyingPartyId: Scalars['String']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationStartTotpEnrollmentArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
+  currentCode?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationUnlinkExternalIdentityArgs = {
   auid: Scalars['ID']['input'];
   externalIdentityId: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -349,20 +305,12 @@ export type SchemaMutationUpdatePasskeyNameArgs = {
   auid: Scalars['ID']['input'];
   credentialId: Scalars['ID']['input'];
   name: Scalars['String']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationVerifyTotpEnrollmentArgs = {
   auid: Scalars['ID']['input'];
   code: Scalars['String']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
-};
-
-
-export type SchemaMutationWrapTokenInCredentialsArgs = {
-  auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type SchemaName = {
@@ -403,7 +351,9 @@ export enum SchemaNameSeparatorType {
 
 export type SchemaPaginatedIdentities = {
   __typename?: 'PaginatedIdentities';
+  hasNextPage: Scalars['Boolean']['output'];
   items: Array<SchemaIdentity>;
+  nextCursor?: Maybe<Scalars['ID']['output']>;
 };
 
 export type SchemaParent = {
@@ -438,7 +388,7 @@ export type SchemaPasskeyCredential = {
   credentialId: Scalars['ID']['output'];
   lastUsedAt?: Maybe<Scalars['String']['output']>;
   name?: Maybe<Scalars['String']['output']>;
-  transports?: Maybe<Array<Scalars['String']['output']>>;
+  transports: Array<Scalars['String']['output']>;
 };
 
 export type SchemaQuery = {
@@ -472,14 +422,12 @@ export type SchemaQueryDescriptionArgs = {
 
 export type SchemaQueryExternalIdentitiesArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaQueryExternalIdentityAccessTokenArgs = {
   auid: Scalars['ID']['input'];
   externalIdentityId: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -487,7 +435,6 @@ export type SchemaQueryIdentitiesArgs = {
   contextAuid: Scalars['ID']['input'];
   cursor?: InputMaybe<Scalars['ID']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
-  offset?: InputMaybe<Scalars['Int']['input']>;
   recursive?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
@@ -514,7 +461,6 @@ export type SchemaQueryParentsArgs = {
 
 export type SchemaQueryPasskeysArgs = {
   auid: Scalars['ID']['input'];
-  tokenId?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -616,31 +562,8 @@ export type LoginWithPasswordMutationVariables = Exact<{
 
 export type LoginWithPasswordMutation = { loginWithPassword: { id: string } };
 
-export type WrapTokenInCredentialsMutationVariables = Exact<{
-  auid: string | number;
-  tokenId?: string | null | undefined;
-}>;
-
-
-export type WrapTokenInCredentialsMutation = { wrapTokenInCredentials: { auid: string, accessToken: string, refreshToken: string, accessTokenExpiresAt: string } };
-
-export type RefreshCredentialsMutationVariables = Exact<{
-  refreshToken: string;
-}>;
-
-
-export type RefreshCredentialsMutation = { refreshCredentials: { accessToken: string, refreshToken: string, accessTokenExpiresAt: string } };
-
-export type RevokeCredentialsMutationVariables = Exact<{
-  refreshToken: string;
-}>;
-
-
-export type RevokeCredentialsMutation = { revokeCredentials: boolean };
-
 export type CreateUserMutationVariables = Exact<{
   contextAuid?: string | number | null | undefined;
-  tokenId?: string | null | undefined;
   registrationKey: string | number;
 }>;
 
@@ -649,7 +572,6 @@ export type CreateUserMutation = { createUser: { auid: string, token: { id: stri
 
 export type SetPasswordMutationVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
   password: string;
 }>;
 
@@ -673,24 +595,34 @@ export type LoginWithExternalIdentityMutation = { loginWithExternalIdentity: { i
 
 export type LinkExternalIdentityMutationVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
   authentication: ExternalAuthenticationInput;
 }>;
 
 
 export type LinkExternalIdentityMutation = { linkExternalIdentity: { id: string, providerId: string, createdAt: string } };
 
-export type PasskeysQueryVariables = Exact<{
+export type LoginWithTokenMutationVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
+  permissions?: Array<string> | string | null | undefined;
 }>;
 
 
-export type PasskeysQuery = { passkeys: Array<{ credentialId: string, auid: string, name: string | null, transports: Array<string> | null, backupEligible: boolean, backedUp: boolean, createdAt: string, lastUsedAt: string | null }> };
+export type LoginWithTokenMutation = { loginWithToken: { id: string } };
+
+export type RevokeTokenMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RevokeTokenMutation = { revokeToken: boolean };
+
+export type PasskeysQueryVariables = Exact<{
+  auid: string | number;
+}>;
+
+
+export type PasskeysQuery = { passkeys: Array<{ credentialId: string, auid: string, name: string | null, transports: Array<string>, backupEligible: boolean, backedUp: boolean, createdAt: string, lastUsedAt: string | null }> };
 
 export type StartPasskeyRegistrationMutationVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
   displayName?: string | null | undefined;
   relyingPartyId: string;
 }>;
@@ -700,7 +632,6 @@ export type StartPasskeyRegistrationMutation = { startPasskeyRegistration: { cha
 
 export type FinishPasskeyRegistrationMutationVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
   challengeId: string | number;
   responseJson: string;
   name?: string | null | undefined;
@@ -713,7 +644,6 @@ export type UpdatePasskeyNameMutationVariables = Exact<{
   auid: string | number;
   credentialId: string | number;
   name: string;
-  tokenId?: string | null | undefined;
 }>;
 
 
@@ -722,7 +652,6 @@ export type UpdatePasskeyNameMutation = { updatePasskeyName: boolean };
 export type DeletePasskeyMutationVariables = Exact<{
   auid: string | number;
   credentialId: string | number;
-  tokenId?: string | null | undefined;
 }>;
 
 
@@ -802,7 +731,6 @@ export type DefaultVariationQuery = { defaultVariation: { auid: string, variatio
 
 export type AddUsernameMutationVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
   username: string;
 }>;
 
@@ -827,7 +755,6 @@ export type ChangeDefaultUsernameMutation = { changeDefaultUsername: { auid: str
 
 export type ChangeUsernameMutationVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
   oldUsername: string;
   newUsername: string;
 }>;
@@ -882,7 +809,6 @@ export type SetDefaultVariationMutation = { setDefaultVariation: { auid: string,
 
 export type ExternalIdentitiesQueryVariables = Exact<{
   auid: string | number;
-  tokenId?: string | null | undefined;
 }>;
 
 
@@ -891,7 +817,6 @@ export type ExternalIdentitiesQuery = { externalIdentities: Array<{ id: string, 
 export type ExternalIdentityAccessTokenQueryVariables = Exact<{
   auid: string | number;
   externalIdentityId: string | number;
-  tokenId?: string | null | undefined;
 }>;
 
 
@@ -900,7 +825,6 @@ export type ExternalIdentityAccessTokenQuery = { externalIdentityAccessToken: { 
 export type UnlinkExternalIdentityMutationVariables = Exact<{
   auid: string | number;
   externalIdentityId: string | number;
-  tokenId?: string | null | undefined;
 }>;
 
 
@@ -914,37 +838,9 @@ export const LoginWithPasswordDocument = gql`
   }
 }
     `;
-export const WrapTokenInCredentialsDocument = gql`
-    mutation WrapTokenInCredentials($auid: ID!, $tokenId: String) {
-  wrapTokenInCredentials(auid: $auid, tokenId: $tokenId) {
-    auid
-    accessToken
-    refreshToken
-    accessTokenExpiresAt
-  }
-}
-    `;
-export const RefreshCredentialsDocument = gql`
-    mutation RefreshCredentials($refreshToken: String!) {
-  refreshCredentials(refreshToken: $refreshToken) {
-    accessToken
-    refreshToken
-    accessTokenExpiresAt
-  }
-}
-    `;
-export const RevokeCredentialsDocument = gql`
-    mutation RevokeCredentials($refreshToken: String!) {
-  revokeCredentials(refreshToken: $refreshToken)
-}
-    `;
 export const CreateUserDocument = gql`
-    mutation CreateUser($contextAuid: ID, $tokenId: String, $registrationKey: ID!) {
-  createUser(
-    contextAuid: $contextAuid
-    tokenId: $tokenId
-    registrationKey: $registrationKey
-  ) {
+    mutation CreateUser($contextAuid: ID, $registrationKey: ID!) {
+  createUser(contextAuid: $contextAuid, registrationKey: $registrationKey) {
     auid
     token {
       id
@@ -953,8 +849,8 @@ export const CreateUserDocument = gql`
 }
     `;
 export const SetPasswordDocument = gql`
-    mutation SetPassword($auid: ID!, $tokenId: String, $password: String!) {
-  setPassword(auid: $auid, tokenId: $tokenId, password: $password)
+    mutation SetPassword($auid: ID!, $password: String!) {
+  setPassword(auid: $auid, password: $password)
 }
     `;
 export const IsPasswordSetDocument = gql`
@@ -974,21 +870,29 @@ export const LoginWithExternalIdentityDocument = gql`
 }
     `;
 export const LinkExternalIdentityDocument = gql`
-    mutation LinkExternalIdentity($auid: ID!, $tokenId: String, $authentication: ExternalAuthenticationInput!) {
-  linkExternalIdentity(
-    auid: $auid
-    tokenId: $tokenId
-    authentication: $authentication
-  ) {
+    mutation LinkExternalIdentity($auid: ID!, $authentication: ExternalAuthenticationInput!) {
+  linkExternalIdentity(auid: $auid, authentication: $authentication) {
     id
     providerId
     createdAt
   }
 }
     `;
+export const LoginWithTokenDocument = gql`
+    mutation LoginWithToken($auid: ID!, $permissions: [String!]) {
+  loginWithToken(auid: $auid, permissions: $permissions) {
+    id
+  }
+}
+    `;
+export const RevokeTokenDocument = gql`
+    mutation RevokeToken {
+  revokeToken
+}
+    `;
 export const PasskeysDocument = gql`
-    query Passkeys($auid: ID!, $tokenId: String) {
-  passkeys(auid: $auid, tokenId: $tokenId) {
+    query Passkeys($auid: ID!) {
+  passkeys(auid: $auid) {
     credentialId
     auid
     name
@@ -1001,10 +905,9 @@ export const PasskeysDocument = gql`
 }
     `;
 export const StartPasskeyRegistrationDocument = gql`
-    mutation StartPasskeyRegistration($auid: ID!, $tokenId: String, $displayName: String, $relyingPartyId: String!) {
+    mutation StartPasskeyRegistration($auid: ID!, $displayName: String, $relyingPartyId: String!) {
   startPasskeyRegistration(
     auid: $auid
-    tokenId: $tokenId
     displayName: $displayName
     relyingPartyId: $relyingPartyId
   ) {
@@ -1014,10 +917,9 @@ export const StartPasskeyRegistrationDocument = gql`
 }
     `;
 export const FinishPasskeyRegistrationDocument = gql`
-    mutation FinishPasskeyRegistration($auid: ID!, $tokenId: String, $challengeId: ID!, $responseJson: String!, $name: String) {
+    mutation FinishPasskeyRegistration($auid: ID!, $challengeId: ID!, $responseJson: String!, $name: String) {
   finishPasskeyRegistration(
     auid: $auid
-    tokenId: $tokenId
     challengeId: $challengeId
     responseJson: $responseJson
     name: $name
@@ -1025,18 +927,13 @@ export const FinishPasskeyRegistrationDocument = gql`
 }
     `;
 export const UpdatePasskeyNameDocument = gql`
-    mutation UpdatePasskeyName($auid: ID!, $credentialId: ID!, $name: String!, $tokenId: String) {
-  updatePasskeyName(
-    auid: $auid
-    credentialId: $credentialId
-    name: $name
-    tokenId: $tokenId
-  )
+    mutation UpdatePasskeyName($auid: ID!, $credentialId: ID!, $name: String!) {
+  updatePasskeyName(auid: $auid, credentialId: $credentialId, name: $name)
 }
     `;
 export const DeletePasskeyDocument = gql`
-    mutation DeletePasskey($auid: ID!, $credentialId: ID!, $tokenId: String) {
-  deletePasskey(auid: $auid, credentialId: $credentialId, tokenId: $tokenId)
+    mutation DeletePasskey($auid: ID!, $credentialId: ID!) {
+  deletePasskey(auid: $auid, credentialId: $credentialId)
 }
     `;
 export const StartPasskeyLoginDocument = gql`
@@ -1142,8 +1039,8 @@ export const DefaultVariationDocument = gql`
 }
     `;
 export const AddUsernameDocument = gql`
-    mutation AddUsername($auid: ID!, $tokenId: String, $username: String!) {
-  addUsername(auid: $auid, tokenId: $tokenId, username: $username) {
+    mutation AddUsername($auid: ID!, $username: String!) {
+  addUsername(auid: $auid, username: $username) {
     auid
     usernames
     defaultUsername
@@ -1169,10 +1066,9 @@ export const ChangeDefaultUsernameDocument = gql`
 }
     `;
 export const ChangeUsernameDocument = gql`
-    mutation ChangeUsername($auid: ID!, $tokenId: String, $oldUsername: String!, $newUsername: String!) {
+    mutation ChangeUsername($auid: ID!, $oldUsername: String!, $newUsername: String!) {
   changeUsername(
     auid: $auid
-    tokenId: $tokenId
     oldUsername: $oldUsername
     newUsername: $newUsername
   ) {
@@ -1241,8 +1137,8 @@ export const SetDefaultVariationDocument = gql`
 }
     `;
 export const ExternalIdentitiesDocument = gql`
-    query ExternalIdentities($auid: ID!, $tokenId: String) {
-  externalIdentities(auid: $auid, tokenId: $tokenId) {
+    query ExternalIdentities($auid: ID!) {
+  externalIdentities(auid: $auid) {
     id
     providerId
     createdAt
@@ -1250,11 +1146,10 @@ export const ExternalIdentitiesDocument = gql`
 }
     `;
 export const ExternalIdentityAccessTokenDocument = gql`
-    query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
+    query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!) {
   externalIdentityAccessToken(
     auid: $auid
     externalIdentityId: $externalIdentityId
-    tokenId: $tokenId
   ) {
     accessToken
     tokenType
@@ -1264,12 +1159,8 @@ export const ExternalIdentityAccessTokenDocument = gql`
 }
     `;
 export const UnlinkExternalIdentityDocument = gql`
-    mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
-  unlinkExternalIdentity(
-    auid: $auid
-    externalIdentityId: $externalIdentityId
-    tokenId: $tokenId
-  )
+    mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!) {
+  unlinkExternalIdentity(auid: $auid, externalIdentityId: $externalIdentityId)
 }
     `;
 
@@ -1282,15 +1173,6 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
   return {
     LoginWithPassword(variables: LoginWithPasswordMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithPasswordMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<LoginWithPasswordMutation>({ document: LoginWithPasswordDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithPassword', 'mutation', variables);
-    },
-    WrapTokenInCredentials(variables: WrapTokenInCredentialsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<WrapTokenInCredentialsMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<WrapTokenInCredentialsMutation>({ document: WrapTokenInCredentialsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'WrapTokenInCredentials', 'mutation', variables);
-    },
-    RefreshCredentials(variables: RefreshCredentialsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RefreshCredentialsMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<RefreshCredentialsMutation>({ document: RefreshCredentialsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RefreshCredentials', 'mutation', variables);
-    },
-    RevokeCredentials(variables: RevokeCredentialsMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RevokeCredentialsMutation> {
-      return withWrapper((wrappedRequestHeaders) => client.request<RevokeCredentialsMutation>({ document: RevokeCredentialsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RevokeCredentials', 'mutation', variables);
     },
     CreateUser(variables: CreateUserMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<CreateUserMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<CreateUserMutation>({ document: CreateUserDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'CreateUser', 'mutation', variables);
@@ -1306,6 +1188,12 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     LinkExternalIdentity(variables: LinkExternalIdentityMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LinkExternalIdentityMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<LinkExternalIdentityMutation>({ document: LinkExternalIdentityDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LinkExternalIdentity', 'mutation', variables);
+    },
+    LoginWithToken(variables: LoginWithTokenMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithTokenMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<LoginWithTokenMutation>({ document: LoginWithTokenDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithToken', 'mutation', variables);
+    },
+    RevokeToken(variables?: RevokeTokenMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RevokeTokenMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<RevokeTokenMutation>({ document: RevokeTokenDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RevokeToken', 'mutation', variables);
     },
     Passkeys(variables: PasskeysQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<PasskeysQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<PasskeysQuery>({ document: PasskeysDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Passkeys', 'query', variables);

@@ -11,7 +11,7 @@ import {
   getPrimaryDomainError,
   isGraphqlClientError,
 } from "@/lib/graphql-errors";
-import { loginWithBackend, wrapTokenWithBackend } from "@/lib/oauth/adapter";
+import { SESSION_PERMISSIONS, loginWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
 import {
   getOAuthClient,
@@ -19,6 +19,7 @@ import {
   partitionScopes,
   validateScopes,
 } from "@/lib/oauth/clients";
+import { grantAuthorization } from "@/lib/oauth/grants";
 
 import {
   addAccountToSession,
@@ -187,52 +188,9 @@ export async function loginAction(
     };
   }
 
-  const isOAuthFlow = redirectUri.startsWith("/authorize");
-  let oidcScopes = ["openid"];
-  let axusPermissions: string[] = [];
-
-  if (isOAuthFlow) {
-    let url: URL;
-    try {
-      url = new URL(redirectUri, "http://localhost");
-    } catch {
-      return { error: "Invalid redirect_uri." };
-    }
-    const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-    const scopeParam = url.searchParams.get("scope");
-
-    if (!clientId) {
-      return { error: "Invalid redirect_uri: client_id or auid is missing." };
-    }
-
-    const client = await getOAuthClient(clientId);
-    if (!client) {
-      return { error: "Unknown OAuth client." };
-    }
-
-    try {
-      const validatedScopes = validateScopes(
-        client,
-        normalizeScopes(scopeParam ?? ""),
-      );
-      const partitioned = partitionScopes(validatedScopes);
-      oidcScopes = partitioned.oidcScopes;
-      axusPermissions = partitioned.axusPermissions;
-    } catch (error) {
-      return {
-        error:
-          error instanceof Error ? error.message : "Invalid requested scopes.",
-      };
-    }
-  }
-
-  let credentials;
+  let tokenId;
   try {
-    credentials = await loginWithBackend(
-      auid,
-      password,
-      axusPermissions.length > 0 ? axusPermissions : undefined,
-    );
+    tokenId = await loginWithBackend(auid, password, SESSION_PERMISSIONS);
   } catch (error) {
     return {
       error: formatGraphqlError(error, "login", "Unable to sign in. Try again."),
@@ -241,9 +199,7 @@ export async function loginAction(
 
   const session: IdPSession = {
     auid,
-    credentials,
-    oidcScopes,
-    axusPermissions,
+    tokenId,
     consentedClients: [],
   };
 
@@ -389,16 +345,15 @@ export async function consentAction(formData: FormData) {
     redirect("/");
   }
 
+  const client = isSaml ? undefined : await getOAuthClient(clientId);
+
   if (isSaml) {
     const samlConfig = await getSamlConfigByAuid(clientId);
     if (!samlConfig) {
       redirect("/");
     }
-  } else {
-    const client = await getOAuthClient(clientId);
-    if (!client) {
-      redirect("/");
-    }
+  } else if (!client) {
+    redirect("/");
   }
 
   const session = await getValidSession();
@@ -407,12 +362,31 @@ export async function consentAction(formData: FormData) {
     redirect(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`);
   }
 
-  const updatedSession: IdPSession = {
-    ...session,
-    consentedClients: [...new Set([...session.consentedClients, clientId])],
-  };
+  if (client) {
+    // Consent for an OAuth app is a record of its own, holding the app's token and the scopes
+    // it may act on. SAML has no such record, so it still rides along in the session.
+    let scopes: string[];
+    try {
+      scopes = validateScopes(normalizeScopes(url.searchParams.get("scope") ?? ""));
+    } catch {
+      redirect("/");
+    }
 
-  await addAccountToSession(updatedSession);
+    await grantAuthorization({
+      userAuid: session.auid,
+      clientAuid: client.auid,
+      sessionTokenId: session.tokenId,
+      scopes,
+      axusPermissions: partitionScopes(scopes).axusPermissions,
+    });
+  } else {
+    const updatedSession: IdPSession = {
+      ...session,
+      consentedClients: [...new Set([...session.consentedClients, clientId])],
+    };
+
+    await addAccountToSession(updatedSession);
+  }
 
   let targetUri = redirectUri;
   if (targetUri.startsWith("/authorize")) {
@@ -483,9 +457,9 @@ export async function denyConsentAction(formData: FormData) {
 }
 
 export async function ensureRegistrationUsername(
-  sdk: ReturnType<typeof getAuthSdk>,
   params: { auid: string; tokenId: string; username: string },
 ) {
+  const sdk = getAuthSdk(params.tokenId);
   const maxAttempts = 5;
   let lastError: unknown;
 
@@ -506,7 +480,6 @@ export async function ensureRegistrationUsername(
 
       await sdk.ChangeUsername({
         auid: params.auid,
-        tokenId: params.tokenId,
         oldUsername,
         newUsername: params.username,
       });
@@ -581,15 +554,14 @@ export async function registerAction(
       const auid = result.createUser.auid;
       const tokenId = result.createUser.token.id;
 
-      await ensureRegistrationUsername(sdk, {
+      await ensureRegistrationUsername({
         auid,
         tokenId,
         username: requestedUsername,
       });
 
-      await sdk.LinkExternalIdentity({
+      await getAuthSdk(tokenId).LinkExternalIdentity({
         auid,
-        tokenId,
         authentication: {
           providerId: getGoogleProviderId(),
           refreshToken: pendingGoogle.refreshToken,
@@ -597,17 +569,14 @@ export async function registerAction(
         },
       });
 
-      const credentials = await wrapTokenWithBackend(auid, tokenId);
       await setGoogleRegistrationName({
         auid,
-        credentials,
+        tokenId,
         profile: pendingGoogle,
       });
       const session: IdPSession = {
         auid,
-        credentials,
-        oidcScopes: ["openid"],
-        axusPermissions: [],
+        tokenId,
         consentedClients: [],
       };
 
@@ -649,19 +618,16 @@ export async function registerAction(
     const auid = result.createUser.auid;
     const tokenId = result.createUser.token.id;
 
-    await ensureRegistrationUsername(sdk, {
+    await ensureRegistrationUsername({
       auid,
       tokenId,
       username: requestedUsername,
     });
-    await sdk.SetPassword({ auid, tokenId, password });
+    await getAuthSdk(tokenId).SetPassword({ auid, password });
 
-    const credentials = await wrapTokenWithBackend(auid, tokenId);
     const session: IdPSession = {
       auid,
-      credentials,
-      oidcScopes: ["openid"],
-      axusPermissions: [],
+      tokenId,
       consentedClients: [],
     };
 
@@ -727,12 +693,12 @@ export async function createNestedAccountAction(
     const auid = result.createUser.auid;
     const tokenId = result.createUser.token.id;
 
-    await ensureRegistrationUsername(sdk, {
+    await ensureRegistrationUsername({
       auid,
       tokenId,
       username: requestedUsername || registrationKey,
     });
-    await sdk.SetPassword({ auid, tokenId, password });
+    await getAuthSdk(tokenId).SetPassword({ auid, password });
 
     revalidatePath("/account");
     return {

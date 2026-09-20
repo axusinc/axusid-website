@@ -1,72 +1,54 @@
-import type { AuthCredentials } from "@/lib/auth-graphql";
 import { getAuthSdk } from "@/lib/auth-graphql";
 
-export type OAuthTokenResponse = {
-  access_token: string;
-  token_type: "Bearer";
-  expires_in: number;
-  refresh_token: string;
-  scope?: string;
-};
+/**
+ * What the user's own session token asks for. An empty list would now mean no permissions at
+ * all, so the wildcard is requested explicitly: the session acts for the user on their own
+ * account, and each app authorization gets its own narrower token instead.
+ */
+export const SESSION_PERMISSIONS = ["*"];
 
-export function credentialsToTokenResponse(
-  credentials: AuthCredentials,
-  scope?: string,
-): OAuthTokenResponse {
-  const expiresAt = Date.parse(credentials.accessTokenExpiresAt);
-  const expiresIn = Number.isFinite(expiresAt)
-    ? Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
-    : 43200;
-
-  return {
-    access_token: credentials.accessToken,
-    token_type: "Bearer",
-    expires_in: expiresIn,
-    refresh_token: credentials.refreshToken,
-    ...(scope ? { scope } : {}),
-  };
-}
-
+/** Signs in with a password and returns the new native token id. */
 export async function loginWithBackend(
   auid: string,
   password: string,
   permissions?: string[],
-): Promise<AuthCredentials> {
+): Promise<string> {
   const sdk = getAuthSdk();
-  const credentialPermission = `identity.${auid}.credentials.issue`;
-  const loginPermissions = permissions?.length
-    ? [...new Set([...permissions, credentialPermission])]
-    : undefined;
   const result = await sdk.LoginWithPassword({
     auid,
     password,
-    ...(loginPermissions ? { permissions: loginPermissions } : {}),
+    ...(permissions?.length ? { permissions } : {}),
   });
-
-  return wrapTokenWithBackend(auid, result.loginWithPassword.id);
+  return result.loginWithPassword.id;
 }
 
-export async function wrapTokenWithBackend(
-  auid: string,
-  tokenId: string,
-): Promise<AuthCredentials & { auid: string }> {
-  const sdk = getAuthSdk();
-  const result = await sdk.WrapTokenInCredentials({ auid, tokenId });
-  return result.wrapTokenInCredentials;
+/**
+ * Mints the token an app gets for one authorization: a child of the user's session token,
+ * holding only the permissions the user consented to. It always includes the rate-limit drain
+ * permission, so the app's calls are charged to the user's account rather than falling back to
+ * the much smaller per-IP budget. Revoking it leaves the user's own session untouched.
+ */
+export async function issueAuthorizationToken(params: {
+  sessionTokenId: string;
+  userAuid: string;
+  permissions: string[];
+}): Promise<string> {
+  const sdk = getAuthSdk(params.sessionTokenId);
+  const permissions = [
+    ...new Set([...params.permissions, rateLimitDrainPermission(params.userAuid)]),
+  ];
+  const result = await sdk.LoginWithToken({ auid: params.userAuid, permissions });
+  return result.loginWithToken.id;
 }
 
-export async function refreshWithBackend(
-  refreshToken: string,
-): Promise<AuthCredentials> {
-  const sdk = getAuthSdk();
-  const result = await sdk.RefreshCredentials({ refreshToken });
-  return result.refreshCredentials;
+export function rateLimitDrainPermission(userAuid: string): string {
+  return `identity.${userAuid}.ratelimit.drain`;
 }
 
-export async function revokeWithBackend(refreshToken: string): Promise<boolean> {
-  const sdk = getAuthSdk();
-  const result = await sdk.RevokeCredentials({ refreshToken });
-  return result.revokeCredentials;
+/** Revokes a native token, which also ends every token delegated from it. */
+export async function revokeWithBackend(tokenId: string): Promise<boolean> {
+  const result = await getAuthSdk(tokenId).RevokeToken();
+  return result.revokeToken;
 }
 
 export function oauthError(

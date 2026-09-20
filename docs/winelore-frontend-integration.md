@@ -258,13 +258,13 @@ JSON bodies are also accepted by the token endpoint.
 
 ```json
 {
-  "access_token": "<IdP-signed JWT>",
+  "access_token": "<opaque token, or an IdP-signed JWT for clients configured that way>",
   "token_type": "Bearer",
-  "expires_in": 3600,
+  "expires_in": 43200,
   "scope": "openid profile offline_access",
-  "axus_access_token": "<opaque backend bearer>",
+  "axus_access_token": "<native AXUS ID token for this authorization>",
   "id_token": "<JWT when openid scope granted>",
-  "refresh_token": "<wrapped token when offline_access granted>"
+  "refresh_token": "<opaque token when offline_access granted>"
 }
 ```
 
@@ -272,12 +272,12 @@ JSON bodies are also accepted by the token endpoint.
 
 | Token | Use in Winelore |
 |---|---|
-| `axus_access_token` | **Recommended** for AXUS GraphQL API calls. Opaque backend bearer. |
-| `access_token` | IdP JWT; valid for GraphQL **and** `/oauth/userinfo`. Carries `scope` claim. |
+| `axus_access_token` | The only token AXUS GraphQL accepts. A native token issued for this authorization alone: it does not expire, so store it like a password, and it dies when the user disconnects Winelore or you call `/oauth/revoke`. |
+| `access_token` | For `/oauth/userinfo`, `/oauth/introspect`, and `/oauth/graphql` (which reaches AXUS GraphQL on your behalf). Opaque by default and revocable at once; a client can be configured for RS256 JWTs instead, which are short-lived and verifiable offline. **Not** accepted by AXUS GraphQL directly. |
 | `id_token` | Parse client-side or server-side for identity claims (`sub`, profile fields). Verify signature via JWKS. |
-| `refresh_token` | Store securely; use to obtain new tokens without re-login. |
+| `refresh_token` | Store securely and replace it on every refresh: each use returns a new one, and presenting an old one afterwards is treated as a leak and disconnects the app. |
 
-Both `access_token` and `axus_access_token` authenticate GraphQL requests:
+Only `axus_access_token` authenticates GraphQL requests:
 
 ```http
 Authorization: Bearer <token>
@@ -374,7 +374,7 @@ All protected operations require:
 ```http
 POST {AUTH_GRAPHQL_ENDPOINT}
 Content-Type: application/json
-Authorization: Bearer <axus_access_token or access_token>
+Authorization: Bearer <axus_access_token>
 
 {"query":"...","variables":{...}}
 ```
@@ -389,10 +389,16 @@ Winelore-specific backend queries (outside AXUS ID) should accept the same beare
 
 When `offline_access` was requested and granted, store `refresh_token` securely.
 
+Refresh tokens rotate: every refresh returns a new one and retires the one you sent. Always
+store the new token from the response. The retired one keeps working for 30 seconds, so a
+retried request is safe; presenting it after that revokes the whole authorization, because at
+that point the only explanation is that someone else has a copy.
+
 ```typescript
 const body = new URLSearchParams({
   grant_type: "refresh_token",
   refresh_token: storedRefreshToken,
+  client_id: clientId,
 });
 
 const response = await fetch(`${issuer}/oauth/token`, {

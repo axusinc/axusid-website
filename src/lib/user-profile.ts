@@ -3,7 +3,6 @@ import "server-only";
 import { cache } from "react";
 import type { getSdk } from "@/graphql/sdk";
 import type { VariationsQuery } from "@/graphql/sdk";
-import type { AuthCredentials } from "@/lib/auth-graphql";
 import {
   readNamePart,
   type ProfileName,
@@ -87,14 +86,14 @@ export type AccountItemInfo = {
 };
 
 export async function fetchAccountsDisplayInfo(
-  sessions: { auid: string; credentials: AuthCredentials }[],
+  sessions: { auid: string; tokenId: string }[],
   activeAuid: string,
-  sdkGetter: (credentials: AuthCredentials) => AuthSdk,
+  sdkGetter: (tokenId: string) => AuthSdk,
 ): Promise<AccountItemInfo[]> {
   const items = await Promise.all(
     sessions.map(async (sess) => {
       try {
-        const sdk = sdkGetter(sess.credentials);
+        const sdk = sdkGetter(sess.tokenId);
         const info = await resolveUserDisplayInfo(sdk, sess.auid);
         return {
           auid: sess.auid,

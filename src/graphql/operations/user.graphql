@@ -76,8 +76,8 @@ query DefaultVariation($auid: ID!) {
   }
 }
 
-mutation AddUsername($auid: ID!, $tokenId: String, $username: String!) {
-  addUsername(auid: $auid, tokenId: $tokenId, username: $username) {
+mutation AddUsername($auid: ID!, $username: String!) {
+  addUsername(auid: $auid, username: $username) {
     auid
     usernames
     defaultUsername
@@ -100,8 +100,8 @@ mutation ChangeDefaultUsername($auid: ID!, $username: String!) {
   }
 }
 
-mutation ChangeUsername($auid: ID!, $tokenId: String, $oldUsername: String!, $newUsername: String!) {
-  changeUsername(auid: $auid, tokenId: $tokenId, oldUsername: $oldUsername, newUsername: $newUsername) {
+mutation ChangeUsername($auid: ID!, $oldUsername: String!, $newUsername: String!) {
+  changeUsername(auid: $auid, oldUsername: $oldUsername, newUsername: $newUsername) {
     auid
     usernames
     defaultUsername
@@ -190,16 +190,16 @@ mutation SetDefaultVariation($auid: ID!, $variationId: ID!) {
   }
 }
 
-query ExternalIdentities($auid: ID!, $tokenId: String) {
-  externalIdentities(auid: $auid, tokenId: $tokenId) {
+query ExternalIdentities($auid: ID!) {
+  externalIdentities(auid: $auid) {
     id
     providerId
     createdAt
   }
 }
 
-query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
-  externalIdentityAccessToken(auid: $auid, externalIdentityId: $externalIdentityId, tokenId: $tokenId) {
+query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!) {
+  externalIdentityAccessToken(auid: $auid, externalIdentityId: $externalIdentityId) {
     accessToken
     tokenType
     expiresIn
@@ -207,8 +207,8 @@ query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!, $tokenId
   }
 }
 
-mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!, $tokenId: String) {
-  unlinkExternalIdentity(auid: $auid, externalIdentityId: $externalIdentityId, tokenId: $tokenId)
+mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!) {
+  unlinkExternalIdentity(auid: $auid, externalIdentityId: $externalIdentityId)
 }
 
 

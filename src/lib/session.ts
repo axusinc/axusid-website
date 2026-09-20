@@ -1,16 +1,16 @@
 import "server-only";
 
-import type { AuthCredentials } from "@/lib/auth-graphql";
 import { fromBase64Url, toBase64Url } from "@/lib/oauth/pkce";
-import { partitionScopes } from "@/lib/oauth/scopes";
 
 export const SESSION_COOKIE = "axusid_session";
 
 export type IdPSession = {
   auid: string;
-  credentials: AuthCredentials;
-  oidcScopes: string[];
-  axusPermissions: string[];
+  /**
+   * Native AXUS ID token for the user's own session, holding everything the account holds.
+   * Apps never see it: each authorization gets its own narrower token.
+   */
+  tokenId: string;
   consentedClients: string[];
 };
 
@@ -21,13 +21,11 @@ export type MultiSession = {
 
 type LegacySessionPayload = IdPSession & {
   exp: number;
-  /** @deprecated Legacy field — partitioned on read */
-  scopes?: string[];
 };
 
 type MultiSessionPayload = {
   activeAuid: string;
-  accounts: Array<IdPSession & { scopes?: string[] }>;
+  accounts: IdPSession[];
   exp: number;
 };
 
@@ -63,25 +61,10 @@ async function verify(value: string, signature: string): Promise<boolean> {
   return expected === signature;
 }
 
-function parseAccountPayload(rawAccount: IdPSession & { scopes?: string[] }): IdPSession {
-  if (rawAccount.oidcScopes && rawAccount.axusPermissions) {
-    return {
-      auid: rawAccount.auid,
-      credentials: rawAccount.credentials,
-      oidcScopes: rawAccount.oidcScopes,
-      axusPermissions: rawAccount.axusPermissions,
-      consentedClients: rawAccount.consentedClients ?? [],
-    };
-  }
-
-  const legacyScopes = rawAccount.scopes ?? [];
-  const { oidcScopes, axusPermissions } = partitionScopes(legacyScopes);
-
+function parseAccountPayload(rawAccount: IdPSession): IdPSession {
   return {
     auid: rawAccount.auid,
-    credentials: rawAccount.credentials,
-    oidcScopes,
-    axusPermissions,
+    tokenId: rawAccount.tokenId,
     consentedClients: rawAccount.consentedClients ?? [],
   };
 }
@@ -121,7 +104,8 @@ export async function decodeMultiSession(token: string): Promise<MultiSession | 
     // Check if multi-session format
     if (raw.activeAuid && Array.isArray(raw.accounts)) {
       const accounts = raw.accounts
-        .filter((account) => isCanonicalAuid(account.auid))
+        // Accounts from before native-token sessions carry no tokenId; they sign in again.
+        .filter((account) => isCanonicalAuid(account.auid) && typeof account.tokenId === "string")
         .map(parseAccountPayload);
       if (accounts.length === 0) {
         return null;
@@ -136,7 +120,7 @@ export async function decodeMultiSession(token: string): Promise<MultiSession | 
     }
 
     // Fallback: legacy single session payload
-    if (isCanonicalAuid(raw.auid) && raw.credentials) {
+    if (isCanonicalAuid(raw.auid) && typeof raw.tokenId === "string") {
       const singleAccount = parseAccountPayload(raw as LegacySessionPayload);
       return {
         activeAuid: singleAccount.auid,

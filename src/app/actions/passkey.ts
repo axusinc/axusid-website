@@ -3,13 +3,13 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getAuthSdkForSession, opaqueGraphqlBearer } from "@/lib/auth-graphql";
+import { getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError } from "@/lib/graphql-errors";
 import { getValidSession, addAccountToSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
-import { getOAuthClient, normalizeScopes, partitionScopes, validateScopes } from "@/lib/oauth/clients";
+import { SESSION_PERMISSIONS } from "@/lib/oauth/adapter";
 import {
   startPasskeyEnrollment,
   verifyPasskeyEnrollment,
@@ -64,37 +64,11 @@ export async function startPasskeyLoginAction(
     }
   }
 
-  let axusPermissions: string[] = [];
-  if (redirectUri && redirectUri.startsWith("/authorize")) {
-    try {
-      const url = new URL(redirectUri, "http://localhost");
-      const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-      const scopeParam = url.searchParams.get("scope");
-      if (clientId) {
-        const client = await getOAuthClient(clientId);
-        if (client) {
-          const validated = validateScopes(client, normalizeScopes(scopeParam ?? ""));
-          axusPermissions = partitionScopes(validated).axusPermissions;
-        }
-      }
-    } catch {
-      // Ignore scope parsing errors for ceremony start
-    }
-  }
-
   try {
-    const loginPermissions = axusPermissions.length > 0
-      ? [
-          ...new Set([
-            ...axusPermissions,
-            ...(auid ? [`identity.${auid}.credentials.issue`] : []),
-          ]),
-        ]
-      : undefined;
     const effectiveRp = (await resolveRp(rp)) || "localhost";
     const loginResponse = await startPasskeyLogin(
       effectiveRp,
-      loginPermissions,
+      SESSION_PERMISSIONS,
     );
     return { loginResponse, auid };
   } catch (error) {
@@ -125,38 +99,9 @@ export async function loginWithPasskeyAction(params: {
     }
   }
 
-  const isOAuthFlow = !!redirectUri?.startsWith("/authorize");
-  let oidcScopes = ["openid"];
-  let axusPermissions: string[] = [];
-
-  if (isOAuthFlow && redirectUri) {
-    let url: URL;
-    try {
-      url = new URL(redirectUri, "http://localhost");
-    } catch {
-      return { error: "Invalid redirect_uri." };
-    }
-    const clientId = url.searchParams.get("client_id") || url.searchParams.get("auid");
-    const scopeParam = url.searchParams.get("scope");
-
-    if (clientId) {
-      const client = await getOAuthClient(clientId);
-      if (client) {
-        try {
-          const validatedScopes = validateScopes(client, normalizeScopes(scopeParam ?? ""));
-          const partitioned = partitionScopes(validatedScopes);
-          oidcScopes = partitioned.oidcScopes;
-          axusPermissions = partitioned.axusPermissions;
-        } catch (err) {
-          return { error: err instanceof Error ? err.message : "Invalid scope." };
-        }
-      }
-    }
-  }
-
-  let credentials;
+  let login;
   try {
-    credentials = await loginWithPasskey(challengeId, credentialResponse, auid);
+    login = await loginWithPasskey(challengeId, credentialResponse, auid);
   } catch (error) {
     return {
       error: formatGraphqlError(error, undefined, "Passkey authentication failed."),
@@ -164,10 +109,8 @@ export async function loginWithPasskeyAction(params: {
   }
 
   const session: IdPSession = {
-    auid: credentials.auid,
-    credentials,
-    oidcScopes,
-    axusPermissions,
+    auid: login.auid,
+    tokenId: login.tokenId,
     consentedClients: [],
   };
 
@@ -191,7 +134,6 @@ export async function startPasskeyEnrollmentAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
     const sdk = getAuthSdkForSession(session);
     const usernames = await sdk.Usernames({ auid: session.auid });
     const passkeyUsername = usernames.usernames?.defaultUsername?.trim();
@@ -201,7 +143,7 @@ export async function startPasskeyEnrollmentAction(
     }
 
     const effectiveRp = (await resolveRp(rp)) || "localhost";
-    const response = await startPasskeyEnrollment(session.auid, effectiveRp, displayName, bearer);
+    const response = await startPasskeyEnrollment(session.auid, effectiveRp, displayName, session.tokenId);
     return { enrollmentResponse: response, passkeyUsername };
   } catch (error) {
     return {
@@ -221,13 +163,12 @@ export async function verifyPasskeyEnrollmentAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
     await verifyPasskeyEnrollment(
       session.auid,
       challengeId,
       credentialResponse,
       name,
-      bearer,
+      session.tokenId,
     );
 
     revalidatePath("/account");
@@ -254,8 +195,7 @@ export async function updatePasskeyNameAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
-    const success = await updatePasskeyName(session.auid, passkeyId, trimmedName, bearer);
+    const success = await updatePasskeyName(session.auid, passkeyId, trimmedName, session.tokenId);
     if (!success) {
       return { error: "Failed to update passkey name." };
     }
@@ -278,8 +218,7 @@ export async function deletePasskeyAction(
   }
 
   try {
-    const bearer = opaqueGraphqlBearer(session.credentials);
-    const deleted = await deletePasskey(session.auid, passkeyId, bearer);
+    const deleted = await deletePasskey(session.auid, passkeyId, session.tokenId);
     if (!deleted) {
       return {
         error: "This passkey cannot be removed. Add another way to sign in first.",

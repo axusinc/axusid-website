@@ -16,14 +16,13 @@ import {
   getGoogleRedirectUri,
   linkGoogleIdentity,
   loginWithGoogleIdentity,
-  resolveExternalLoginScopes,
   setGoogleRegistrationName,
   type GoogleOAuthState,
 } from "@/lib/google-oauth";
 import { DOMAIN_ERROR_CODES, getPrimaryDomainError } from "@/lib/graphql-errors";
-import { wrapTokenWithBackend } from "@/lib/oauth/adapter";
 import { addAccountToSession, getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
+import { SESSION_PERMISSIONS } from "@/lib/oauth/adapter";
 
 function loginRedirect(
   request: NextRequest,
@@ -132,18 +131,12 @@ export async function GET(request: NextRequest) {
       return accountRedirect(request, "linked");
     }
 
-    const { oidcScopes, axusPermissions } = await resolveExternalLoginScopes(
-      oauthState.redirectUri,
-    );
-
     // First try logging into an existing account linked with this Google identity
     try {
-      const credentials = await loginWithGoogleIdentity(refreshToken, axusPermissions);
+      const login = await loginWithGoogleIdentity(refreshToken, SESSION_PERMISSIONS);
       const session: IdPSession = {
-        auid: credentials.auid,
-        credentials,
-        oidcScopes,
-        axusPermissions,
+        auid: login.auid,
+        tokenId: login.tokenId,
         consentedClients: [],
       };
 
@@ -178,15 +171,14 @@ export async function GET(request: NextRequest) {
         const auid = result.createUser.auid;
         const tokenId = result.createUser.token.id;
 
-        await ensureRegistrationUsername(sdk, {
+        await ensureRegistrationUsername({
           auid,
           tokenId,
           username: oauthState.username,
         });
 
-        await sdk.LinkExternalIdentity({
+        await getAuthSdk(tokenId).LinkExternalIdentity({
           auid,
-          tokenId,
           authentication: {
             providerId: getGoogleProviderId(),
             refreshToken,
@@ -194,17 +186,14 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        const credentials = await wrapTokenWithBackend(auid, tokenId);
         await setGoogleRegistrationName({
           auid,
-          credentials,
+          tokenId,
           profile: googleProfile ?? {},
         });
         const session: IdPSession = {
           auid,
-          credentials,
-          oidcScopes,
-          axusPermissions,
+          tokenId,
           consentedClients: [],
         };
 

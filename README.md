@@ -75,7 +75,9 @@ AXUS ID runs at `http://localhost:3000`.
 | `GET /authorize` | Authorization endpoint (Authorization Code + PKCE) |
 | `POST /oauth/token` | Token endpoint (`authorization_code`, `refresh_token`) |
 | `GET /oauth/userinfo` | UserInfo endpoint (Bearer IdP JWT) |
-| `POST /oauth/revoke` | Token revocation |
+| `POST /oauth/revoke` | Token revocation (ends the whole authorization) |
+| `POST /oauth/introspect` | Token introspection (RFC 7662), for opaque access tokens |
+| `POST /oauth/graphql` | Engine GraphQL proxied with the app's OAuth access token |
 
 ### Token response
 
@@ -83,7 +85,7 @@ Token exchange returns a dual-token response:
 
 ```json
 {
-  "access_token": "<IdP-signed JWT>",
+  "access_token": "<opaque token, or an IdP-signed JWT for clients configured that way>",
   "id_token": "<IdP-signed JWT when openid scope>",
   "axus_access_token": "<backend bearer for GraphQL>",
   "refresh_token": "<IdP-wrapped opaque token when offline_access scope>",
@@ -93,10 +95,10 @@ Token exchange returns a dual-token response:
 }
 ```
 
-- `access_token` — IdP JWT for OIDC libraries, `/oauth/userinfo`, and AXUS GraphQL API calls
-- `axus_access_token` — backend opaque token for AXUS GraphQL API calls
+- `access_token` — for `/oauth/userinfo`, `/oauth/introspect` and `/oauth/graphql`; not accepted by the engine itself. Opaque by default (12 hours, revocable at once); a client can be switched to RS256 JWTs (15 minutes, verifiable offline against the JWKS, and valid until they expire no matter what)
+- `axus_access_token` — the native AXUS ID token for this authorization, the only credential engine GraphQL accepts. It does not expire, but it is revoked when the user disconnects the app
 - `id_token` — identity JWT when `openid` is granted
-- `refresh_token` — wrapped refresh token when `offline_access` is granted
+- `refresh_token` — opaque refresh token when `offline_access` is granted. It is rotated on every use: the old one keeps working for 30 seconds so a retried request is not punished, and presenting it later revokes the whole authorization, on the assumption that a copy leaked
 
 ### Dev client
 
@@ -112,16 +114,13 @@ Any signed-in AXUS ID user can register OAuth clients at `/developer/oauth/clien
 
 ## GraphQL mapping
 
-Protected GraphQL operations require an `Authorization: Bearer …` header. The backend accepts either:
-
-- the opaque backend token (`axus_access_token` from `/oauth/token`), or
-- the IdP JWT access token (`access_token` from `/oauth/token`, with permissions in the `scope` claim)
+Protected GraphQL operations require an `Authorization: Bearer <native token>` header, e.g. `axus_access_token` from `/oauth/token`. The header is the only way to pass a token, and the backend has no access/refresh credentials of its own: OAuth access and refresh tokens are issued and managed by this IdP.
 
 | OAuth2 concept | GraphQL operation |
 |---|---|
 | User login | `login(auid, password, permissions)` |
-| Token refresh | `refreshCredentials(refreshToken)` |
-| Token revoke | `revokeCredentials(refreshToken)` |
+| Token refresh | handled by this IdP (`/oauth/token`); native tokens don't expire |
+| Token revoke | `revokeToken` with the token as Bearer |
 | Registration | `createUser(username, password)` |
 | Password change | `changePassword(auid, newPassword)` with Bearer auth |
 
@@ -131,12 +130,20 @@ The `email` scope returns a synthetic email (`[auid]@amail.com`) for app compati
 
 ## OAuth2 flow
 
-1. Client redirects the user to `/authorize` with PKCE params.
+1. Client redirects the user to `/authorize` with PKCE params. PKCE is required: there are no
+   client secrets, and `none` is the only client authentication method.
 2. User signs in at `/login` with **AUID + password**.
-3. User approves scopes at `/consent`.
-4. AXUS ID stores a short-lived authorization code in PostgreSQL and redirects back.
+3. User approves scopes at `/consent`. The approval is stored server-side, so it survives
+   sign-out and is listed under Connected apps on the account page; asking for scopes beyond
+   what was approved prompts again.
+4. AXUS ID mints a native token for this app alone - holding the approved permissions plus the
+   rate-limit drain permission for the user's account - stores a short-lived authorization code
+   in PostgreSQL, and redirects back.
 5. Client exchanges the code at `/oauth/token` with the PKCE verifier.
-6. AXUS ID returns IdP JWTs plus `axus_access_token`.
+6. AXUS ID returns its own tokens plus `axus_access_token`.
+
+The user can disconnect an app at any time from the account page, which revokes its native
+token at the engine and every OAuth token issued for it. The user's own session is untouched.
 
 ### Example authorize URL
 

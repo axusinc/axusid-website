@@ -1,5 +1,5 @@
+import { resolveAccessToken } from "@/lib/oauth/access-token";
 import { buildOidcClaims } from "@/lib/oauth/claims";
-import { verifyAccessToken } from "@/lib/oauth/jwt";
 
 function unauthorized(description: string): Response {
   return Response.json(
@@ -28,22 +28,23 @@ async function handleUserinfo(request: Request): Promise<Response> {
     return unauthorized("Missing or invalid Authorization header");
   }
 
-  let claimsContext: { sub: string; aud: string; scope: string; oidcScope: string };
-  try {
-    claimsContext = await verifyAccessToken(token);
-  } catch {
-    return unauthorized("Access token is invalid or expired");
+  const resolved = await resolveAccessToken(token);
+  if (!resolved) {
+    return unauthorized("Access token is invalid, expired or revoked");
   }
 
-  const oidcScopes = claimsContext.oidcScope.split(/\s+/).filter(Boolean);
+  const oidcScopes = resolved.scopes.filter((scope) =>
+    ["openid", "profile", "email", "offline_access"].includes(scope),
+  );
   if (!oidcScopes.includes("openid")) {
     return unauthorized("Access token does not include the openid scope");
   }
 
   try {
+    // Read the profile as the app's own token, so the engine sees who is asking.
     const profileClaims = await buildOidcClaims(
-      claimsContext.sub,
-      token,
+      resolved.userAuid,
+      resolved.grant.tokenId,
       oidcScopes,
     );
 

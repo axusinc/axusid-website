@@ -1,6 +1,7 @@
-import { oauthError, revokeWithBackend } from "@/lib/oauth/adapter";
+import { oauthError } from "@/lib/oauth/adapter";
+import { revokeByAccessToken } from "@/lib/oauth/access-token";
 import { parseRequestBody, revokeRequestSchema } from "@/lib/oauth/schemas";
-import { unwrapRefreshToken } from "@/lib/oauth/refresh-token";
+import { revokeByRefreshToken } from "@/lib/oauth/refresh-token";
 
 export async function POST(request: Request) {
   const body = await parseRequestBody(request);
@@ -13,19 +14,18 @@ export async function POST(request: Request) {
     );
   }
 
-  let token = parsed.data.token;
+  const token = parsed.data.token;
 
+  // token_type_hint is optional in RFC 7009, so both kinds are tried. Either way the whole
+  // authorization ends: the app's native token is revoked at the engine, and its remaining
+  // access and refresh tokens go with it.
   try {
-    const unwrapped = await unwrapRefreshToken(token);
-    token = unwrapped.backendRefreshToken;
+    const revoked = await revokeByRefreshToken(token);
+    if (!revoked) {
+      await revokeByAccessToken(token);
+    }
   } catch {
-    // Token may already be a raw backend refresh token.
-  }
-
-  try {
-    await revokeWithBackend(token);
-  } catch {
-    // RFC 7009: revocation endpoint returns 200 even if token is unknown
+    // An unknown token is still a successful revocation.
   }
 
   return new Response(null, { status: 200 });

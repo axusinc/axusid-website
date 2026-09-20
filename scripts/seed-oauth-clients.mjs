@@ -11,7 +11,6 @@ const DEV_CLIENT = {
     "http://localhost:3001/callback",
     "http://127.0.0.1:3000/callback",
   ],
-  allowed_scopes: ["openid", "profile", "email", "offline_access"],
 };
 
 async function main() {
@@ -30,12 +29,10 @@ async function main() {
     await sql`
       INSERT INTO oauth_clients (
         auid,
-        redirect_uris,
-        allowed_scopes
+        redirect_uris
       ) VALUES (
         ${DEV_CLIENT.auid},
-        ${DEV_CLIENT.redirect_uris},
-        ${DEV_CLIENT.allowed_scopes}
+        ${DEV_CLIENT.redirect_uris}
       )
     `;
 
