@@ -1,0 +1,35 @@
+query MyGrants($auid: ID!) {
+  grants(auid: $auid) {
+    permission
+  }
+}
+
+query MyDelegatedGrants($auid: ID!) {
+  delegatedGrants(auid: $auid) {
+    id
+    granteeAuid
+    permission
+    effect
+    activationState
+    isShadow
+  }
+}
+
+query EffectivePermission($auid: ID!, $permission: String!) {
+  checkPermission(auid: $auid, permission: $permission) { allowed }
+}
+
+mutation SharePermission($granterAuid: ID!, $granteeAuid: ID!, $permission: String!) {
+  delegatePermission(granterAuid: $granterAuid, granteeAuid: $granteeAuid, permission: $permission) {
+    id
+    granteeAuid
+    permission
+    effect
+    activationState
+    isShadow
+  }
+}
+
+mutation RemoveSharedPermission($grantId: ID!) {
+  revokeGrant(grantId: $grantId)
+}

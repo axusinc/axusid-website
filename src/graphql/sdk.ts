@@ -83,6 +83,7 @@ export type SchemaMutation = {
   clearStatus: SchemaStatus;
   createUser: SchemaCreatedUser;
   createVariation: SchemaVariation;
+  delegatePermission: SchemaPermissionGrant;
   deletePasskey: Scalars['Boolean']['output'];
   finishPasskeyRegistration: Scalars['Boolean']['output'];
   linkExternalIdentity: SchemaExternalIdentity;
@@ -94,6 +95,7 @@ export type SchemaMutation = {
   removeUsername: SchemaUsernames;
   reorderParents: SchemaParents;
   requestParent: SchemaParents;
+  revokeGrant: Scalars['Boolean']['output'];
   revokeToken: Scalars['Boolean']['output'];
   setDefaultVariation: SchemaDefaultVariation;
   setPassword: Scalars['Boolean']['output'];
@@ -195,6 +197,13 @@ export type SchemaMutationCreateVariationArgs = {
 };
 
 
+export type SchemaMutationDelegatePermissionArgs = {
+  granteeAuid: Scalars['ID']['input'];
+  granterAuid: Scalars['ID']['input'];
+  permission: Scalars['String']['input'];
+};
+
+
 export type SchemaMutationDeletePasskeyArgs = {
   auid: Scalars['ID']['input'];
   credentialId: Scalars['ID']['input'];
@@ -261,6 +270,11 @@ export type SchemaMutationReorderParentsArgs = {
 export type SchemaMutationRequestParentArgs = {
   auid: Scalars['ID']['input'];
   parentAuid: Scalars['ID']['input'];
+};
+
+
+export type SchemaMutationRevokeGrantArgs = {
+  grantId: Scalars['ID']['input'];
 };
 
 
@@ -391,12 +405,57 @@ export type SchemaPasskeyCredential = {
   transports: Array<Scalars['String']['output']>;
 };
 
+export type SchemaPermissionCheck = {
+  __typename?: 'PermissionCheck';
+  allowed: Scalars['Boolean']['output'];
+  reason: Scalars['String']['output'];
+};
+
+export type SchemaPermissionGrant = {
+  __typename?: 'PermissionGrant';
+  activationState: SchemaPermissionGrantActivationState;
+  effect: SchemaPermissionGrantEffect;
+  granteeAuid: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  isShadow: Scalars['Boolean']['output'];
+  origin: SchemaPermissionGrantOrigin;
+  permission: Scalars['String']['output'];
+};
+
+export enum SchemaPermissionGrantActivationState {
+  Active = 'ACTIVE',
+  Inactive = 'INACTIVE',
+  RequiresApproval = 'REQUIRES_APPROVAL',
+  TemporarilyActive = 'TEMPORARILY_ACTIVE'
+}
+
+export enum SchemaPermissionGrantEffect {
+  Allow = 'ALLOW',
+  Deny = 'DENY'
+}
+
+export type SchemaPermissionGrantOrigin = {
+  __typename?: 'PermissionGrantOrigin';
+  delegatorAuid?: Maybe<Scalars['ID']['output']>;
+  delegatorTokenId?: Maybe<Scalars['ID']['output']>;
+  type: SchemaPermissionGrantOriginType;
+};
+
+export enum SchemaPermissionGrantOriginType {
+  Delegated = 'DELEGATED',
+  DelegatedByToken = 'DELEGATED_BY_TOKEN',
+  Direct = 'DIRECT'
+}
+
 export type SchemaQuery = {
   __typename?: 'Query';
+  checkPermission: SchemaPermissionCheck;
   defaultVariation?: Maybe<SchemaDefaultVariation>;
+  delegatedGrants: Array<SchemaPermissionGrant>;
   description?: Maybe<SchemaDescription>;
   externalIdentities: Array<SchemaExternalIdentity>;
   externalIdentityAccessToken: SchemaExternalIdentityAccessTokenResponse;
+  grants: Array<SchemaPermissionGrant>;
   identities: SchemaPaginatedIdentities;
   isPasswordSet: Scalars['Boolean']['output'];
   name?: Maybe<SchemaName>;
@@ -410,7 +469,18 @@ export type SchemaQuery = {
 };
 
 
+export type SchemaQueryCheckPermissionArgs = {
+  auid: Scalars['ID']['input'];
+  permission: Scalars['String']['input'];
+};
+
+
 export type SchemaQueryDefaultVariationArgs = {
+  auid: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryDelegatedGrantsArgs = {
   auid: Scalars['ID']['input'];
 };
 
@@ -428,6 +498,11 @@ export type SchemaQueryExternalIdentitiesArgs = {
 export type SchemaQueryExternalIdentityAccessTokenArgs = {
   auid: Scalars['ID']['input'];
   externalIdentityId: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryGrantsArgs = {
+  auid: Scalars['ID']['input'];
 };
 
 
@@ -553,6 +628,16 @@ export type NameSeparatorType =
   | 'HYPHEN'
   | 'SPACE';
 
+export type PermissionGrantActivationState =
+  | 'ACTIVE'
+  | 'INACTIVE'
+  | 'REQUIRES_APPROVAL'
+  | 'TEMPORARILY_ACTIVE';
+
+export type PermissionGrantEffect =
+  | 'ALLOW'
+  | 'DENY';
+
 export type LoginWithPasswordMutationVariables = Exact<{
   auid: string | number;
   password: string;
@@ -672,6 +757,44 @@ export type LoginWithPasskeyMutationVariables = Exact<{
 
 
 export type LoginWithPasskeyMutation = { loginWithPasskey: { id: string, auid: string } };
+
+export type MyGrantsQueryVariables = Exact<{
+  auid: string | number;
+}>;
+
+
+export type MyGrantsQuery = { grants: Array<{ permission: string }> };
+
+export type MyDelegatedGrantsQueryVariables = Exact<{
+  auid: string | number;
+}>;
+
+
+export type MyDelegatedGrantsQuery = { delegatedGrants: Array<{ id: string, granteeAuid: string, permission: string, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean }> };
+
+export type EffectivePermissionQueryVariables = Exact<{
+  auid: string | number;
+  permission: string;
+}>;
+
+
+export type EffectivePermissionQuery = { checkPermission: { allowed: boolean } };
+
+export type SharePermissionMutationVariables = Exact<{
+  granterAuid: string | number;
+  granteeAuid: string | number;
+  permission: string;
+}>;
+
+
+export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string, permission: string, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean } };
+
+export type RemoveSharedPermissionMutationVariables = Exact<{
+  grantId: string | number;
+}>;
+
+
+export type RemoveSharedPermissionMutation = { revokeGrant: boolean };
 
 export type OwnerByUsernameQueryVariables = Exact<{
   username: string;
@@ -952,6 +1075,53 @@ export const LoginWithPasskeyDocument = gql`
   }
 }
     `;
+export const MyGrantsDocument = gql`
+    query MyGrants($auid: ID!) {
+  grants(auid: $auid) {
+    permission
+  }
+}
+    `;
+export const MyDelegatedGrantsDocument = gql`
+    query MyDelegatedGrants($auid: ID!) {
+  delegatedGrants(auid: $auid) {
+    id
+    granteeAuid
+    permission
+    effect
+    activationState
+    isShadow
+  }
+}
+    `;
+export const EffectivePermissionDocument = gql`
+    query EffectivePermission($auid: ID!, $permission: String!) {
+  checkPermission(auid: $auid, permission: $permission) {
+    allowed
+  }
+}
+    `;
+export const SharePermissionDocument = gql`
+    mutation SharePermission($granterAuid: ID!, $granteeAuid: ID!, $permission: String!) {
+  delegatePermission(
+    granterAuid: $granterAuid
+    granteeAuid: $granteeAuid
+    permission: $permission
+  ) {
+    id
+    granteeAuid
+    permission
+    effect
+    activationState
+    isShadow
+  }
+}
+    `;
+export const RemoveSharedPermissionDocument = gql`
+    mutation RemoveSharedPermission($grantId: ID!) {
+  revokeGrant(grantId: $grantId)
+}
+    `;
 export const OwnerByUsernameDocument = gql`
     query OwnerByUsername($username: String!) {
   ownerByUsername(username: $username)
@@ -1215,6 +1385,21 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     LoginWithPasskey(variables: LoginWithPasskeyMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<LoginWithPasskeyMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<LoginWithPasskeyMutation>({ document: LoginWithPasskeyDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'LoginWithPasskey', 'mutation', variables);
+    },
+    MyGrants(variables: MyGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyGrantsQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<MyGrantsQuery>({ document: MyGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyGrants', 'query', variables);
+    },
+    MyDelegatedGrants(variables: MyDelegatedGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyDelegatedGrantsQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<MyDelegatedGrantsQuery>({ document: MyDelegatedGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyDelegatedGrants', 'query', variables);
+    },
+    EffectivePermission(variables: EffectivePermissionQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<EffectivePermissionQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<EffectivePermissionQuery>({ document: EffectivePermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'EffectivePermission', 'query', variables);
+    },
+    SharePermission(variables: SharePermissionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SharePermissionMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<SharePermissionMutation>({ document: SharePermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SharePermission', 'mutation', variables);
+    },
+    RemoveSharedPermission(variables: RemoveSharedPermissionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RemoveSharedPermissionMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<RemoveSharedPermissionMutation>({ document: RemoveSharedPermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RemoveSharedPermission', 'mutation', variables);
     },
     OwnerByUsername(variables: OwnerByUsernameQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<OwnerByUsernameQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<OwnerByUsernameQuery>({ document: OwnerByUsernameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'OwnerByUsername', 'query', variables);

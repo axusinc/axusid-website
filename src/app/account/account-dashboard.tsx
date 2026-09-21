@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { AppWindow, Code2, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, KeyRound, Code2, ShieldCheck, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   ConnectedAppsSection,
   type ConnectedApp,
 } from "@/app/account/connected-apps-section";
+import { PermissionsSection } from "./permissions-section";
 import { DeveloperSection } from "@/app/account/developer-section";
 import { SectionIntro } from "@/app/account/dashboard-ui";
 import { BrandMark } from "@/components/brand-mark";
@@ -26,6 +27,7 @@ import { VariationForms } from "./variation-forms";
 import type { ExternalIdentity } from "@/lib/google-oauth";
 
 type SectionId =
+  | "permissions"
   | "profile"
   | "security"
   | "connected-apps"
@@ -72,6 +74,7 @@ const sections: {
   Icon: typeof UserRound;
 }[] = [
   { id: "profile", label: "Profile", Icon: UserRound },
+  { id: "permissions", label: "Permissions", Icon: KeyRound },
   { id: "security", label: "Security", Icon: ShieldCheck },
   { id: "connected-apps", label: "Connected apps", Icon: AppWindow },
   { id: "nested-accounts", label: "Nested accounts", Icon: UsersRound },
@@ -79,6 +82,7 @@ const sections: {
 ];
 
 function parseSection(value: string | null): SectionId {
+  if (value === "permissions") return "permissions";
   if (value === "security") return "security";
   if (value === "connected-apps") return "connected-apps";
   if (value === "nested-accounts") return "nested-accounts";
@@ -87,6 +91,7 @@ function parseSection(value: string | null): SectionId {
 }
 
 const sectionMeta: Record<SectionId, { title: string; description: string }> = {
+  permissions: { title: "Permissions", description: "See who you’ve shared access with and manage your permissions." },
   profile: {
     title: "Profile",
     description:
@@ -267,6 +272,8 @@ export function AccountDashboard({
                 onEditingChange={handleEditingChange}
                 cancelRef={securityCancelRef}
               />
+            ) : active === "permissions" ? (
+              <PermissionsSection key={auid} onEditingChange={handleEditingChange} />
             ) : active === "connected-apps" ? (
               <ConnectedAppsSection apps={connectedApps} />
             ) : active === "nested-accounts" ? (

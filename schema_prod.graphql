@@ -13,6 +13,12 @@ type Query {
     externalIdentityAccessToken(auid: ID!, externalIdentityId: ID!): ExternalIdentityAccessTokenResponse!
     passkeys(auid: ID!): [PasskeyCredential!]!
     isPasswordSet(auid: ID!): Boolean!
+    # Permission reads require identity.<auid>.grants.read on the caller token.
+    grants(auid: ID!): [PermissionGrant!]!
+    # Identity grants delegated by this identity; requires identity.<auid>.grants.read.
+    # Includes grants that may not currently confer access. Excludes token and role recipients.
+    delegatedGrants(auid: ID!): [PermissionGrant!]!
+    checkPermission(auid: ID!, permission: String!): PermissionCheck!
 }
 
 
@@ -54,6 +60,50 @@ type Mutation {
     deletePasskey(auid: ID!, credentialId: ID!): Boolean!
     startPasskeyLogin(permissions: [String!], relyingPartyId: String!): PasskeyCeremony!
     loginWithPasskey(challengeId: ID!, responseJson: String!): AuthenticatedToken!
+    # Requires identity.<granterAuid>.grants.delegate on the caller token and
+    # requires the granter identity to hold the requested permission.
+    delegatePermission(granterAuid: ID!, granteeAuid: ID!, permission: String!): PermissionGrant!
+    # Requires the original granter's grants.delegate permission.
+    revokeGrant(grantId: ID!): Boolean!
+}
+
+type PermissionCheck {
+    allowed: Boolean!
+    reason: String!
+}
+
+type PermissionGrant {
+    id: ID!
+    granteeAuid: ID!
+    permission: String!
+    effect: PermissionGrantEffect!
+    origin: PermissionGrantOrigin!
+    activationState: PermissionGrantActivationState!
+    isShadow: Boolean!
+}
+
+type PermissionGrantOrigin {
+    type: PermissionGrantOriginType!
+    delegatorAuid: ID
+    delegatorTokenId: ID
+}
+
+enum PermissionGrantEffect {
+    ALLOW
+    DENY
+}
+
+enum PermissionGrantOriginType {
+    DIRECT
+    DELEGATED
+    DELEGATED_BY_TOKEN
+}
+
+enum PermissionGrantActivationState {
+    ACTIVE
+    INACTIVE
+    REQUIRES_APPROVAL
+    TEMPORARILY_ACTIVE
 }
 
 type PasskeyCredential {
@@ -185,10 +235,13 @@ enum ParentStatus {
 }
 
 type Token {
+    # Send this as `Authorization: Bearer`. It is returned only here: the engine keeps the
+    # token's public id and a hash of its secret, never the string itself.
     id: ID!
 }
 
 type AuthenticatedToken {
+    # Send this as `Authorization: Bearer`; see Token.id.
     id: ID!
     auid: ID!
 }

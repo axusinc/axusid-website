@@ -170,6 +170,7 @@ echo -n "VERIFIER" | openssl dgst -sha256 -binary | openssl base64 | tr '+/' '-_
 | `/login` | Sign in (AUID + password) |
 | `/consent` | OAuth scope approval |
 | `/account` | Profile, usernames, variations |
+| `/account?section=permissions` | View outgoing and received permissions; share access by username |
 | `/developer/oauth/clients` | Self-service OAuth client registration |
 | `/callback` | Dev OAuth redirect handler |
 
@@ -190,3 +191,22 @@ npm run lint        # ESLint
 - White, minimal aesthetic with frosted-glass blur surfaces
 - Black as the default accent; brand red `#B61C1C` for primary CTAs
 - Placeholder square logo at `public/axusid-tm-logo.png`
+
+## Permission management
+
+The account Permissions section uses the engine as the source of truth, including delegations
+created outside this website. Deploy the engine version exposing `delegatedGrants(auid: ID!)`
+before deploying this UI. The query requires `identity.<auid>.grants.read` and returns identity
+recipients only; token and role grants are excluded. Sharing and removal require the granter’s
+`identity.<auid>.grants.delegate` permission.
+
+Usernames are resolved on the server. The granter is always the active signed-in account, and
+revocation is restricted to that account’s outgoing grants. The UI offers specific permissions
+that the engine confirms the account holds, even when its original grant is a wildcard.
+A “Shared” label describes the delegation, not a guarantee of the recipient’s effective access.
+
+Run focused frontend contract and authorization tests with:
+
+```bash
+node --test tests/permissions.test.mjs
+```
