@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { GitHubIcon } from "@/components/ui/github-icon";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KeyRound, Plus } from "lucide-react";
 import {
@@ -186,6 +187,144 @@ function GoogleConnectionCard({
   );
 }
 
+function GitHubAccountAvatar({ picture, username }: { picture?: string; username?: string }) {
+  const [failedPicture, setFailedPicture] = useState<string | null>(null);
+  if (picture && picture !== failedPicture) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={picture}
+        alt={username ? `${username}’s GitHub avatar` : "GitHub avatar"}
+        referrerPolicy="no-referrer"
+        onError={() => setFailedPicture(picture)}
+        className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-black/10"
+      />
+    );
+  }
+  return <GitHubIcon className="h-9 w-9 shrink-0" />;
+}
+
+function GitHubConnectionCard({
+  initialExternalIdentities = [],
+}: {
+  initialExternalIdentities?: ExternalIdentity[];
+}) {
+  const searchParams = useSearchParams();
+  const githubStatus = searchParams.get("github");
+
+  const [externalIdentities, setExternalIdentities] = useState<ExternalIdentity[]>(
+    initialExternalIdentities,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const githubAccounts = externalIdentities.filter(
+    (item) => item.providerId.toLowerCase() === "github",
+  );
+  const isConnected = githubAccounts.length > 0;
+
+  const handleUnlink = (id: string) => {
+    setError(null);
+    setSuccess(null);
+    setPendingId(id);
+    startTransition(async () => {
+      const res = await unlinkExternalIdentityAction(id);
+      setPendingId(null);
+      if (res.error) {
+        setError(res.error);
+      } else {
+        setSuccess("GitHub account disconnected.");
+        setExternalIdentities((prev) => prev.filter((item) => item.id !== id));
+      }
+    });
+  };
+
+  const statusMessage =
+    githubStatus === "linked"
+      ? { tone: "success" as const, text: "GitHub is now connected. You can use it to sign in." }
+      : githubStatus === "already_linked"
+        ? { tone: "error" as const, text: "That GitHub account is already connected to a different AXUS ID." }
+        : githubStatus === "cancelled"
+          ? { tone: "error" as const, text: "Connecting GitHub was cancelled." }
+          : githubStatus === "failed"
+            ? { tone: "error" as const, text: "We couldn’t connect GitHub. Try again." }
+            : null;
+
+  return (
+    <Card>
+      <CardHeader
+        icon={<GitHubIcon className="h-[18px] w-[18px]" aria-hidden />}
+        title="GitHub"
+        description="Sign in with your GitHub account instead of typing a password."
+        badge={
+          isConnected ? (
+            <Badge tone="success" dot>
+              Connected
+            </Badge>
+          ) : (
+            <Badge>Not connected</Badge>
+          )
+        }
+        action={
+          <a href="/auth/github?mode=link" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            {isConnected ? "Connect another" : "Connect"}
+          </a>
+        }
+      />
+
+      {error ? <FormError className="mt-5">{error}</FormError> : null}
+      {success ? <FormSuccess className="mt-5">{success}</FormSuccess> : null}
+      {statusMessage ? (
+        <Alert tone={statusMessage.tone} className="mt-5">
+          {statusMessage.text}
+        </Alert>
+      ) : null}
+
+      {isConnected ? (
+        <ul className="mt-5 divide-y divide-black/[0.05] rounded-xl border border-black/[0.07]">
+          {githubAccounts.map((account) => (
+            <li key={account.id} className="flex flex-wrap items-center gap-3 px-3.5 py-3">
+              <GitHubAccountAvatar picture={account.userInfo?.picture} username={account.userInfo?.username} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-neutral-950">
+                  {account.userInfo?.name || (account.userInfo?.username ? `@${account.userInfo.username}` : "GitHub account")}
+                </p>
+                {account.userInfo?.username ? (
+                  <a
+                    href={`https://github.com/${encodeURIComponent(account.userInfo.username)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block truncate text-[13px] text-neutral-500 hover:underline"
+                  >
+                    @{account.userInfo.username}
+                  </a>
+                ) : null}
+                {account.userInfo?.email ? (
+                  <p className="truncate text-[13px] text-neutral-500">{account.userInfo.email}</p>
+                ) : null}
+                <p className="text-[13px] text-neutral-500">
+                  Connected {formatDate(account.createdAt)}
+                </p>
+              </div>
+              <ConfirmButton
+                confirmLabel="Disconnect"
+                onConfirm={() => handleUnlink(account.id)}
+                loading={pendingId === account.id}
+                disabled={isPending}
+              >
+                Disconnect
+              </ConfirmButton>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </Card>
+  );
+}
+
 function handleFormKeyDown(
   event: KeyboardEvent<HTMLFormElement>,
   onCancel: () => void,
@@ -325,6 +464,7 @@ export function AccountForms({
       </Card>
 
       <GoogleConnectionCard initialExternalIdentities={initialExternalIdentities} />
+      <GitHubConnectionCard initialExternalIdentities={initialExternalIdentities} />
     </div>
   );
 }

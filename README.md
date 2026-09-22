@@ -210,3 +210,9 @@ Run focused frontend contract and authorization tests with:
 ```bash
 node --test tests/permissions.test.mjs
 ```
+
+## GitHub sign-in
+
+Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in the frontend server environment using the same OAuth app configured for the engine. Register `<OAUTH_ISSUER>/auth/github/callback` as a callback URL in GitHub, or set `GITHUB_REDIRECT_URI` explicitly. The engine provider ID must be `github`. These credentials must not use a `NEXT_PUBLIC_` prefix.
+
+Users connect GitHub in Account → Security, then use **Continue with GitHub** on the login page. An unlinked GitHub account receives instructions to sign in with another method and connect it; this flow does not create accounts automatically. The authorization flow uses state, PKCE, and `read:user user:email offline_access` to obtain expiring access tokens and refresh tokens. Google and GitHub share the authorization-code exchange and engine login/link helpers. Only the real refresh token is sent to the engine, which exchanges it, verifies the identity, and stores the resulting token pair. Deploy with the backend token-lifecycle migration; existing GitHub connections must authorize again.

@@ -30,7 +30,7 @@ test('isValidAuthMethod accurately validates authentication methods', () => {
   assert.equal(lastAuthMethod.isValidAuthMethod('google'), true);
   assert.equal(lastAuthMethod.isValidAuthMethod('passkey'), true);
   assert.equal(lastAuthMethod.isValidAuthMethod('saml'), false);
-  assert.equal(lastAuthMethod.isValidAuthMethod('github'), false);
+  assert.equal(lastAuthMethod.isValidAuthMethod('github'), true);
   assert.equal(lastAuthMethod.isValidAuthMethod(''), false);
   assert.equal(lastAuthMethod.isValidAuthMethod(null), false);
   assert.equal(lastAuthMethod.isValidAuthMethod(undefined), false);

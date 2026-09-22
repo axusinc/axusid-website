@@ -28,10 +28,10 @@ export async function unlinkExternalIdentityAction(
     }
 
     revalidatePath("/account");
-    return { success: "Google account disconnected successfully." };
+    return { success: "External account disconnected successfully." };
   } catch (error) {
     return {
-      error: formatGraphqlError(error, undefined, "Unable to disconnect Google account."),
+      error: formatGraphqlError(error, undefined, "Unable to disconnect external account."),
     };
   }
 }

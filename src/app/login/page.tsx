@@ -24,7 +24,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const registered = typeof params.registered === "string" ? params.registered : undefined;
   const addAccount = params.add_account === "true";
   const authErrorCode = typeof params.auth_error === "string" ? params.auth_error : undefined;
-  const authError =
+  const githubErrors: Record<string, string> = {
+    github_cancelled: "GitHub sign-in was cancelled.",
+    github_unavailable: "GitHub sign-in is not configured yet.",
+    github_not_linked: "This GitHub account isn’t connected to an AXUS ID yet. Sign in with another method, then connect GitHub in Security.",
+    github_failed: "We couldn’t sign you in with GitHub. Try again.",
+  };
+  const authError = githubErrors[authErrorCode ?? ""] ?? (
     authErrorCode === "google_cancelled"
       ? "Google sign-in was cancelled."
       : authErrorCode === "google_unavailable"
@@ -33,7 +39,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           ? "This Google account isn’t connected to an AXUS ID yet. Sign in with your username, then connect Google in Security."
         : authErrorCode === "google_failed"
           ? "We couldn’t sign you in with Google. Try again."
-          : undefined;
+          : undefined
+  );
 
   const multiSession = await getValidMultiSession();
   const session = await getValidSession();

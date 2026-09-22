@@ -1,4 +1,4 @@
-export type LastAuthMethod = "password" | "google" | "passkey";
+export type LastAuthMethod = "password" | "google" | "github" | "passkey";
 
 export const LAST_AUTH_METHOD_COOKIE = "axus_last_auth_method";
 export const LAST_AUTH_METHOD_STORAGE_KEY = "axus_last_auth_method";
@@ -13,7 +13,7 @@ export const lastAuthMethodCookieOptions = {
 };
 
 export function isValidAuthMethod(val: unknown): val is LastAuthMethod {
-  return val === "password" || val === "google" || val === "passkey";
+  return val === "password" || val === "google" || val === "github" || val === "passkey";
 }
 
 export function getClientLastAuthMethod(): LastAuthMethod | null {

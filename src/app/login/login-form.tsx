@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { GitHubIcon } from "@/components/ui/github-icon";
 import { ArrowLeft, ChevronRight, Fingerprint, Plus } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import {
@@ -13,7 +14,7 @@ import { loginWithPasskeyAction, startPasskeyLoginAction } from "@/app/actions/p
 import { AppRequestCard, type RequestingAppInfo } from "@/components/app-request-card";
 import { AuthPanelHeading, AuthShell } from "@/components/auth-shell";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Divider } from "@/components/ui/divider";
 import { Alert, FormError } from "@/components/ui/form-message";
 import { GoogleButton } from "@/components/ui/google-button";
@@ -275,8 +276,6 @@ export function LoginForm({
           return;
         }
 
-        setClientLastAuthMethod("password");
-        setSelectedMethod("password");
         setCredentialStep("password");
       } catch {
         setUsernameError("We couldn’t check that username. Try again.");
@@ -469,6 +468,18 @@ export function LoginForm({
               }}
               badge={lastUsed === "google" ? <LastUsedBadge /> : null}
             />
+            <a
+              href={googleQuery ? `/auth/github?${googleQuery}` : "/auth/github"}
+              className={buttonVariants({ variant: "secondary", className: "w-full gap-3" })}
+              onClick={() => {
+                setClientLastAuthMethod("github");
+                setSelectedMethod("github");
+              }}
+            >
+              <GitHubIcon className="h-[18px] w-[18px]" aria-hidden />
+              Continue with GitHub
+              {lastUsed === "github" ? <LastUsedBadge /> : null}
+            </a>
             {passkeyButton(
               "Sign in with a passkey",
               isUsernamePending,
@@ -570,17 +581,12 @@ export function LoginForm({
 
         <Button type="submit" className="w-full" loading={pending} disabled={isPasskeyPending}>
           {pending ? "Signing in…" : "Sign in"}
-          {lastUsed === "password" ? <LastUsedBadge /> : null}
         </Button>
       </form>
 
       <div className="mt-4 space-y-4">
         <Divider label="or" />
-        {passkeyButton(
-          "Use a passkey instead",
-          pending,
-          lastUsed === "passkey" ? <LastUsedBadge /> : null,
-        )}
+        {passkeyButton("Use a passkey instead", pending)}
       </div>
     </AuthShell>
   );

@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { exchangeOAuthCode, loginWithOAuthIdentity, linkOAuthIdentity } from "@/lib/oauth-provider";
+import { fetchGitHubProfile } from "@/lib/github-oauth";
 import { getAuthSdk } from "@/lib/auth-graphql";
 import { buildGoogleNameElements } from "@/lib/profile-name";
 import type { IdPSession } from "@/lib/session";
@@ -108,15 +110,6 @@ export type GoogleOAuthState = {
   redirectUri?: string;
   next?: string;
   createdAt: number;
-};
-
-type GoogleTokenResponse = {
-  id_token?: string;
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  scope?: string;
-  token_type?: string;
 };
 
 function base64Url(bytes: Uint8Array): string {
@@ -244,71 +237,24 @@ export async function exchangeGoogleCode(params: {
   codeVerifier: string;
   redirectUri: string;
 }): Promise<ExchangeGoogleCodeResult> {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code: params.code,
-      client_id: getGoogleClientId(),
-      client_secret: getGoogleClientSecret(),
-      redirect_uri: params.redirectUri,
-      grant_type: "authorization_code",
-      code_verifier: params.codeVerifier,
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
+  return exchangeOAuthCode({
+    ...params,
+    tokenUri: "https://oauth2.googleapis.com/token",
+    clientId: getGoogleClientId(),
+    clientSecret: getGoogleClientSecret(),
   });
-
-  if (!response.ok) {
-    throw new Error("Google rejected the authorization code");
-  }
-
-  const result = (await response.json()) as GoogleTokenResponse;
-  if (!result.refresh_token) {
-    throw new Error("Google did not return a refresh token");
-  }
-
-  return {
-    refreshToken: result.refresh_token,
-    idToken: result.id_token,
-    accessToken: result.access_token,
-  };
 }
 
-export async function loginWithGoogleIdentity(
-  refreshToken: string,
-  permissions: string[],
-): Promise<{ auid: string; tokenId: string }> {
-  const result = await getAuthSdk().LoginWithExternalIdentity({
-    authentication: {
-      providerId: getGoogleProviderId(),
-      refreshToken: refreshToken,
-      clientId: getGoogleClientId(),
-    },
-    permissions: permissions.length > 0 ? permissions : undefined,
-  });
-  return {
-    auid: result.loginWithExternalIdentity.auid,
-    tokenId: result.loginWithExternalIdentity.id,
-  };
+export async function loginWithGoogleIdentity(refreshToken: string, permissions: string[]) {
+  return loginWithOAuthIdentity({ providerId: getGoogleProviderId(), clientId: getGoogleClientId(), refreshToken }, permissions);
 }
 
-export async function linkGoogleIdentity(
-  session: IdPSession,
-  refreshToken: string,
-): Promise<void> {
-  const sdk = getAuthSdk(session.tokenId);
-  await sdk.LinkExternalIdentity({
-    auid: session.auid,
-    authentication: {
-      providerId: getGoogleProviderId(),
-      refreshToken: refreshToken,
-      clientId: getGoogleClientId(),
-    },
-  });
+export async function linkGoogleIdentity(session: IdPSession, refreshToken: string): Promise<void> {
+  return linkOAuthIdentity(session, { providerId: getGoogleProviderId(), clientId: getGoogleClientId(), refreshToken });
 }
 
 export type ExternalIdentityUserInfo = {
+  username?: string;
   email?: string;
   name?: string;
   givenName?: string;
@@ -418,6 +364,13 @@ export async function getUserExternalIdentities(
             }
           } catch {
             // Ignore error fetching external user info
+          }
+        }
+
+        if (item.providerId.toLowerCase() === "github") {
+          const tokenRes = await getExternalIdentityAccessToken(auid, item.id, bearerToken);
+          if (tokenRes?.accessToken) {
+            userInfo = await fetchGitHubProfile(tokenRes.accessToken);
           }
         }
 
