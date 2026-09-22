@@ -4,6 +4,10 @@ export type UserPermission = {
   scope: string;
   description: string;
   available: boolean | null;
+  receivedFrom?: {
+    id: string;
+    username: string | null;
+  } | null;
 };
 
 export type SharedPermission = {

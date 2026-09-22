@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
@@ -10,6 +9,8 @@ import {
   formatGraphqlError,
   getPrimaryDomainError,
   isGraphqlClientError,
+  isRateLimitError,
+  RATE_LIMIT_MESSAGE,
 } from "@/lib/graphql-errors";
 import { SESSION_PERMISSIONS, loginWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
@@ -28,13 +29,8 @@ import {
   removeAccountFromSession,
   switchActiveAccount,
 } from "@/lib/session-access";
-import {
-  SESSION_COOKIE,
-  clearSessionCookieOptions,
-  serializeSession,
-  sessionCookieOptions,
-  type IdPSession,
-} from "@/lib/session";
+import { type IdPSession } from "@/lib/session";
+import { setLastAuthMethod } from "@/lib/last-auth-method-server";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import {
   createIdentityProvider,
@@ -73,7 +69,13 @@ export async function checkUsernameAction(
   try {
     await resolveLoginAuid(normalizedUsername);
     return { exists: true };
-  } catch {
+  } catch (error) {
+    if (isRateLimitError(error)) {
+      return {
+        exists: false,
+        error: error instanceof Error ? error.message : RATE_LIMIT_MESSAGE,
+      };
+    }
     return {
       exists: false,
       error: "We couldn’t find an AXUS ID with that username.",
@@ -204,6 +206,7 @@ export async function loginAction(
   };
 
   await addAccountToSession(session);
+  await setLastAuthMethod("password");
 
   redirect(
     resolveAuthenticatedRedirect({
@@ -582,6 +585,7 @@ export async function registerAction(
 
       await addAccountToSession(session);
       await clearPendingGoogleRegistration();
+      await setLastAuthMethod("google");
     } catch (error) {
       return {
         error: formatGraphqlError(
@@ -632,6 +636,7 @@ export async function registerAction(
     };
 
     await addAccountToSession(session);
+    await setLastAuthMethod("password");
   } catch (error) {
     return {
       error: formatGraphqlError(

@@ -22,6 +22,10 @@ function loadTs(file, mocks = {}) {
   return loadedModule.exports;
 }
 const presentation = loadTs('src/lib/permission-presentation.ts');
+const graphqlErrors = loadTs('src/lib/graphql-errors.ts', {
+  'server-only': {},
+  'graphql-request': { ClientError },
+});
 const grantId = '11111111-1111-4111-8111-111111111111';
 const grant = {
   id: grantId, granteeAuid: '2', permission: 'identity.1.variation.write',
@@ -48,6 +52,7 @@ function setup(overrides = {}, session = { auid: '1', tokenId: 'private-token' }
     '@/lib/auth-graphql': { getAuthSdkForSession: (current) => { assert.equal(current, session); return sdk; } },
     '@/lib/session-access': { getValidSession: async () => session },
     '@/lib/permission-presentation': presentation,
+    '@/lib/graphql-errors': graphqlErrors,
   });
   return { action: permissionAction, calls };
 }
@@ -136,3 +141,55 @@ test('authorization failures are readable and sessions are required', async () =
   assert.match((await signedOut.action({ kind: 'list' })).error, /Sign in/);
   assert.equal(signedOut.calls.length, 0);
 });
+
+test('rate limit failures return friendly error message and do not expose internals', async () => {
+  const rateLimitError = new ClientError(
+    { errors: [{ message: 'Too many requests. Try again later.', extensions: { code: 'RATE_LIMITED' } }] },
+    { query: 'query' },
+  );
+  const { action } = setup({ SharePermission: async () => { throw rateLimitError; } });
+  const result = await action({ kind: 'share', username: 'alex', permission: grant.permission });
+  assert.equal(result.error, 'Too many requests. Please wait a moment and try again.');
+});
+
+test('received permissions identify granters and resolve usernames', async () => {
+  const { action } = setup({
+    MyGrants: async () => ({
+      grants: [
+        { permission: 'identity.1.*', origin: { type: 'DIRECT' } },
+        {
+          id: 'grant-2',
+          granteeAuid: '1',
+          permission: 'identity.2.variation.write',
+          origin: { type: 'DELEGATED', delegatorAuid: '2' },
+        },
+      ],
+    }),
+    Usernames: async ({ auid }) => ({
+      usernames: { defaultUsername: auid === '2' ? 'sam' : 'alex' },
+    }),
+  });
+  const result = await action({ kind: 'list' });
+  assert.equal(result.permissions.length, 2);
+  const direct = result.permissions.find((p) => p.key === 'identity.1.*');
+  assert.equal(direct.receivedFrom, null);
+  const received = result.permissions.find((p) => p.key === 'identity.2.variation.write');
+  assert.deepEqual(received.receivedFrom, { id: '2', username: 'sam' });
+});
+
+test('received permissions fall back to permission target when origin is omitted', async () => {
+  const { action } = setup({
+    MyGrants: async () => ({
+      grants: [
+        { permission: 'identity.2.variation.write' },
+      ],
+    }),
+    Usernames: async ({ auid }) => ({
+      usernames: { defaultUsername: auid === '2' ? 'sam' : 'alex' },
+    }),
+  });
+  const result = await action({ kind: 'list' });
+  assert.equal(result.permissions.length, 1);
+  assert.deepEqual(result.permissions[0].receivedFrom, { id: '2', username: 'sam' });
+});
+

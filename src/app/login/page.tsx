@@ -5,6 +5,7 @@ import { getAuthSdk } from "@/lib/auth-graphql";
 import { resolveOAuthFlowMetadata } from "@/lib/oauth/flow-metadata";
 import { getValidMultiSession, getValidSession } from "@/lib/session-access";
 import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
+import { getLastAuthMethod } from "@/lib/last-auth-method-server";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -72,6 +73,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       )
     : [];
 
+  const lastUsedMethod = await getLastAuthMethod();
+
   return (
     <LoginForm
       isOAuthFlow={flowMeta.isOAuthFlow}
@@ -83,6 +86,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       existingAccounts={existingAccounts}
       isAddAccount={addAccount}
       authError={authError}
+      lastUsedMethod={lastUsedMethod}
     />
   );
 }

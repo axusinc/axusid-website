@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ConsentForm } from "./consent-form";
+import { StatusPage } from "@/components/status-page";
+import { buttonVariants } from "@/components/ui/button";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
+import { formatGraphqlError, isRateLimitError } from "@/lib/graphql-errors";
 import {
   getOAuthClient,
   normalizeScopes,
@@ -30,11 +33,30 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
     redirect(`/login?redirect_uri=${encodeURIComponent(redirectUri ?? "/consent")}`);
   }
 
-  const accountInfos = await fetchAccountsDisplayInfo(
-    multiSession.accounts,
-    multiSession.activeAuid,
-    getAuthSdk,
-  );
+  let accountInfos;
+  try {
+    accountInfos = await fetchAccountsDisplayInfo(
+      multiSession.accounts,
+      multiSession.activeAuid,
+      getAuthSdk,
+    );
+  } catch (error) {
+    return (
+      <StatusPage
+        tone="error"
+        title={isRateLimitError(error) ? "Too many requests" : "We couldn’t load this page"}
+        description={formatGraphqlError(error, "account", "Something went wrong on our side. Try again.")}
+        actions={
+          <a
+            href={redirectUri ? `/consent?redirect_uri=${encodeURIComponent(redirectUri)}` : "/consent"}
+            className={buttonVariants({ className: "w-full sm:w-auto" })}
+          >
+            Try again
+          </a>
+        }
+      />
+    );
+  }
 
   if (!redirectUri || !redirectUri.startsWith("/") || redirectUri.startsWith("//")) {
     redirect("/");

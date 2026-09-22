@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, Fingerprint, Plus } from "lucide-react";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import {
   checkUsernameAction,
   loginAction,
@@ -19,11 +19,18 @@ import { Alert, FormError } from "@/components/ui/form-message";
 import { GoogleButton } from "@/components/ui/google-button";
 import { IdentityLabel } from "@/components/ui/identity-label";
 import { Input } from "@/components/ui/input";
+import { LastUsedBadge } from "@/components/ui/last-used-badge";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { focusRing, roundedRect } from "@/lib/design";
+import {
+  getClientLastAuthMethod,
+  setClientLastAuthMethod,
+  subscribeLastAuthMethod,
+  type LastAuthMethod,
+} from "@/lib/last-auth-method";
 import { cn, isRedirectError } from "@/lib/utils";
-import { getPasskeyCredential } from "@/lib/webauthn";
+import { getPasskeyCredential, isConditionalMediationAvailable } from "@/lib/webauthn";
 import type { AccountItemInfo } from "@/lib/user-profile";
 
 export type TargetAppUserInfo = RequestingAppInfo;
@@ -38,6 +45,7 @@ type LoginFormProps = {
   existingAccounts?: AccountItemInfo[];
   isAddAccount?: boolean;
   authError?: string;
+  lastUsedMethod?: LastAuthMethod | null;
 };
 
 const initialState: AuthActionState = {};
@@ -55,8 +63,16 @@ export function LoginForm({
   existingAccounts = [],
   isAddAccount: initialIsAddAccount = false,
   authError,
+  lastUsedMethod,
 }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
+  const clientLastUsed = useSyncExternalStore(
+    subscribeLastAuthMethod,
+    getClientLastAuthMethod,
+    () => null,
+  );
+  const [selectedMethod, setSelectedMethod] = useState<LastAuthMethod | null>(null);
+  const lastUsed = selectedMethod ?? clientLastUsed ?? lastUsedMethod ?? null;
   const [showCredentialsForm, setShowCredentialsForm] = useState(
     initialIsAddAccount || existingAccounts.length === 0,
   );
@@ -70,6 +86,90 @@ export function LoginForm({
   const [isUsernamePending, startUsernameTransition] = useTransition();
   const [isPasskeyPending, startPasskeyTransition] = useTransition();
   const [isSwitchPending, startSwitchTransition] = useTransition();
+  const conditionalAbortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!showCredentialsForm || credentialStep !== "identifier") {
+      return;
+    }
+
+    let isMounted = true;
+    const controller = new AbortController();
+    conditionalAbortControllerRef.current = controller;
+
+    async function initConditionalPasskey() {
+      try {
+        const available = await isConditionalMediationAvailable();
+        if (!available || !isMounted || controller.signal.aborted) {
+          return;
+        }
+
+        const rp = typeof window !== "undefined" ? window.location.hostname : undefined;
+        const init = await startPasskeyLoginAction(undefined, redirectUri, rp);
+        if (!init.loginResponse || !isMounted || controller.signal.aborted) {
+          return;
+        }
+
+        const credential = await getPasskeyCredential(init.loginResponse.optionsJson, {
+          mediation: "conditional",
+          signal: controller.signal,
+        });
+
+        if (!isMounted || controller.signal.aborted) {
+          return;
+        }
+
+        startPasskeyTransition(async () => {
+          try {
+            const result = await loginWithPasskeyAction({
+              challengeId: init.loginResponse!.challengeId,
+              credentialResponse: JSON.stringify(credential),
+              redirectUri,
+              next,
+            });
+
+            if (result?.error) {
+              setPasskeyError(result.error);
+            }
+          } catch (error) {
+            if (isRedirectError(error)) {
+              throw error;
+            }
+            if (
+              error instanceof Error &&
+              (error.name === "AbortError" || error.name === "NotAllowedError")
+            ) {
+              return;
+            }
+            setPasskeyError(
+              error instanceof Error ? error.message : "Passkey sign-in failed. Try again.",
+            );
+          }
+        });
+      } catch (error) {
+        if (isRedirectError(error)) {
+          throw error;
+        }
+        if (
+          error instanceof Error &&
+          (error.name === "AbortError" || error.name === "NotAllowedError")
+        ) {
+          return;
+        }
+        console.debug("[Passkey Conditional UI]", error);
+      }
+    }
+
+    initConditionalPasskey();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      if (conditionalAbortControllerRef.current === controller) {
+        conditionalAbortControllerRef.current = null;
+      }
+    };
+  }, [showCredentialsForm, credentialStep, redirectUri, next]);
 
   const hasExistingAccounts = existingAccounts.length > 0;
   const appName = targetAppName || "the application";
@@ -93,6 +193,13 @@ export function LoginForm({
     const normalizedUsername = username.trim().replace(/^@/, "");
 
     setUsernameError(null);
+    setClientLastAuthMethod("passkey");
+    setSelectedMethod("passkey");
+
+    if (conditionalAbortControllerRef.current) {
+      conditionalAbortControllerRef.current.abort();
+      conditionalAbortControllerRef.current = null;
+    }
 
     startPasskeyTransition(async () => {
       try {
@@ -143,6 +250,11 @@ export function LoginForm({
   const handleUsernameSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (conditionalAbortControllerRef.current) {
+      conditionalAbortControllerRef.current.abort();
+      conditionalAbortControllerRef.current = null;
+    }
+
     const normalizedUsername = username.trim().replace(/^@/, "");
     if (!normalizedUsername) {
       setUsernameError("Enter your username.");
@@ -163,6 +275,8 @@ export function LoginForm({
           return;
         }
 
+        setClientLastAuthMethod("password");
+        setSelectedMethod("password");
         setCredentialStep("password");
       } catch {
         setUsernameError("We couldn’t check that username. Try again.");
@@ -175,7 +289,7 @@ export function LoginForm({
   ) : null;
   const oauthStep = isOAuthFlow ? { current: 1, total: 2 } : undefined;
 
-  const passkeyButton = (label: string, disabled: boolean) => (
+  const passkeyButton = (label: string, disabled: boolean, badge?: React.ReactNode) => (
     <Button
       type="button"
       variant="secondary"
@@ -185,7 +299,8 @@ export function LoginForm({
       onClick={handlePasskeySignIn}
     >
       {isPasskeyPending ? null : <Fingerprint className="h-[18px] w-[18px]" aria-hidden />}
-      {isPasskeyPending ? "Waiting for passkey…" : label}
+      <span>{isPasskeyPending ? "Waiting for passkey…" : label}</span>
+      {badge}
     </Button>
   );
 
@@ -335,6 +450,7 @@ export function LoginForm({
             disabled={isPasskeyPending}
           >
             {isUsernamePending ? "Checking…" : "Continue"}
+            {lastUsed === "password" ? <LastUsedBadge /> : null}
           </Button>
         </form>
 
@@ -345,8 +461,19 @@ export function LoginForm({
           <Divider label="or" />
 
           <div className="space-y-2.5">
-            <GoogleButton href={googleSignInHref} />
-            {passkeyButton("Sign in with a passkey", isUsernamePending)}
+            <GoogleButton
+              href={googleSignInHref}
+              onClick={() => {
+                setClientLastAuthMethod("google");
+                setSelectedMethod("google");
+              }}
+              badge={lastUsed === "google" ? <LastUsedBadge /> : null}
+            />
+            {passkeyButton(
+              "Sign in with a passkey",
+              isUsernamePending,
+              lastUsed === "passkey" ? <LastUsedBadge /> : null,
+            )}
           </div>
         </div>
 
@@ -416,7 +543,14 @@ export function LoginForm({
         </Alert>
       ) : null}
 
-      <form action={formAction} className="space-y-4">
+      <form
+        action={formAction}
+        onSubmit={() => {
+          setClientLastAuthMethod("password");
+          setSelectedMethod("password");
+        }}
+        className="space-y-4"
+      >
         <input type="hidden" name="username" value={username} />
         {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
         {next ? <input type="hidden" name="next" value={next} /> : null}
@@ -436,12 +570,17 @@ export function LoginForm({
 
         <Button type="submit" className="w-full" loading={pending} disabled={isPasskeyPending}>
           {pending ? "Signing in…" : "Sign in"}
+          {lastUsed === "password" ? <LastUsedBadge /> : null}
         </Button>
       </form>
 
       <div className="mt-4 space-y-4">
         <Divider label="or" />
-        {passkeyButton("Use a passkey instead", pending)}
+        {passkeyButton(
+          "Use a passkey instead",
+          pending,
+          lastUsed === "passkey" ? <LastUsedBadge /> : null,
+        )}
       </div>
     </AuthShell>
   );

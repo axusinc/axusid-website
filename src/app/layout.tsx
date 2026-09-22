@@ -21,9 +21,18 @@ export const metadata: Metadata = {
     "AXUS ID is a secure single sign-on account with passkeys, multiple identities and OAuth 2.0, OpenID Connect and SAML support.",
   applicationName: "AXUS ID",
   icons: {
-    icon: "/icon-tm.png",
-    shortcut: "/icon-tm.png",
-    apple: "/icon-tm.png",
+    icon: [
+      { url: "/icon-tm.png" },
+      { url: "/icon-tm-dark.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    shortcut: [
+      { url: "/icon-tm.png" },
+      { url: "/icon-tm-dark.png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: [
+      { url: "/icon-tm.png" },
+      { url: "/icon-tm-dark.png", media: "(prefers-color-scheme: dark)" },
+    ],
   },
 };
 

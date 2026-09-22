@@ -170,10 +170,34 @@ export async function createPasskeyCredential(
 }
 
 /**
+ * Checks if WebAuthn conditional mediation (passkey autofill) is supported by the browser.
+ */
+export async function isConditionalMediationAvailable(): Promise<boolean> {
+  if (
+    typeof window === "undefined" ||
+    typeof window.PublicKeyCredential === "undefined" ||
+    typeof window.PublicKeyCredential.isConditionalMediationAvailable !== "function"
+  ) {
+    return false;
+  }
+  try {
+    return await window.PublicKeyCredential.isConditionalMediationAvailable();
+  } catch {
+    return false;
+  }
+}
+
+export type GetPasskeyCredentialOptions = {
+  mediation?: CredentialMediationRequirement;
+  signal?: AbortSignal;
+};
+
+/**
  * Executes browser WebAuthn passkey assertion (login).
  */
 export async function getPasskeyCredential(
   options: PasskeyAuthenticationOptions | string | Record<string, unknown>,
+  clientOptions?: GetPasskeyCredentialOptions,
 ) {
   if (typeof window === "undefined" || !navigator.credentials || !navigator.credentials.get) {
     throw new Error("Passkeys/WebAuthn are not supported in this browser.");
@@ -196,18 +220,26 @@ export async function getPasskeyCredential(
 
   const publicKey: PublicKeyCredentialRequestOptions = {
     challenge: challengeBuffer.buffer as ArrayBuffer,
-    timeout: parsedOptions.timeout ?? 60000,
+    timeout:
+      parsedOptions.timeout ??
+      (clientOptions?.mediation === "conditional" ? 300000 : 60000),
     ...(rpId ? { rpId } : {}),
     userVerification: parsedOptions.userVerification ?? "preferred",
-    allowCredentials: parsedOptions.allowCredentials?.map((cred) => ({
-      id: base64UrlToBuffer(cred.id).buffer as ArrayBuffer,
-      type: "public-key",
-      transports: cred.transports,
-    })),
+    ...(parsedOptions.allowCredentials && parsedOptions.allowCredentials.length > 0
+      ? {
+          allowCredentials: parsedOptions.allowCredentials.map((cred) => ({
+            id: base64UrlToBuffer(cred.id).buffer as ArrayBuffer,
+            type: "public-key",
+            transports: cred.transports,
+          })),
+        }
+      : {}),
   };
 
   const credential = (await navigator.credentials.get({
     publicKey,
+    ...(clientOptions?.mediation ? { mediation: clientOptions.mediation } : {}),
+    ...(clientOptions?.signal ? { signal: clientOptions.signal } : {}),
   })) as PublicKeyCredential | null;
 
   if (!credential) {

@@ -8,6 +8,7 @@ import { SubsectionTitle } from "./dashboard-ui";
 import { Avatar } from "@/components/ui/avatar";
 import { IdentityLabel } from "@/components/ui/identity-label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input, Field, controlClassName } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
@@ -89,13 +90,27 @@ function SharedPermissionRow({ grant, disabled, onRemoved, onPendingChange }: { 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
+  const isPaused = grant.state === "paused";
   return (
     <li className="py-4 first:pt-0 last:pb-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-neutral-900">{grant.permission.label}</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-sm font-medium text-neutral-900">{grant.permission.label}</p>
+            {isPaused ? (
+              <Badge tone="warning" dot>
+                Paused
+              </Badge>
+            ) : null}
+          </div>
           <p className="mt-0.5 text-[13px] text-neutral-500">{grant.permission.scope}</p>
-          <p className="mt-1 text-xs text-neutral-500">{sharedStates[grant.state]}{grant.state === "paused" && grant.permission.available === false ? " · You no longer have this access" : ""}</p>
+          {isPaused ? (
+            grant.permission.available === false ? (
+              <p className="mt-1 text-xs text-neutral-500">You no longer have this access</p>
+            ) : null
+          ) : (
+            <p className="mt-1 text-xs text-neutral-500">{sharedStates[grant.state]}</p>
+          )}
         </div>
         {!confirm ? <Button variant="danger-ghost" size="sm" disabled={disabled} aria-label={`Remove ${grant.permission.label} from ${grant.username ? `@${grant.username}` : "this account"}`} onClick={() => setConfirm(true)}>Remove</Button> : null}
       </div>
@@ -116,6 +131,37 @@ function SharedPermissionRow({ grant, disabled, onRemoved, onPendingChange }: { 
         </div>
       </div> : null}
       {error ? <FormError className="mt-3">{error}</FormError> : null}
+    </li>
+  );
+}
+
+function UserPermissionRow({ permission, canShare, disabled, onShare }: { permission: UserPermission; canShare: boolean; disabled: boolean; onShare: () => void }) {
+  const isPaused = Boolean(permission.receivedFrom && permission.available === false);
+  return (
+    <li className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+      <KeyRound aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="text-sm font-medium text-neutral-900">{permission.label}</p>
+          {isPaused ? (
+            <Badge tone="warning" dot>
+              Paused
+            </Badge>
+          ) : null}
+        </div>
+        <p className="mt-0.5 text-[13px] text-neutral-500">{permission.scope}</p>
+        <p className="mt-1 text-[13px] text-neutral-500">{permission.description}</p>
+        {permission.available !== true ? (
+          <p className="mt-1 text-xs text-neutral-500">
+            {isPaused
+              ? "Access is currently paused"
+              : permission.available === false
+                ? "Not currently available"
+                : "Availability couldn’t be verified"}
+          </p>
+        ) : null}
+      </div>
+      {canShare ? <Button size="sm" variant="secondary" disabled={disabled} onClick={onShare}>Share</Button> : null}
     </li>
   );
 }
@@ -157,7 +203,25 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
   }
   function refresh() { setLoading(true); setError(""); setReload((value) => value + 1); }
   const query = filter.toLowerCase();
-  const visible = permissions.filter((permission) => `${permission.label} ${permission.scope}`.toLowerCase().includes(query));
+
+  const directPermissions = permissions.filter((p) => !p.receivedFrom);
+  const receivedPermissions = permissions.filter((p) => !!p.receivedFrom);
+
+  const visibleDirect = directPermissions.filter((permission) =>
+    `${permission.label} ${permission.scope}`.toLowerCase().includes(query)
+  );
+
+  const senders = new Map<string, { username: string | null; permissions: UserPermission[] }>();
+  for (const permission of receivedPermissions) {
+    const sender = permission.receivedFrom!;
+    if (!`${sender.username ?? "Account name unavailable"} ${permission.label} ${permission.scope}`.toLowerCase().includes(query)) {
+      continue;
+    }
+    const group = senders.get(sender.id) ?? { username: sender.username, permissions: [] };
+    group.permissions.push(permission);
+    senders.set(sender.id, group);
+  }
+
   const recipients = new Map<string, SharedPermission[]>();
   for (const grant of shared) {
     if (!`${grant.username ?? "Account name unavailable"} ${grant.permission.label} ${grant.permission.scope}`.toLowerCase().includes(query)) continue;
@@ -189,7 +253,7 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
       </div>
       {message ? <FormSuccess className="mb-5">{message}</FormSuccess> : null}
       {loading ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-neutral-500"><Spinner />Loading permissions…</p> : error ? <div className="space-y-3"><FormError>{error}</FormError><Button size="sm" variant="secondary" onClick={refresh}>Try again</Button></div> : <>
-        {(view === "shared" ? shared.length : permissions.length) > 6 ? <div className="mb-5"><Input id="find-permission" label={view === "shared" ? "Find a person or permission" : "Find a permission"} placeholder={view === "shared" ? "Search usernames or permissions…" : "Search permissions…"} value={filter} onChange={(event) => setFilter(event.target.value)} disabled={sharing !== null || mutating} /></div> : null}
+        {(view === "shared" ? shared.length : permissions.length) > 6 ? <div className="mb-5"><Input id="find-permission" label={view === "shared" || receivedPermissions.length > 0 ? "Find a person or permission" : "Find a permission"} placeholder={view === "shared" || receivedPermissions.length > 0 ? "Search usernames or permissions…" : "Search permissions…"} value={filter} onChange={(event) => setFilter(event.target.value)} disabled={sharing !== null || mutating} /></div> : null}
         {view === "shared" ? <>
           {!shared.length ? <div className="py-8 text-center"><UsersRound aria-hidden className="mx-auto mb-3 h-6 w-6 text-neutral-400" /><p className="text-sm font-medium text-neutral-900">You haven’t shared any permissions</p><p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">Give someone specific access to your account. You can remove it here whenever you need to.</p></div> : <div className="space-y-5">
             {[...recipients.entries()].map(([id, grants]) => <section key={id} className="overflow-hidden rounded-xl border border-black/[0.07]">
@@ -204,14 +268,61 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
           {shared.length > 0 ? <p className="mt-5 text-xs leading-relaxed text-neutral-500">Shared access stays linked to your account, even after you sign out. It can pause if you lose the permission yourself.</p> : null}
         </> : <>
           <p className="mb-4 text-[13px] text-neutral-500">Permissions assigned to your account. Availability reflects your current access.</p>
-          {!permissions.length ? <p className="py-6 text-sm text-neutral-500">No permissions have been assigned to your account yet.</p> : <ul className="divide-y divide-black/[0.05]">
-            {visible.map((permission) => <li key={permission.key} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
-              <KeyRound aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
-              <div className="min-w-0 flex-1"><p className="text-sm font-medium text-neutral-900">{permission.label}</p><p className="mt-0.5 text-[13px] text-neutral-500">{permission.scope}</p><p className="mt-1 text-[13px] text-neutral-500">{permission.description}</p>{permission.available !== true ? <p className="mt-1 text-xs text-neutral-500">{permission.available === false ? "Not currently available" : "Availability couldn’t be verified"}</p> : null}</div>
-              {shareOptions.some((option) => option.key === permission.key) ? <Button size="sm" variant="secondary" disabled={sharing !== null || mutating} onClick={() => openShare(permission.key)}>Share</Button> : null}
-            </li>)}
-          </ul>}
-          {permissions.length > 0 && !visible.length ? <p className="py-4 text-sm text-neutral-500">No permissions match your search.</p> : null}
+          {!permissions.length ? (
+            <p className="py-6 text-sm text-neutral-500">No permissions have been assigned to your account yet.</p>
+          ) : visibleDirect.length === 0 && senders.size === 0 ? (
+            <p className="py-4 text-sm text-neutral-500">{receivedPermissions.length > 0 ? "No people or permissions match your search." : "No permissions match your search."}</p>
+          ) : (
+            <div className="space-y-6">
+              {visibleDirect.length > 0 ? (
+                <div className={receivedPermissions.length > 0 ? "space-y-3" : undefined}>
+                  {receivedPermissions.length > 0 ? (
+                    <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-neutral-500">Your account</h3>
+                  ) : null}
+                  <ul className="divide-y divide-black/[0.05]">
+                    {visibleDirect.map((permission) => (
+                      <UserPermissionRow
+                        key={permission.key}
+                        permission={permission}
+                        canShare={shareOptions.some((option) => option.key === permission.key)}
+                        disabled={sharing !== null || mutating}
+                        onShare={() => openShare(permission.key)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {senders.size > 0 ? (
+                <div className="space-y-3">
+                  {directPermissions.length > 0 ? (
+                    <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-neutral-500">Received from others</h3>
+                  ) : null}
+                  <div className="space-y-5">
+                    {[...senders.entries()].map(([id, group]) => (
+                      <section key={id} className="overflow-hidden rounded-xl border border-black/[0.07]">
+                        <div className="flex items-center gap-3 border-b border-black/[0.05] bg-neutral-50/70 px-4 py-3">
+                          <Avatar username={group.username} seed={id} size="sm" />
+                          <IdentityLabel username={group.username} fallback="Account name unavailable" />
+                        </div>
+                        <ul className="divide-y divide-black/[0.05] p-4">
+                          {group.permissions.map((permission) => (
+                            <UserPermissionRow
+                              key={`${id}-${permission.key}`}
+                              permission={permission}
+                              canShare={shareOptions.some((option) => option.key === permission.key)}
+                              disabled={sharing !== null || mutating}
+                              onShare={() => openShare(permission.key)}
+                            />
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
         </>}
       </>}
     </Card>

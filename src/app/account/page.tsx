@@ -4,7 +4,7 @@ import { AccountDashboard } from "@/app/account/account-dashboard";
 import { StatusPage } from "@/components/status-page";
 import { buttonVariants } from "@/components/ui/button";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
-import { formatGraphqlError, isAuthError } from "@/lib/graphql-errors";
+import { formatGraphqlError, isAuthError, isRateLimitError } from "@/lib/graphql-errors";
 import { listClientsByOwner } from "@/lib/oauth/client-store";
 import { listGrantsForUser } from "@/lib/oauth/grants";
 import { getIssuer } from "@/lib/oauth/constants";
@@ -41,7 +41,18 @@ export default async function AccountPage() {
       await removeAccountFromSession(session.auid);
       redirect("/login");
     }
-    throw error;
+    return (
+      <StatusPage
+        tone="error"
+        title={isRateLimitError(error) ? "Too many requests" : "We couldn’t load your account"}
+        description={formatGraphqlError(error, "account", "Something went wrong on our side. Try again.")}
+        actions={
+          <a href="/account" className={buttonVariants({ className: "w-full sm:w-auto" })}>
+            Try again
+          </a>
+        }
+      />
+    );
   }
 
   const sdk = getAuthSdkForSession(session);
@@ -57,12 +68,12 @@ export default async function AccountPage() {
     return (
       <StatusPage
         tone="error"
-        title="We couldn’t load your account"
+        title={isRateLimitError(error) ? "Too many requests" : "We couldn’t load your account"}
         description={formatGraphqlError(error, "account", "Something went wrong on our side. Try again.")}
         actions={
-      <a href="/account" className={buttonVariants({ className: "w-full sm:w-auto" })}>
-        Try again
-      </a>
+          <a href="/account" className={buttonVariants({ className: "w-full sm:w-auto" })}>
+            Try again
+          </a>
         }
       />
     );
@@ -75,14 +86,47 @@ export default async function AccountPage() {
     : (variations[0] ?? null);
   const fullName = defaultVariation?.displayName?.trim() || "";
   const username = user?.usernames?.defaultUsername ?? null;
-  const [clients, grants, samlConfig, initialPasskeys, initialExternalIdentities, passwordStatus] = await Promise.all([
-    listClientsByOwner(session.auid),
-    listGrantsForUser(session.auid),
-    getSamlConfigByAuid(session.auid),
-    getUserPasskeys(session.auid, session.tokenId),
-    getUserExternalIdentities(session.auid, session.tokenId),
-    sdk.IsPasswordSet({ auid: session.auid }),
-  ]);
+
+  let clients;
+  let grants;
+  let samlConfig;
+  let initialPasskeys;
+  let initialExternalIdentities;
+  let passwordStatus;
+
+  try {
+    const [c, g, s, p, e, pwd] = await Promise.all([
+      listClientsByOwner(session.auid),
+      listGrantsForUser(session.auid),
+      getSamlConfigByAuid(session.auid),
+      getUserPasskeys(session.auid, session.tokenId),
+      getUserExternalIdentities(session.auid, session.tokenId),
+      sdk.IsPasswordSet({ auid: session.auid }),
+    ]);
+    clients = c;
+    grants = g;
+    samlConfig = s;
+    initialPasskeys = p;
+    initialExternalIdentities = e;
+    passwordStatus = pwd;
+  } catch (error) {
+    if (isAuthError(error)) {
+      await removeAccountFromSession(session.auid);
+      redirect("/login");
+    }
+    return (
+      <StatusPage
+        tone="error"
+        title={isRateLimitError(error) ? "Too many requests" : "We couldn’t load your account"}
+        description={formatGraphqlError(error, "account", "Something went wrong on our side. Try again.")}
+        actions={
+          <a href="/account" className={buttonVariants({ className: "w-full sm:w-auto" })}>
+            Try again
+          </a>
+        }
+      />
+    );
+  }
   const issuer = getIssuer();
 
   // An app is another AXUS ID account, so its name is looked up like any other profile; an app

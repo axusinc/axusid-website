@@ -3,6 +3,7 @@
 import { ClientError } from "graphql-request";
 import { z } from "zod";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
+import { isRateLimitError, RATE_LIMIT_MESSAGE } from "@/lib/graphql-errors";
 import { getValidSession } from "@/lib/session-access";
 import { permissionPresentation, specificPermissionChoices } from "@/lib/permission-presentation";
 import type { MyDelegatedGrantsQuery } from "@/graphql/sdk";
@@ -52,6 +53,7 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
           available = checkPermission.allowed;
         } catch (error) {
           if (error instanceof ClientError && error.response.errors?.some((item) => item.extensions?.code === "TOKEN_INVALID")) throw error;
+          if (isRateLimitError(error)) throw error;
         }
         return { key, label, scope, description, available };
       })());
@@ -109,9 +111,41 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
     const assignedKeys = new Set(incoming.grants.map((grant) => grant.permission));
     const choices = new Set(specificPermissionChoices(session.auid, [...assignedKeys]));
     const keys = [...new Set([...assignedKeys, ...choices, ...outgoing.delegatedGrants.map((grant) => grant.permission)])];
-    const permissions: UserPermission[] = [];
     for (let start = 0; start < keys.length; start += 6) {
-      permissions.push(...await Promise.all(keys.slice(start, start + 6).map(describe)));
+      await Promise.all(keys.slice(start, start + 6).map(describe));
+    }
+    const permissions: UserPermission[] = [];
+    const seen = new Set<string>();
+    for (const grant of incoming.grants) {
+      const { target } = permissionPresentation(grant.permission);
+      const granterId = (grant.origin?.delegatorAuid && grant.origin.delegatorAuid !== session.auid)
+        ? grant.origin.delegatorAuid
+        : (grant.origin?.type === "DELEGATED" && grant.origin?.delegatorAuid)
+          ? grant.origin.delegatorAuid
+          : (target && target !== "*" && target !== session.auid)
+            ? target
+            : null;
+      const dedupKey = `${grant.permission}:${granterId ?? ""}`;
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
+      const base = await describe(grant.permission);
+      const receivedFrom = granterId ? {
+        id: granterId,
+        username: await usernameFor(granterId),
+      } : null;
+
+      permissions.push({
+        ...base,
+        receivedFrom,
+      });
+    }
+    const shareOptions: UserPermission[] = [];
+    for (const key of choices) {
+      const base = await describe(key);
+      if (base.available === true) {
+        shareOptions.push(base);
+      }
     }
     const shared: SharedPermission[] = [];
     for (let start = 0; start < outgoing.delegatedGrants.length; start += 6) {
@@ -119,11 +153,14 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
     }
     permissions.sort((a, b) => Number(b.available) - Number(a.available) || a.label.localeCompare(b.label));
     return {
-      permissions: permissions.filter((item) => assignedKeys.has(item.key)),
-      shareOptions: permissions.filter((item) => choices.has(item.key) && item.available === true),
+      permissions,
+      shareOptions,
       shared: shared.sort((a, b) => (a.username ?? "").localeCompare(b.username ?? "") || a.permission.label.localeCompare(b.permission.label)),
     };
   } catch (error) {
+    if (isRateLimitError(error)) {
+      return { error: RATE_LIMIT_MESSAGE };
+    }
     const code = error instanceof ClientError ? error.response.errors?.[0]?.extensions?.code : undefined;
     const messages: Record<string, string> = {
       TOKEN_REQUIRED: "Sign in again to view your permissions.",
@@ -135,6 +172,7 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
       INVALID_USERNAME: "Enter a valid username.",
       GRANT_NOT_FOUND: "This permission has already been removed. Refresh the list.",
       GRANT_NOT_REVOCABLE: "This permission can’t be removed here.",
+      RATE_LIMITED: RATE_LIMIT_MESSAGE,
     };
     return { error: messages[String(code)] ?? "Couldn’t complete the request. Please try again." };
   }

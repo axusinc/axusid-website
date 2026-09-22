@@ -1,6 +1,15 @@
 query MyGrants($auid: ID!) {
   grants(auid: $auid) {
+    id
+    granteeAuid
     permission
+    effect
+    origin {
+      type
+      delegatorAuid
+    }
+    activationState
+    isShadow
   }
 }
 

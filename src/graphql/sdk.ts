@@ -638,6 +638,11 @@ export type PermissionGrantEffect =
   | 'ALLOW'
   | 'DENY';
 
+export type PermissionGrantOriginType =
+  | 'DELEGATED'
+  | 'DELEGATED_BY_TOKEN'
+  | 'DIRECT';
+
 export type LoginWithPasswordMutationVariables = Exact<{
   auid: string | number;
   password: string;
@@ -763,7 +768,7 @@ export type MyGrantsQueryVariables = Exact<{
 }>;
 
 
-export type MyGrantsQuery = { grants: Array<{ permission: string }> };
+export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string, permission: string, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
 
 export type MyDelegatedGrantsQueryVariables = Exact<{
   auid: string | number;
@@ -1078,7 +1083,16 @@ export const LoginWithPasskeyDocument = gql`
 export const MyGrantsDocument = gql`
     query MyGrants($auid: ID!) {
   grants(auid: $auid) {
+    id
+    granteeAuid
     permission
+    effect
+    origin {
+      type
+      delegatorAuid
+    }
+    activationState
+    isShadow
   }
 }
     `;

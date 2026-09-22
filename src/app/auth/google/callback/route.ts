@@ -23,6 +23,7 @@ import { DOMAIN_ERROR_CODES, getPrimaryDomainError } from "@/lib/graphql-errors"
 import { addAccountToSession, getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
 import { SESSION_PERMISSIONS } from "@/lib/oauth/adapter";
+import { setLastAuthMethod } from "@/lib/last-auth-method-server";
 
 function loginRedirect(
   request: NextRequest,
@@ -141,6 +142,7 @@ export async function GET(request: NextRequest) {
       };
 
       await addAccountToSession(session);
+      await setLastAuthMethod("google");
 
       return NextResponse.redirect(
         new URL(
@@ -198,6 +200,7 @@ export async function GET(request: NextRequest) {
         };
 
         await addAccountToSession(session);
+        await setLastAuthMethod("google");
 
         return NextResponse.redirect(
           new URL(

@@ -10,6 +10,7 @@ import type { IdPSession } from "@/lib/session";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
 import { SESSION_PERMISSIONS } from "@/lib/oauth/adapter";
+import { setLastAuthMethod } from "@/lib/last-auth-method-server";
 import {
   startPasskeyEnrollment,
   verifyPasskeyEnrollment,
@@ -115,6 +116,7 @@ export async function loginWithPasskeyAction(params: {
   };
 
   await addAccountToSession(session);
+  await setLastAuthMethod("passkey");
 
   redirect(
     resolveAuthenticatedRedirect({

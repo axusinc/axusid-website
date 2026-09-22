@@ -38,8 +38,12 @@ export type DomainErrorCode =
   | "GRANT_NOT_FOUND"
   | "INVALID_GRANT_ACTIVATION_STATE"
   | "GRANT_APPROVAL_DENIED"
+  // Rate limiting
+  | "RATE_LIMITED"
   // Internal (rarely client-facing)
   | "INVALID_TOKEN_ID";
+
+export const RATE_LIMIT_MESSAGE = "Too many requests. Please wait a moment and try again.";
 
 export const DOMAIN_ERROR_CODES = {
   EMPTY_AUID: "EMPTY_AUID",
@@ -67,6 +71,7 @@ export const DOMAIN_ERROR_CODES = {
   GRANT_NOT_FOUND: "GRANT_NOT_FOUND",
   INVALID_GRANT_ACTIVATION_STATE: "INVALID_GRANT_ACTIVATION_STATE",
   GRANT_APPROVAL_DENIED: "GRANT_APPROVAL_DENIED",
+  RATE_LIMITED: "RATE_LIMITED",
   INVALID_TOKEN_ID: "INVALID_TOKEN_ID",
 } as const satisfies Record<DomainErrorCode, DomainErrorCode>;
 
@@ -74,14 +79,14 @@ export interface GraphQlDomainError {
   message: string;
   extensions: {
     code: DomainErrorCode;
-    groupCode: DomainErrorGroupCode;
+    groupCode?: DomainErrorGroupCode;
   };
 }
 
 export type ParsedDomainError = {
   message: string;
   code: DomainErrorCode;
-  groupCode: DomainErrorGroupCode;
+  groupCode?: DomainErrorGroupCode;
 };
 
 export type GraphqlErrorContext =
@@ -123,9 +128,12 @@ export function parseGraphqlDomainErrors(error: unknown): ParsedDomainError[] {
     const code = extensions?.code;
     const groupCode = extensions?.groupCode;
 
+    const isGroupValid = isDomainErrorGroupCode(groupCode);
+    const isRateLimit = code === DOMAIN_ERROR_CODES.RATE_LIMITED || code === "RATE_LIMITED";
+
     if (
       !isDomainErrorCode(code) ||
-      !isDomainErrorGroupCode(groupCode) ||
+      (!isGroupValid && !isRateLimit) ||
       typeof graphqlError.message !== "string"
     ) {
       return [];
@@ -135,7 +143,7 @@ export function parseGraphqlDomainErrors(error: unknown): ParsedDomainError[] {
       {
         message: graphqlError.message,
         code,
-        groupCode,
+        groupCode: isGroupValid ? groupCode : undefined,
       },
     ];
   });
@@ -143,6 +151,42 @@ export function parseGraphqlDomainErrors(error: unknown): ParsedDomainError[] {
 
 export function getPrimaryDomainError(error: unknown): ParsedDomainError | null {
   return parseGraphqlDomainErrors(error)[0] ?? null;
+}
+
+export function isRateLimitError(error: unknown): boolean {
+  if (getPrimaryDomainError(error)?.code === DOMAIN_ERROR_CODES.RATE_LIMITED) {
+    return true;
+  }
+
+  if (isGraphqlClientError(error)) {
+    if (error.response.status === 429) {
+      return true;
+    }
+    const hasRateLimit = error.response.errors?.some((item) => {
+      const code = item.extensions?.code;
+      if (code === DOMAIN_ERROR_CODES.RATE_LIMITED || code === "RATE_LIMITED") {
+        return true;
+      }
+      const msg = typeof item.message === "string" ? item.message.toLowerCase() : "";
+      return msg.includes("too many requests") || msg.includes("rate limit");
+    });
+    if (hasRateLimit) {
+      return true;
+    }
+  }
+
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    if (
+      msg.includes("too many requests") ||
+      msg.includes("rate limit") ||
+      msg.includes("429")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function formatLoginError(domainError: ParsedDomainError): string {
@@ -182,6 +226,10 @@ function formatByContext(
   domainError: ParsedDomainError,
   context?: GraphqlErrorContext,
 ): string {
+  if (domainError.code === DOMAIN_ERROR_CODES.RATE_LIMITED) {
+    return RATE_LIMIT_MESSAGE;
+  }
+
   switch (context) {
     case "login":
       return formatLoginError(domainError);
@@ -201,6 +249,10 @@ export function formatGraphqlError(
   context?: GraphqlErrorContext,
   fallback = "Something went wrong. Try again.",
 ): string {
+  if (isRateLimitError(error)) {
+    return RATE_LIMIT_MESSAGE;
+  }
+
   const domainError = getPrimaryDomainError(error);
   if (domainError) {
     return formatByContext(domainError, context);
@@ -225,6 +277,10 @@ export function formatGraphqlError(
  * over rather than that the action was refused, so it is safe to sign the account out on.
  */
 export function isTokenInvalidError(error: unknown): boolean {
+  if (isRateLimitError(error)) {
+    return false;
+  }
+
   if (getPrimaryDomainError(error)?.code === DOMAIN_ERROR_CODES.TOKEN_INVALID) {
     return true;
   }
@@ -238,6 +294,10 @@ export function isTokenInvalidError(error: unknown): boolean {
 }
 
 export function isAuthError(error: unknown): boolean {
+  if (isRateLimitError(error)) {
+    return false;
+  }
+
   const domainError = getPrimaryDomainError(error);
   if (domainError) {
     if (

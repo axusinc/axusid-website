@@ -16,13 +16,22 @@ export default function Error({
     console.error(error);
   }, [error]);
 
+  const msg = error.message?.toLowerCase() ?? "";
+  const isRateLimit =
+    msg.includes("too many requests") ||
+    msg.includes("rate limit") ||
+    msg.includes("rate_limited") ||
+    msg.includes("429");
+
   return (
     <StatusPage
       tone="error"
-      title="Something went wrong"
+      title={isRateLimit ? "Too many requests" : "Something went wrong"}
       description={
         <>
-          We couldn’t load this page. Try again in a moment.
+          {isRateLimit
+            ? "You’ve made too many requests. Please wait a moment before trying again."
+            : "We couldn’t load this page. Try again in a moment."}
           {error.digest ? (
             <span className="mt-3 block font-mono text-xs text-neutral-400">Reference: {error.digest}</span>
           ) : null}
