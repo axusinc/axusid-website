@@ -10,8 +10,9 @@ import {
   Workflow,
 } from "lucide-react";
 import { BrandMark, SiteFooter } from "@/components/brand-mark";
-import { PageBackground } from "@/components/page-background";
+import { LandingBackground } from "@/components/landing-background";
 import { Logo } from "@/components/ui/logo";
+import { AxusIdButton } from "@/components/ui/axusid-button";
 import { buttonVariants } from "@/components/ui/button";
 import { CopyField } from "@/components/ui/copy-field";
 import { eyebrow, shellSurface } from "@/lib/design";
@@ -105,7 +106,7 @@ export default async function HomePage() {
 
   return (
     <div className="relative flex min-h-[100dvh] flex-1 flex-col">
-      <PageBackground />
+      <LandingBackground />
 
       <header className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6">
         <BrandMark size={30} />
@@ -192,7 +193,7 @@ export default async function HomePage() {
         <section
           id="developers"
           aria-labelledby="developers-heading"
-          className="mx-auto w-full max-w-6xl scroll-mt-8 px-4 pb-24 sm:px-6"
+          className="mx-auto w-full max-w-6xl scroll-mt-8 px-4 pb-10 sm:px-6"
         >
           <div className="grid gap-10 rounded-[24px] border border-black/[0.07] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-10 lg:grid-cols-2 lg:gap-14">
             <div>
@@ -201,11 +202,13 @@ export default async function HomePage() {
                 id="developers-heading"
                 className="mt-3 text-balance text-2xl font-semibold tracking-[-0.03em] text-neutral-950 sm:text-3xl"
               >
-                Add “Sign in with AXUS ID” in minutes.
+                Add “Continue with AXUS ID” to your login screen.
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-neutral-500 sm:text-base">
-                Point any standard OAuth 2.0 / OpenID Connect or SAML library at AXUS ID. Register
-                your redirect URIs and you’re done.
+                Standard OAuth 2.0 + PKCE and OpenID Connect. No SDK required, no client
+                secrets. It sits in the same button group as Google, Apple, or GitHub —
+                users approve exact scopes on a consent screen and can revoke
+                access from their account at any time.
               </p>
               <ul className="mt-6 space-y-2.5">
                 {developerPoints.map((point) => (
@@ -215,19 +218,64 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/account?section=developer"
-                className={buttonVariants({ variant: "secondary", className: "mt-8 gap-2" })}
-              >
-                Register your app
-                <ArrowRight aria-hidden className="h-4 w-4" />
-              </Link>
+              <div className="mt-8 flex flex-col gap-2.5 min-[420px]:flex-row">
+                <Link href="/developers/quickstart" className={buttonVariants({ className: "gap-2" })}>
+                  5-minute quickstart
+                  <ArrowRight aria-hidden className="h-4 w-4" />
+                </Link>
+                <Link href="/brand" className={buttonVariants({ variant: "secondary" })}>
+                  Button and brand
+                </Link>
+              </div>
+              <p className="mt-4 text-[13px] leading-relaxed text-neutral-500">
+                <Link href="/developers" className="font-medium text-neutral-800 underline underline-offset-4 hover:text-neutral-950">
+                  Developer overview
+                </Link>
+                {" · "}
+                <Link href="/developers/reference" className="font-medium text-neutral-800 underline underline-offset-4 hover:text-neutral-950">
+                  Endpoint reference
+                </Link>
+                {" · "}
+                <Link href="/account?section=developer" className="font-medium text-neutral-800 underline underline-offset-4 hover:text-neutral-950">
+                  Register redirect URIs
+                </Link>
+              </p>
             </div>
             <div className="flex flex-col justify-center gap-4">
               <CopyField label="Issuer" value={issuer} />
               <CopyField label="Discovery document" value={`${issuer}/.well-known/openid-configuration`} />
               <CopyField label="JWKS" value={`${issuer}/.well-known/jwks.json`} />
+              <div className="mt-2 space-y-2.5 rounded-2xl border border-black/[0.06] bg-neutral-50 p-4">
+                <p className="text-xs font-medium text-neutral-500">Sits alongside your existing buttons</p>
+                <AxusIdButton href="/developers/quickstart" />
+              </div>
             </div>
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="migration-heading"
+          className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6"
+        >
+          <div className="rounded-[24px] border border-black/[0.07] bg-neutral-950 p-6 text-white sm:p-10">
+            <h2
+              id="migration-heading"
+              className="max-w-xl text-balance text-xl font-semibold tracking-[-0.02em] sm:text-2xl"
+            >
+              Keep your current logins. Offer AXUS ID as one more option.
+            </h2>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-neutral-400 sm:text-[15px]">
+              No migration required. Users with a Google or GitHub account link it once in Security
+              settings; new users create an AXUS ID with a passkey or password. Your app
+              keeps receiving standard OIDC claims.
+            </p>
+            <Link
+              href="/developers/quickstart#providers"
+              className={buttonVariants({ variant: "secondary", className: "mt-6 gap-2 border-white/15 bg-white text-neutral-950 hover:bg-neutral-100" })}
+            >
+              How to run it next to the rest
+              <ArrowRight aria-hidden className="h-4 w-4" />
+            </Link>
           </div>
         </section>
       </main>

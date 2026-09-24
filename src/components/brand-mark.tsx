@@ -26,11 +26,26 @@ export function SiteFooter({ className }: { className?: string }) {
       <Link href="/" className="transition-colors hover:text-neutral-700">
         Home
       </Link>
-      <Link href="/#developers" className="transition-colors hover:text-neutral-700">
+      <Link href="/developers" className="transition-colors hover:text-neutral-700">
         Developers
       </Link>
-      <Link href="/account" className="transition-colors hover:text-neutral-700">
-        Manage account
+      <Link href="/developers/reference" className="transition-colors hover:text-neutral-700">
+        Reference
+      </Link>
+      <Link href="/brand" className="transition-colors hover:text-neutral-700">
+        Brand
+      </Link>
+      <Link href="/security" className="transition-colors hover:text-neutral-700">
+        Security
+      </Link>
+      <Link href="/status" className="transition-colors hover:text-neutral-700">
+        Status
+      </Link>
+      <Link href="/legal/privacy" className="transition-colors hover:text-neutral-700">
+        Privacy
+      </Link>
+      <Link href="/legal/terms" className="transition-colors hover:text-neutral-700">
+        Terms
       </Link>
     </footer>
   );
