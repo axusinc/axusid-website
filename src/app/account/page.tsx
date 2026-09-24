@@ -9,7 +9,7 @@ import { formatGraphqlError, isRateLimitError, isTokenInvalidError } from "@/lib
 import { listClientsByOwner } from "@/lib/oauth/client-store";
 import { listGrantsForUser } from "@/lib/oauth/grants";
 import { getIssuer } from "@/lib/oauth/constants";
-import { getValidSession, getValidMultiSession } from "@/lib/session-access";
+import { getValidMultiSession } from "@/lib/session-access";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import {
   fetchUserProfileWithVariations,
@@ -39,7 +39,7 @@ function renderAccountLoadError(error: unknown, auid: string) {
 
 export default async function AccountPage() {
   const multiSession = await getValidMultiSession();
-  const session = await getValidSession();
+  const session = multiSession?.accounts.find((account) => account.auid === multiSession.activeAuid);
 
   if (!session || !multiSession) {
     redirect("/login");
@@ -127,6 +127,7 @@ export default async function AccountPage() {
 
   return (
     <AccountDashboard
+      key={session.auid}
       auid={session.auid}
       accounts={accountInfos}
       currentAuid={session.auid}

@@ -82,6 +82,7 @@ export function LoginForm({
     registeredUsername ? "password" : "identifier",
   );
   const [username, setUsername] = useState(registeredUsername ?? "");
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const [selectedAuid, setSelectedAuid] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
@@ -243,9 +244,17 @@ export function LoginForm({
   };
 
   const handleSelectAccount = (auid: string, formData: FormData) => {
+    if (isSwitchPending) return;
+    setSwitchError(null);
     setSelectedAuid(auid);
     startSwitchTransition(async () => {
-      await switchAccountAction(formData);
+      try {
+        const result = await switchAccountAction(formData);
+        if (result.error) setSwitchError(result.error);
+      } catch (error) {
+        if (isRedirectError(error)) throw error;
+        setSwitchError("We couldn’t switch accounts. Try again.");
+      }
     });
   };
 
@@ -320,6 +329,8 @@ export function LoginForm({
           title="Choose an account"
           description="Accounts signed in on this device."
         />
+
+        {switchError ? <FormError>{switchError}</FormError> : null}
 
         <ul className="space-y-2" aria-busy={isSwitchPending}>
           {existingAccounts.map((account) => {

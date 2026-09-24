@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, useRef, useEffect, useTransition, useOptimistic } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { logoutAction, logoutAllAction, switchAccountAction } from "@/app/actions/auth";
 import { ChevronDown, LogOut, UserPlus } from "lucide-react";
 import { ProfileAvatar } from "@/components/ui/profile-avatar";
@@ -38,7 +37,7 @@ export function UserAccountSwitcher({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const router = useRouter();
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const [optimisticAuid, setOptimisticAuid] = useOptimistic(
@@ -112,14 +111,21 @@ export function UserAccountSwitcher({
   const otherAccounts = accounts.filter((account) => account.auid !== activeAccount.auid);
 
   const handleSwitchAccount = (targetAuid: string) => {
-    if (targetAuid === optimisticAuid) return;
+    if (isPending || targetAuid === optimisticAuid) return;
+    setSwitchError(null);
     setIsOpen(false);
     startTransition(async () => {
       setOptimisticAuid(targetAuid);
       const formData = new FormData();
       formData.set("auid", targetAuid);
-      await switchAccountAction(formData);
-      router.refresh();
+      try {
+        // Updating the session cookie returns the refreshed UI with this action.
+        // A router.refresh() here would load the entire dashboard a second time.
+        const result = await switchAccountAction(formData);
+        if (result.error) setSwitchError(result.error);
+      } catch {
+        setSwitchError("We couldn’t switch accounts. Try again.");
+      }
     });
   };
 
@@ -286,6 +292,8 @@ export function UserAccountSwitcher({
         ref={buttonRef}
         type="button"
         onClick={toggleOpen}
+        disabled={isPending}
+        aria-busy={isPending}
         className={cn(
           "group inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-black/[0.08] bg-white py-1 pl-1 pr-2.5 text-sm font-medium text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-black/15",
           focusRing,
@@ -325,6 +333,8 @@ export function UserAccountSwitcher({
           />
         )}
       </button>
+
+      {switchError ? <p role="alert" className="mt-2 max-w-80 text-sm text-red-600">{switchError}</p> : null}
 
       {mounted && popoverContent ? createPortal(popoverContent, document.body) : null}
     </div>

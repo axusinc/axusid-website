@@ -222,11 +222,11 @@ export async function switchAccountAction(formData: FormData): Promise<AuthActio
   const redirectUri = String(formData.get("redirect_uri") ?? "");
   const next = String(formData.get("next") ?? "");
 
-  if (auid) {
-    await switchActiveAccount(auid);
+  if (!auid || !(await switchActiveAccount(auid))) {
+    return { error: "This account is no longer signed in. Sign in again." };
   }
 
-  revalidatePath("/account");
+  // The cookie mutation already refreshes the current page in this response.
 
   if (redirectUri) {
     let target = redirectUri;
