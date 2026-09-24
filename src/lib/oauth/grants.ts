@@ -1,12 +1,13 @@
 import "server-only";
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { decryptJson, encryptJson } from "@/lib/crypto/secret-box";
 import { getDb } from "@/lib/db";
 import { oauthGrants, type OAuthGrantRow } from "@/lib/db/schema";
 import { recordOAuthEvent } from "@/lib/oauth/audit";
 import { issueAuthorizationToken, revokeWithBackend } from "@/lib/oauth/adapter";
 import { permissionImplies } from "@/lib/oauth/scopes";
+import { sha256Base64Url } from "@/lib/oauth/pkce";
 
 export type OAuthGrant = {
   id: string;
@@ -15,6 +16,7 @@ export type OAuthGrant = {
   scopes: string[];
   /** Native token the app acts with. */
   tokenId: string;
+  parentSessionTokenHash: string | null;
   createdAt: Date;
   updatedAt: Date;
   lastUsedAt: Date | null;
@@ -27,6 +29,7 @@ async function toGrant(row: OAuthGrantRow): Promise<OAuthGrant> {
     clientAuid: row.clientAuid,
     scopes: row.scopes,
     tokenId: await decryptJson<string>(row.tokenId),
+    parentSessionTokenHash: row.parentSessionTokenHash,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     lastUsedAt: row.lastUsedAt,
@@ -83,8 +86,8 @@ export function grantCoversScopes(grant: OAuthGrant, requested: string[]): boole
 
 /**
  * Records the user's consent and hands back the token the app will act with. An existing
- * authorization keeps its token as long as it still covers the request; widening it mints a
- * fresh token and revokes the old one, so a token never silently gains permissions.
+ * authorization keeps its token while the scopes and parent session still match. Widening
+ * scopes or authorizing from a different session mints a fresh token and revokes the old one.
  */
 export async function grantAuthorization(params: {
   userAuid: string;
@@ -95,8 +98,9 @@ export async function grantAuthorization(params: {
 }): Promise<OAuthGrant> {
   const db = getDb();
   const existing = await findActiveGrant(params.userAuid, params.clientAuid);
+  const parentSessionTokenHash = await sha256Base64Url(params.sessionTokenId);
 
-  if (existing && grantCoversScopes(existing, params.scopes)) {
+  if (existing && existing.parentSessionTokenHash === parentSessionTokenHash && grantCoversScopes(existing, params.scopes)) {
     const now = new Date();
     await db
       .update(oauthGrants)
@@ -110,7 +114,6 @@ export async function grantAuthorization(params: {
     userAuid: params.userAuid,
     permissions: params.axusPermissions,
   });
-
   const scopes = existing
     ? [...new Set([...existing.scopes, ...params.scopes])]
     : params.scopes;
@@ -121,6 +124,7 @@ export async function grantAuthorization(params: {
       .set({
         scopes,
         tokenId: await encryptJson(tokenId),
+        parentSessionTokenHash,
         updatedAt: new Date(),
         lastUsedAt: new Date(),
       })
@@ -137,7 +141,7 @@ export async function grantAuthorization(params: {
       detail: { scopes },
     });
 
-    return { ...existing, scopes, tokenId, updatedAt: new Date() };
+    return { ...existing, scopes, tokenId, parentSessionTokenHash, updatedAt: new Date() };
   }
 
   const id = crypto.randomUUID();
@@ -147,6 +151,7 @@ export async function grantAuthorization(params: {
     clientAuid: params.clientAuid,
     scopes,
     tokenId: await encryptJson(tokenId),
+    parentSessionTokenHash,
     lastUsedAt: new Date(),
   });
 
@@ -164,10 +169,25 @@ export async function grantAuthorization(params: {
     clientAuid: params.clientAuid,
     scopes,
     tokenId,
+    parentSessionTokenHash,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastUsedAt: new Date(),
   };
+}
+
+/** Retire app grants whose native tokens depend on a session being revoked. */
+export async function revokeGrantsForSession(userAuid: string, sessionTokenId: string): Promise<void> {
+  const parentSessionTokenHash = await sha256Base64Url(sessionTokenId);
+  const rows = await getDb()
+    .select({ id: oauthGrants.id, parentSessionTokenHash: oauthGrants.parentSessionTokenHash })
+    .from(oauthGrants)
+    .where(and(
+      eq(oauthGrants.userAuid, userAuid),
+      isNull(oauthGrants.revokedAt),
+      or(eq(oauthGrants.parentSessionTokenHash, parentSessionTokenHash), isNull(oauthGrants.parentSessionTokenHash)),
+    ));
+  await Promise.all(rows.map((row) => revokeGrant(row.id, "session_ended", row.parentSessionTokenHash)));
 }
 
 /**
@@ -176,13 +196,19 @@ export async function grantAuthorization(params: {
  */
 export async function revokeGrant(
   grantId: string,
-  reason: "user" | "client" | "reuse_detected",
+  reason: "user" | "client" | "reuse_detected" | "session_ended",
+  expectedParentSessionTokenHash?: string | null,
 ): Promise<void> {
+  const parentCondition = expectedParentSessionTokenHash === undefined
+    ? undefined
+    : expectedParentSessionTokenHash === null
+      ? isNull(oauthGrants.parentSessionTokenHash)
+      : eq(oauthGrants.parentSessionTokenHash, expectedParentSessionTokenHash);
   const rows = await getDb()
-    .select()
-    .from(oauthGrants)
-    .where(and(eq(oauthGrants.id, grantId), isNull(oauthGrants.revokedAt)))
-    .limit(1);
+    .update(oauthGrants)
+    .set({ revokedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(oauthGrants.id, grantId), isNull(oauthGrants.revokedAt), parentCondition))
+    .returning();
 
   const row = rows[0];
   if (!row) {
@@ -191,11 +217,6 @@ export async function revokeGrant(
 
   const grant = await toGrant(row);
   await revokeQuietly(grant.tokenId);
-
-  await getDb()
-    .update(oauthGrants)
-    .set({ revokedAt: new Date(), updatedAt: new Date() })
-    .where(eq(oauthGrants.id, grantId));
 
   await recordOAuthEvent({
     event: reason === "reuse_detected" ? "refresh.reuse_detected" : "grant.revoked",

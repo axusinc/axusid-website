@@ -274,6 +274,14 @@ export async function logoutAllAction() {
   redirect("/login");
 }
 
+export async function discardInvalidSessionAction(expectedAuid: string): Promise<string> {
+  const session = await getValidSession();
+  if (!session) return "/login?add_account=true";
+  if (session.auid !== expectedAuid) return "/account";
+  const remaining = await removeAccountFromSession(session.auid);
+  return remaining ? "/account" : "/login?add_account=true";
+}
+
 export async function logoutAction(formData?: FormData) {
   const targetAuid = formData ? String(formData.get("auid") ?? "").trim() : "";
   const logoutAll = formData ? formData.get("logout_all") === "true" : false;
@@ -814,7 +822,7 @@ export async function avatarUrlForUsernameAction(
     if (!avatar.avatar?.objectKey) {
       return { url: null };
     }
-    return { url: avatarImageUrl(variationId) };
+    return { url: avatarImageUrl(variationId, avatar.avatar.updatedAt) };
   } catch {
     return { url: null };
   }

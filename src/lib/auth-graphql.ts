@@ -2,7 +2,6 @@ import "server-only";
 
 import { GraphQLClient } from "graphql-request";
 import { getSdk } from "@/graphql/sdk";
-import { isTokenInvalidError } from "@/lib/graphql-errors";
 import { getIssuer } from "@/lib/oauth/constants";
 import { signAccessToken } from "@/lib/oauth/jwt";
 import type { IdPSession } from "@/lib/session";
@@ -64,28 +63,10 @@ export function getAuthSdk(
   return getSdk(createAuthGraphqlClient(bearerToken, extraHeaders));
 }
 
-/**
- * Calls the engine as the signed-in user. If the engine reports that the session's token is
- * gone - revoked elsewhere, or lost - the account is dropped from the session here, so the
- * user is asked to sign in again instead of browsing a session whose writes all fail.
- */
+/** Calls the engine as the signed-in user. Callers handle invalid tokens in a writable context. */
 export function getAuthSdkForSession(
   session: IdPSession,
   extraHeaders?: Record<string, string>,
 ) {
-  return getSdk(
-    createAuthGraphqlClient(session.tokenId, extraHeaders),
-    async (action) => {
-      try {
-        return await action();
-      } catch (error) {
-        if (isTokenInvalidError(error)) {
-          // Imported here because session handling calls back into this module.
-          const { removeAccountFromSession } = await import("@/lib/session-access");
-          await removeAccountFromSession(session.auid);
-        }
-        throw error;
-      }
-    },
-  );
+  return getSdk(createAuthGraphqlClient(session.tokenId, extraHeaders));
 }

@@ -12,15 +12,20 @@ import {
   type MultiSession,
 } from "@/lib/session";
 import { revokeWithBackend } from "@/lib/oauth/adapter";
+import { revokeGrantsForSession } from "@/lib/oauth/grants";
 
 /**
  * Signing out revokes the session's native token. Native tokens never expire, so a session
- * that is merely forgotten leaves a working token behind forever. Apps are unaffected: their
- * tokens are separate authorizations, not children of this one.
+ * that is merely forgotten leaves a working token behind forever.
  */
-async function revokeSessionToken(tokenId: string | undefined): Promise<void> {
+async function revokeSessionToken(auid: string, tokenId: string | undefined): Promise<void> {
   if (!tokenId) {
     return;
+  }
+  try {
+    await revokeGrantsForSession(auid, tokenId);
+  } catch (error) {
+    console.error("Could not retire grants for an ended session:", error);
   }
   try {
     await revokeWithBackend(tokenId);
@@ -31,37 +36,16 @@ async function revokeSessionToken(tokenId: string | undefined): Promise<void> {
 
 export async function persistSession(session: IdPSession): Promise<void> {
   const cookieStore = await cookies();
-  try {
-    cookieStore.set(
-      SESSION_COOKIE,
-      await serializeSession(session),
-      sessionCookieOptions,
-    );
-  } catch {
-    // Cookies can only be modified in a Server Action or Route Handler.
-    // Gracefully ignore when called during Server Component rendering.
-  }
+  cookieStore.set(SESSION_COOKIE, await serializeSession(session), sessionCookieOptions);
 }
 
 export async function persistMultiSession(multiSession: MultiSession): Promise<void> {
   const cookieStore = await cookies();
   if (multiSession.accounts.length === 0) {
-    try {
-      cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
-    } catch {
-      // Cookies can only be modified in a Server Action or Route Handler.
-    }
+    cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
     return;
   }
-  try {
-    cookieStore.set(
-      SESSION_COOKIE,
-      await serializeMultiSession(multiSession),
-      sessionCookieOptions,
-    );
-  } catch {
-    // Cookies can only be modified in a Server Action or Route Handler.
-  }
+  cookieStore.set(SESSION_COOKIE, await serializeMultiSession(multiSession), sessionCookieOptions);
 }
 
 /**
@@ -108,6 +92,10 @@ export async function addAccountToSession(session: IdPSession): Promise<MultiSes
   };
 
   await persistMultiSession(newMultiSession);
+  const replaced = index >= 0 ? existing?.accounts[index] : undefined;
+  if (replaced?.tokenId && replaced.tokenId !== session.tokenId) {
+    await revokeSessionToken(session.auid, replaced.tokenId);
+  }
   return newMultiSession;
 }
 
@@ -137,8 +125,9 @@ export async function removeAccountFromSession(auid: string): Promise<MultiSessi
   const existing = await getValidMultiSession();
   if (!existing) return null;
 
+  const removed = existing.accounts.find((acc) => acc.auid === auid);
+  if (!removed) return existing;
   const remaining = existing.accounts.filter((acc) => acc.auid !== auid);
-  await revokeSessionToken(existing.accounts.find((acc) => acc.auid === auid)?.tokenId);
 
   if (remaining.length === 0) {
     await clearAllSessions();
@@ -156,6 +145,7 @@ export async function removeAccountFromSession(auid: string): Promise<MultiSessi
   };
 
   await persistMultiSession(updated);
+  await revokeSessionToken(removed.auid, removed.tokenId);
   return updated;
 }
 
@@ -164,14 +154,9 @@ export async function removeAccountFromSession(auid: string): Promise<MultiSessi
  */
 export async function clearAllSessions(): Promise<void> {
   const existing = await getValidMultiSession();
-  for (const account of existing?.accounts ?? []) {
-    await revokeSessionToken(account.tokenId);
-  }
-
   const cookieStore = await cookies();
-  try {
-    cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
-  } catch {
-    // Cookies can only be modified in a Server Action or Route Handler.
+  cookieStore.set(SESSION_COOKIE, "", clearSessionCookieOptions);
+  for (const account of existing?.accounts ?? []) {
+    await revokeSessionToken(account.auid, account.tokenId);
   }
 }

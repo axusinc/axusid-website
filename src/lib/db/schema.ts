@@ -37,8 +37,8 @@ export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
 
 /**
  * A user's standing authorization for one app: what they consented to, and the native token
- * the app acts with. Consent lives here rather than in the session cookie so it survives
- * sign-out, can be listed on the account page, and can be revoked from either side.
+ * the app acts with. The parent session is tracked so its dependent grants can be retired
+ * when that session is revoked.
  */
 export const oauthGrants = pgTable(
   "oauth_grants",
@@ -51,6 +51,7 @@ export const oauthGrants = pgTable(
     scopes: text("scopes").array().notNull(),
     // Encrypted native token id (secret-box).
     tokenId: text("token_id").notNull(),
+    parentSessionTokenHash: text("parent_session_token_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
@@ -61,6 +62,7 @@ export const oauthGrants = pgTable(
       .on(table.userAuid, table.clientAuid)
       .where(sql`revoked_at IS NULL`),
     index("oauth_grants_user_idx").on(table.userAuid),
+    index("oauth_grants_parent_session_idx").on(table.parentSessionTokenHash),
   ],
 );
 
@@ -140,4 +142,3 @@ export const samlConfigs = pgTable("saml_configs", {
 
 export type SamlConfigRow = typeof samlConfigs.$inferSelect;
 export type SamlConfigInsert = typeof samlConfigs.$inferInsert;
-

@@ -10,11 +10,11 @@ function loadTs(file, mocks = {}) {
   const source = ts.transpileModule(fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText;
-  const module = { exports: {} };
+  const loadedModule = { exports: {} };
   new Function("require", "module", "exports", source)(
-    name => Object.hasOwn(mocks, name) ? mocks[name] : require(name), module, module.exports,
+    name => Object.hasOwn(mocks, name) ? mocks[name] : require(name), loadedModule, loadedModule.exports,
   );
-  return module.exports;
+  return loadedModule.exports;
 }
 const sharedOAuth = loadTs("src/lib/oauth-provider.ts", { "server-only": {}, "@/lib/auth-graphql": {} });
 const oauth = loadTs("src/lib/github-oauth.ts", { "server-only": {}, "@/lib/oauth-provider": sharedOAuth });

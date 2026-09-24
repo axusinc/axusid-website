@@ -20,6 +20,7 @@ type ProfileAvatarProps = {
    * photo editor previews. Defaults to a circle.
    */
   shape?: "circle" | "rounded";
+  fetchPriority?: "high" | "low" | "auto";
 };
 
 export function ProfileAvatar({
@@ -33,17 +34,19 @@ export function ProfileAvatar({
   size = "md",
   className,
   shape = "circle",
+  fetchPriority,
 }: ProfileAvatarProps) {
-  const [imgError, setImgError] = useState(false);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const rounding = shape === "rounded" ? "rounded-[26%]" : "rounded-full";
 
-  if (imageUrl && !imgError) {
+  if (imageUrl && imageUrl !== failedUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={imageUrl}
         alt={alt}
-        onError={() => setImgError(true)}
+        fetchPriority={fetchPriority}
+        onError={() => setFailedUrl(imageUrl)}
         className={cn(
           "shrink-0 object-cover ring-1 ring-black/[0.06]",
           avatarSizes[size],

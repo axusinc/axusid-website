@@ -51,7 +51,14 @@ export async function resolveUserDisplayInfo(
   sdk: AuthSdk,
   auid: string,
 ): Promise<UserDisplayInfo> {
-  const { user, variations } = await fetchUserProfileWithVariations(sdk, auid);
+  const profile = await fetchUserProfileWithVariations(sdk, auid);
+  return userDisplayInfoFromProfile(profile, auid);
+}
+
+export function userDisplayInfoFromProfile(
+  { user, variations }: UserProfileWithVariations,
+  auid: string,
+): UserDisplayInfo {
   const username = user?.usernames?.defaultUsername ?? null;
 
   const defaultVariationId = user?.defaultVariation?.variationId;
@@ -166,7 +173,7 @@ async function hydrateVariation(
     avatar: avatar?.objectKey
       ? { contentType: avatar.contentType ?? null, sizeBytes: avatar.sizeBytes ?? null }
       : null,
-    avatarUrl: avatar?.objectKey ? avatarImageUrl(variation.id) : null,
+    avatarUrl: avatar?.objectKey ? avatarImageUrl(variation.id, avatar.updatedAt) : null,
   };
 }
 

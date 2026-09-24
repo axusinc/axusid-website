@@ -15,6 +15,7 @@ export type OAuthFlowMetadata = {
     username: string | null;
     firstName: string | null;
     lastName: string | null;
+    avatarUrl: string | null;
   } | null;
 };
 

@@ -371,8 +371,8 @@ export function AvatarPhotoField({
     setDialogOpen(true);
   }
 
-  function closeDialog() {
-    if (isWorking) return;
+  function closeDialog(force = false) {
+    if (isWorking && !force) return;
     setDialogOpen(false);
     setDialogView("view");
     if (loadedImage) {
@@ -449,7 +449,7 @@ export function AvatarPhotoField({
         setError(confirmed.error);
         return;
       }
-      closeDialog();
+      closeDialog(true);
       onDone(confirmed.success ?? "Profile photo updated.");
       router.refresh();
     } catch {
@@ -468,7 +468,7 @@ export function AvatarPhotoField({
         setError(result.error);
         return;
       }
-      closeDialog();
+      closeDialog(true);
       onDone(result.success ?? "Profile photo removed.");
       router.refresh();
     } catch {
@@ -481,7 +481,7 @@ export function AvatarPhotoField({
   const dialog = dialogOpen ? (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={closeDialog}
+      onClick={() => closeDialog()}
       role="presentation"
     >
       <div
@@ -571,7 +571,7 @@ export function AvatarPhotoField({
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={closeDialog}
+                onClick={() => closeDialog()}
                 disabled={isWorking}
               >
                 Close

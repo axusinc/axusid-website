@@ -14,7 +14,6 @@ import {
   formatSyntheticEmail,
   resolveUserDisplayInfo,
 } from "@/lib/user-profile";
-import { getIssuer } from "@/lib/oauth/constants";
 
 async function handleSsoRequest(
   request: NextRequest,

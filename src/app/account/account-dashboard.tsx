@@ -235,6 +235,7 @@ export function AccountDashboard({
               displayName={fullName}
               username={username}
               seed={auid}
+              fetchPriority="high"
               size="lg"
               className="lg:h-16 lg:w-16 lg:text-xl"
             />

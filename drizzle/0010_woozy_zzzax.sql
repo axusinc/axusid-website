@@ -1,0 +1,2 @@
+ALTER TABLE "oauth_grants" ADD COLUMN "parent_session_token_hash" text;--> statement-breakpoint
+CREATE INDEX "oauth_grants_parent_session_idx" ON "oauth_grants" USING btree ("parent_session_token_hash");

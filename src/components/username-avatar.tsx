@@ -12,6 +12,18 @@ type UsernameAvatarProps = {
   shape?: "circle" | "rounded";
 };
 
+const pendingAvatarLookups = new Map<string, Promise<{ url: string | null }>>();
+
+function lookupAvatar(username: string): Promise<{ url: string | null }> {
+  const pending = pendingAvatarLookups.get(username);
+  if (pending) return pending;
+  const request = avatarUrlForUsernameAction(username).finally(() => {
+    pendingAvatarLookups.delete(username);
+  });
+  pendingAvatarLookups.set(username, request);
+  return request;
+}
+
 /**
  * Profile photo for any username, resolved on demand. Starts with (and falls
  * back to) initials, so rows for other users never block on the lookup.
@@ -23,7 +35,7 @@ export function UsernameAvatar({ username, size = "sm", className, shape }: User
   useEffect(() => {
     if (!normalized) return;
     let active = true;
-    avatarUrlForUsernameAction(normalized)
+    lookupAvatar(normalized)
       .then((result) => {
         if (active) setResolved({ username: normalized, url: result.url });
       })

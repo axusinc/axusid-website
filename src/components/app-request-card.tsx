@@ -1,5 +1,6 @@
 import { Avatar } from "@/components/ui/avatar";
 import { UsernameAvatar } from "@/components/username-avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { cn } from "@/lib/utils";
 
 export type RequestingAppInfo = {
@@ -7,6 +8,7 @@ export type RequestingAppInfo = {
   username: string | null;
   firstName: string | null;
   lastName: string | null;
+  avatarUrl?: string | null;
 };
 
 type AppRequestCardProps = {
@@ -28,7 +30,18 @@ export function AppRequestCard({ app, appName, className }: AppRequestCardProps)
         className,
       )}
     >
-      {handle ? (
+      {app && "avatarUrl" in app ? (
+        <ProfileAvatar
+          imageUrl={app.avatarUrl}
+          alt={name}
+          firstName={app.firstName}
+          lastName={app.lastName}
+          displayName={app.displayName}
+          username={app.username}
+          size="md"
+          shape="rounded"
+        />
+      ) : handle ? (
         <UsernameAvatar username={handle} size="md" shape="rounded" />
       ) : (
         <Avatar

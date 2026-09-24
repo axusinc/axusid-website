@@ -133,9 +133,10 @@ The `email` scope returns a synthetic email (`[auid]@amail.com`) for app compati
 1. Client redirects the user to `/authorize` with PKCE params. PKCE is required: there are no
    client secrets, and `none` is the only client authentication method.
 2. User signs in at `/login` with **AUID + password**.
-3. User approves scopes at `/consent`. The approval is stored server-side, so it survives
-   sign-out and is listed under Connected apps on the account page; asking for scopes beyond
-   what was approved prompts again.
+3. User approves scopes at `/consent`. The approval is stored server-side and listed under
+   Connected apps while the session that issued its native token remains active. Signing out
+   or signing in again retires grants issued from the previous session; the app must request
+   authorization again. Asking for scopes beyond what was approved also prompts again.
 4. AXUS ID mints a native token for this app alone - holding the approved permissions plus the
    rate-limit drain permission for the user's account - stores a short-lived authorization code
    in PostgreSQL, and redirects back.
@@ -144,6 +145,8 @@ The `email` scope returns a synthetic email (`[auid]@amail.com`) for app compati
 
 The user can disconnect an app at any time from the account page, which revokes its native
 token at the engine and every OAuth token issued for it. The user's own session is untouched.
+Signing out of AXUS ID revokes native app tokens delegated from that session and retires their
+OAuth grants, since the engine revokes delegated tokens with their parent session token.
 
 ### Example authorize URL
 
