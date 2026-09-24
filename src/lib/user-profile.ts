@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import type { getSdk } from "@/graphql/sdk";
 import type { VariationsQuery } from "@/graphql/sdk";
+import { avatarImageUrl } from "@/lib/avatar-server";
 import {
   readNamePart,
   type ProfileName,
@@ -34,6 +35,8 @@ export type ProfileVariation = BaseVariation & {
   lastName: string | null;
   status: string | null;
   description: string | null;
+  avatar: { contentType: string | null; sizeBytes: number | null } | null;
+  avatarUrl: string | null;
 };
 
 export type UserDisplayInfo = {
@@ -41,6 +44,7 @@ export type UserDisplayInfo = {
   lastName: string | null;
   username: string | null;
   displayName: string;
+  avatarUrl: string | null;
 };
 
 export async function resolveUserDisplayInfo(
@@ -69,6 +73,7 @@ export async function resolveUserDisplayInfo(
     lastName,
     username,
     displayName: canonicalName || (username ? `@${username}` : auid),
+    avatarUrl: defaultVariation?.avatarUrl ?? null,
   };
 }
 
@@ -82,6 +87,7 @@ export type AccountItemInfo = {
   lastName: string | null;
   username: string | null;
   displayName: string;
+  avatarUrl: string | null;
   isActive: boolean;
 };
 
@@ -101,6 +107,7 @@ export async function fetchAccountsDisplayInfo(
           lastName: info.lastName,
           username: info.username,
           displayName: info.displayName,
+          avatarUrl: info.avatarUrl,
           isActive: sess.auid === activeAuid,
         };
       } catch {
@@ -110,6 +117,7 @@ export async function fetchAccountsDisplayInfo(
           lastName: null,
           username: null,
           displayName: sess.auid,
+          avatarUrl: null,
           isActive: sess.auid === activeAuid,
         };
       }
@@ -123,10 +131,11 @@ async function hydrateVariation(
   sdk: AuthSdk,
   variation: BaseVariation,
 ): Promise<ProfileVariation> {
-  const [nameResult, descriptionResult, statusResult] = await Promise.allSettled([
+  const [nameResult, descriptionResult, statusResult, avatarResult] = await Promise.allSettled([
     sdk.Name({ variationId: variation.id }),
     sdk.Description({ variationId: variation.id }),
     sdk.Status({ variationId: variation.id }),
+    sdk.Avatar({ variationId: variation.id }),
   ]);
   const name = nameResult.status === "fulfilled" ? nameResult.value.name : null;
   const description =
@@ -134,6 +143,7 @@ async function hydrateVariation(
       ? descriptionResult.value.description
       : null;
   const status = statusResult.status === "fulfilled" ? statusResult.value.status : null;
+  const avatar = avatarResult.status === "fulfilled" ? avatarResult.value.avatar : null;
   const profileName = name
     ? {
         displayName: name.displayName,
@@ -153,6 +163,10 @@ async function hydrateVariation(
     lastName: familyName,
     status: status && !status.isExpired ? status.text : null,
     description: description?.text ?? null,
+    avatar: avatar?.objectKey
+      ? { contentType: avatar.contentType ?? null, sizeBytes: avatar.sizeBytes ?? null }
+      : null,
+    avatarUrl: avatar?.objectKey ? avatarImageUrl(variation.id) : null,
   };
 }
 

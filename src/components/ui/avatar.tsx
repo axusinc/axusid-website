@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 
-type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
+export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
-const sizes: Record<AvatarSize, string> = {
+export const avatarSizes: Record<AvatarSize, string> = {
   xs: "h-6 w-6 text-[10px]",
   sm: "h-8 w-8 text-xs",
   md: "h-10 w-10 text-sm",
@@ -85,7 +85,7 @@ export function Avatar({
     <span
       className={cn(
         "inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold tracking-tight ring-1 ring-inset ring-black/[0.06]",
-        sizes[size],
+        avatarSizes[size],
         color,
         className,
       )}

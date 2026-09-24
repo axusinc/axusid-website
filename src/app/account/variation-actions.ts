@@ -6,6 +6,10 @@ import { formatGraphqlError } from "@/lib/graphql-errors";
 import { getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
 import {
+  ALLOWED_AVATAR_CONTENT_TYPES,
+  MAX_AVATAR_SIZE_BYTES,
+} from "@/lib/avatar";
+import {
   buildSimpleNameElements,
   parseNameElementsJson,
 } from "@/lib/profile-name";
@@ -221,6 +225,125 @@ export async function setDefaultVariationAction(
         error,
         "account",
         "Unable to set default variation. Try again.",
+      ),
+    };
+  }
+}
+
+export type AvatarUploadTarget = {
+  uploadUrl: string;
+  objectKey: string;
+  contentType: string;
+  sizeBytes: number;
+};
+
+export type RequestAvatarUploadResult =
+  | { data: AvatarUploadTarget }
+  | { error: string };
+
+export async function requestAvatarUploadAction(
+  variationId: string,
+  contentType: string,
+  sizeBytes: number,
+): Promise<RequestAvatarUploadResult> {
+  const session = await getActionSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+  if (!variationId.trim()) {
+    return { error: "Profile is required." };
+  }
+  if (!(ALLOWED_AVATAR_CONTENT_TYPES as readonly string[]).includes(contentType)) {
+    return { error: "Choose a PNG, JPEG, or WebP image." };
+  }
+  if (!Number.isInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_AVATAR_SIZE_BYTES) {
+    return { error: "Images must be 2 MB or smaller." };
+  }
+
+  try {
+    const sdk = getAuthSdkForSession(session);
+    const result = await sdk.RequestAvatarUpload({
+      auid: session.auid,
+      variationId,
+      contentType,
+      sizeBytes,
+    });
+    return {
+      data: {
+        uploadUrl: result.requestAvatarUpload.uploadUrl,
+        objectKey: result.requestAvatarUpload.objectKey,
+        contentType: result.requestAvatarUpload.contentType,
+        sizeBytes: result.requestAvatarUpload.sizeBytes,
+      },
+    };
+  } catch (error) {
+    return {
+      error: formatGraphqlError(
+        error,
+        "account",
+        "Unable to prepare the avatar upload. Try again.",
+      ),
+    };
+  }
+}
+
+export async function confirmAvatarUploadAction(
+  variationId: string,
+  objectKey: string,
+): Promise<VariationActionState> {
+  const session = await getActionSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+  if (!variationId.trim() || !objectKey.trim()) {
+    return { error: "The upload did not finish. Try again." };
+  }
+
+  try {
+    const sdk = getAuthSdkForSession(session);
+    await sdk.ConfirmAvatarUpload({
+      auid: session.auid,
+      variationId,
+      objectKey,
+    });
+    revalidatePath("/account");
+    return { success: "Profile photo updated." };
+  } catch (error) {
+    return {
+      error: formatGraphqlError(
+        error,
+        "account",
+        "Unable to save your profile photo. Try again.",
+      ),
+    };
+  }
+}
+
+export async function clearAvatarAction(
+  variationId: string,
+): Promise<VariationActionState> {
+  const session = await getActionSession();
+  if (!session) {
+    return { error: "Your session has expired. Sign in again." };
+  }
+  if (!variationId.trim()) {
+    return { error: "Profile is required." };
+  }
+
+  try {
+    const sdk = getAuthSdkForSession(session);
+    await sdk.ClearAvatar({
+      auid: session.auid,
+      variationId,
+    });
+    revalidatePath("/account");
+    return { success: "Profile photo removed." };
+  } catch (error) {
+    return {
+      error: formatGraphqlError(
+        error,
+        "account",
+        "Unable to remove your profile photo. Try again.",
       ),
     };
   }

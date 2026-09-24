@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { logoutAction, logoutAllAction, switchAccountAction } from "@/app/actions/auth";
 import { ChevronDown, LogOut, UserPlus } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { Button } from "@/components/ui/button";
 import { IdentityLabel } from "@/components/ui/identity-label";
 import { Spinner } from "@/components/ui/spinner";
@@ -170,7 +170,9 @@ export function UserAccountSwitcher({
       )}
     >
       <div className="flex items-center gap-3 border-b border-black/[0.06] p-4">
-        <Avatar
+        <ProfileAvatar
+          imageUrl={activeAccount.avatarUrl}
+          alt={activeAccount.displayName}
           firstName={activeAccount.firstName}
           lastName={activeAccount.lastName}
           displayName={activeAccount.displayName}
@@ -206,8 +208,10 @@ export function UserAccountSwitcher({
                     focusRing,
                   )}
                 >
-                  <Avatar
+                  <ProfileAvatar
                     size="sm"
+                    imageUrl={account.avatarUrl}
+                    alt={account.displayName}
                     firstName={account.firstName}
                     lastName={account.lastName}
                     displayName={account.displayName}
@@ -292,8 +296,10 @@ export function UserAccountSwitcher({
         aria-haspopup="dialog"
         aria-label={`Account menu for ${activeUsernameText}`}
       >
-        <Avatar
+        <ProfileAvatar
           size="sm"
+          imageUrl={activeAccount.avatarUrl}
+          alt={activeAccount.displayName}
           firstName={activeAccount.firstName}
           lastName={activeAccount.lastName}
           displayName={activeAccount.displayName}

@@ -15,6 +15,7 @@ import {
   updateVariationFieldAction,
   type VariationActionState,
 } from "@/app/account/variation-actions";
+import { AvatarPhotoField } from "@/app/account/avatar-editor";
 import {
   DataRow,
   inlineInputClassName,
@@ -44,6 +45,7 @@ type Variation = {
   lastName: string | null;
   status: string | null;
   description: string | null;
+  avatarUrl: string | null;
 };
 
 type ProfileFormProps = {
@@ -775,6 +777,12 @@ export function VariationForms({
         </p>
       ) : (
         <dl>
+          <AvatarPhotoField
+            variation={defaultVariation}
+            displayName={fullName}
+            onDone={finishEditing}
+          />
+
           {editingField === "name" ? (
             <EditableNameField
               variation={defaultVariation}

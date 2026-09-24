@@ -16,6 +16,11 @@ import {
   deletePasskeyAction,
 } from "@/app/actions/passkey";
 import type { PasskeyCredential } from "@/lib/passkey-graphql";
+import {
+  DEFAULT_PASSKEY_NAME,
+  ensureUniquePasskeyName,
+  getSuggestedPasskeyNameFromNavigator,
+} from "@/lib/passkey-naming";
 import { cn, formatDate } from "@/lib/utils";
 
 type PasskeySectionProps = {
@@ -32,13 +37,26 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const getPrefilledName = () =>
+    ensureUniquePasskeyName(
+      getSuggestedPasskeyNameFromNavigator(),
+      passkeys.map((p) => p.name),
+    );
+
+  const handleStartAdding = () => {
+    setError(null);
+    setSuccess(null);
+    setPasskeyName(getPrefilledName());
+    setIsAdding(true);
+  };
+
   const handleAddPasskey = async () => {
     setError(null);
     setSuccess(null);
 
     startTransition(async () => {
       try {
-        const nameToUse = passkeyName.trim() || "My passkey";
+        const nameToUse = passkeyName.trim() || getPrefilledName();
 
         const rp = typeof window !== "undefined" ? window.location.hostname : undefined;
         // 1. Get enrollment challenge from backend
@@ -102,7 +120,7 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
     setError(null);
     setSuccess(null);
     setEditingId(passkey.id);
-    setEditingName(passkey.name || "My passkey");
+    setEditingName(passkey.name || DEFAULT_PASSKEY_NAME);
   };
 
   const handleSaveRename = (passkeyId: string) => {
@@ -165,11 +183,7 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
               type="button"
               variant={passkeys.length > 0 ? "secondary" : "primary"}
               size="sm"
-              onClick={() => {
-                setError(null);
-                setSuccess(null);
-                setIsAdding(true);
-              }}
+              onClick={handleStartAdding}
             >
               <Plus className="h-3.5 w-3.5" aria-hidden />
               Add passkey
@@ -199,7 +213,7 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
             id="passkey-name"
             name="passkeyName"
             label="Passkey name"
-            hint="Helps you recognise it later, e.g. “MacBook Touch ID” or “YubiKey”."
+            hint="Prefilled from this device — edit it if you like."
             placeholder="My passkey"
             value={passkeyName}
             onChange={(e) => setPasskeyName(e.target.value)}

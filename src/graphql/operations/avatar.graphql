@@ -1,0 +1,58 @@
+query Avatar($variationId: ID!) {
+  avatar(variationId: $variationId) {
+    variationId
+    objectKey
+    contentType
+    sizeBytes
+    updatedAt
+  }
+}
+
+mutation RequestAvatarUpload(
+  $auid: ID!
+  $variationId: ID!
+  $contentType: String!
+  $sizeBytes: Int!
+) {
+  requestAvatarUpload(
+    auid: $auid
+    variationId: $variationId
+    contentType: $contentType
+    sizeBytes: $sizeBytes
+  ) {
+    variationId
+    objectKey
+    uploadUrl
+    contentType
+    sizeBytes
+    expiresAt
+  }
+}
+
+mutation ConfirmAvatarUpload(
+  $auid: ID!
+  $variationId: ID!
+  $objectKey: String!
+) {
+  confirmAvatarUpload(
+    auid: $auid
+    variationId: $variationId
+    objectKey: $objectKey
+  ) {
+    variationId
+    objectKey
+    contentType
+    sizeBytes
+    updatedAt
+  }
+}
+
+mutation ClearAvatar($auid: ID!, $variationId: ID!) {
+  clearAvatar(auid: $auid, variationId: $variationId) {
+    variationId
+    objectKey
+    contentType
+    sizeBytes
+    updatedAt
+  }
+}

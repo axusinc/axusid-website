@@ -12,7 +12,7 @@ import { DeveloperSection } from "@/app/account/developer-section";
 import { SectionIntro } from "@/app/account/dashboard-ui";
 import { BrandMark } from "@/components/brand-mark";
 import { PageBackground } from "@/components/page-background";
-import { Avatar } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { UserAccountSwitcher } from "@/components/user-account-switcher";
 import { focusRing } from "@/lib/design";
 import type { OAuthClient } from "@/lib/oauth/constants";
@@ -42,6 +42,7 @@ type Variation = {
   lastName: string | null;
   status: string | null;
   description: string | null;
+  avatarUrl: string | null;
 };
 
 type SamlConfig = {
@@ -226,7 +227,9 @@ export function AccountDashboard({
       <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-10 lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-12">
         <aside className="lg:sticky lg:top-26 lg:self-start">
           <div className="flex items-center gap-3.5 lg:block">
-            <Avatar
+            <ProfileAvatar
+              imageUrl={defaultVariation?.avatarUrl}
+              alt={fullName || username || "Profile photo"}
               firstName={defaultVariation?.firstName}
               lastName={defaultVariation?.lastName}
               displayName={fullName}

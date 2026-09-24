@@ -22,6 +22,25 @@ export type SchemaAuthenticatedToken = {
   id: Scalars['ID']['output'];
 };
 
+export type SchemaAvatar = {
+  __typename?: 'Avatar';
+  contentType?: Maybe<Scalars['String']['output']>;
+  objectKey?: Maybe<Scalars['String']['output']>;
+  sizeBytes?: Maybe<Scalars['Int']['output']>;
+  updatedAt: Scalars['String']['output'];
+  variationId: Scalars['ID']['output'];
+};
+
+export type SchemaAvatarUploadRequest = {
+  __typename?: 'AvatarUploadRequest';
+  contentType: Scalars['String']['output'];
+  expiresAt: Scalars['String']['output'];
+  objectKey: Scalars['String']['output'];
+  sizeBytes: Scalars['Int']['output'];
+  uploadUrl: Scalars['String']['output'];
+  variationId: Scalars['ID']['output'];
+};
+
 export type SchemaCreatedUser = {
   __typename?: 'CreatedUser';
   auid: Scalars['ID']['output'];
@@ -79,8 +98,10 @@ export type SchemaMutation = {
   changeUsername: SchemaUsernames;
   changeVariationIcon: SchemaVariation;
   changeVariationLocationId: SchemaVariation;
+  clearAvatar: SchemaAvatar;
   clearDescription: SchemaDescription;
   clearStatus: SchemaStatus;
+  confirmAvatarUpload: SchemaAvatar;
   createUser: SchemaCreatedUser;
   createVariation: SchemaVariation;
   delegatePermission: SchemaPermissionGrant;
@@ -94,6 +115,7 @@ export type SchemaMutation = {
   loginWithTotp: SchemaAuthenticatedToken;
   removeUsername: SchemaUsernames;
   reorderParents: SchemaParents;
+  requestAvatarUpload: SchemaAvatarUploadRequest;
   requestParent: SchemaParents;
   revokeGrant: Scalars['Boolean']['output'];
   revokeToken: Scalars['Boolean']['output'];
@@ -171,6 +193,12 @@ export type SchemaMutationChangeVariationLocationIdArgs = {
 };
 
 
+export type SchemaMutationClearAvatarArgs = {
+  auid: Scalars['ID']['input'];
+  variationId: Scalars['ID']['input'];
+};
+
+
 export type SchemaMutationClearDescriptionArgs = {
   auid: Scalars['ID']['input'];
   variationId: Scalars['ID']['input'];
@@ -179,6 +207,13 @@ export type SchemaMutationClearDescriptionArgs = {
 
 export type SchemaMutationClearStatusArgs = {
   auid: Scalars['ID']['input'];
+  variationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaMutationConfirmAvatarUploadArgs = {
+  auid: Scalars['ID']['input'];
+  objectKey: Scalars['String']['input'];
   variationId: Scalars['ID']['input'];
 };
 
@@ -264,6 +299,14 @@ export type SchemaMutationRemoveUsernameArgs = {
 export type SchemaMutationReorderParentsArgs = {
   auid: Scalars['ID']['input'];
   parentAuids: Array<Scalars['ID']['input']>;
+};
+
+
+export type SchemaMutationRequestAvatarUploadArgs = {
+  auid: Scalars['ID']['input'];
+  contentType: Scalars['String']['input'];
+  sizeBytes: Scalars['Int']['input'];
+  variationId: Scalars['ID']['input'];
 };
 
 
@@ -449,6 +492,7 @@ export enum SchemaPermissionGrantOriginType {
 
 export type SchemaQuery = {
   __typename?: 'Query';
+  avatar?: Maybe<SchemaAvatar>;
   checkPermission: SchemaPermissionCheck;
   defaultVariation?: Maybe<SchemaDefaultVariation>;
   delegatedGrants: Array<SchemaPermissionGrant>;
@@ -466,6 +510,11 @@ export type SchemaQuery = {
   user?: Maybe<SchemaUser>;
   usernames?: Maybe<SchemaUsernames>;
   variations: Array<SchemaVariation>;
+};
+
+
+export type SchemaQueryAvatarArgs = {
+  variationId: Scalars['ID']['input'];
 };
 
 
@@ -703,6 +752,40 @@ export type RevokeTokenMutationVariables = Exact<{ [key: string]: never; }>;
 
 
 export type RevokeTokenMutation = { revokeToken: boolean };
+
+export type AvatarQueryVariables = Exact<{
+  variationId: string | number;
+}>;
+
+
+export type AvatarQuery = { avatar: { variationId: string, objectKey: string | null, contentType: string | null, sizeBytes: number | null, updatedAt: string } | null };
+
+export type RequestAvatarUploadMutationVariables = Exact<{
+  auid: string | number;
+  variationId: string | number;
+  contentType: string;
+  sizeBytes: number;
+}>;
+
+
+export type RequestAvatarUploadMutation = { requestAvatarUpload: { variationId: string, objectKey: string, uploadUrl: string, contentType: string, sizeBytes: number, expiresAt: string } };
+
+export type ConfirmAvatarUploadMutationVariables = Exact<{
+  auid: string | number;
+  variationId: string | number;
+  objectKey: string;
+}>;
+
+
+export type ConfirmAvatarUploadMutation = { confirmAvatarUpload: { variationId: string, objectKey: string | null, contentType: string | null, sizeBytes: number | null, updatedAt: string } };
+
+export type ClearAvatarMutationVariables = Exact<{
+  auid: string | number;
+  variationId: string | number;
+}>;
+
+
+export type ClearAvatarMutation = { clearAvatar: { variationId: string, objectKey: string | null, contentType: string | null, sizeBytes: number | null, updatedAt: string } };
 
 export type PasskeysQueryVariables = Exact<{
   auid: string | number;
@@ -1016,6 +1099,60 @@ export const LoginWithTokenDocument = gql`
 export const RevokeTokenDocument = gql`
     mutation RevokeToken {
   revokeToken
+}
+    `;
+export const AvatarDocument = gql`
+    query Avatar($variationId: ID!) {
+  avatar(variationId: $variationId) {
+    variationId
+    objectKey
+    contentType
+    sizeBytes
+    updatedAt
+  }
+}
+    `;
+export const RequestAvatarUploadDocument = gql`
+    mutation RequestAvatarUpload($auid: ID!, $variationId: ID!, $contentType: String!, $sizeBytes: Int!) {
+  requestAvatarUpload(
+    auid: $auid
+    variationId: $variationId
+    contentType: $contentType
+    sizeBytes: $sizeBytes
+  ) {
+    variationId
+    objectKey
+    uploadUrl
+    contentType
+    sizeBytes
+    expiresAt
+  }
+}
+    `;
+export const ConfirmAvatarUploadDocument = gql`
+    mutation ConfirmAvatarUpload($auid: ID!, $variationId: ID!, $objectKey: String!) {
+  confirmAvatarUpload(
+    auid: $auid
+    variationId: $variationId
+    objectKey: $objectKey
+  ) {
+    variationId
+    objectKey
+    contentType
+    sizeBytes
+    updatedAt
+  }
+}
+    `;
+export const ClearAvatarDocument = gql`
+    mutation ClearAvatar($auid: ID!, $variationId: ID!) {
+  clearAvatar(auid: $auid, variationId: $variationId) {
+    variationId
+    objectKey
+    contentType
+    sizeBytes
+    updatedAt
+  }
 }
     `;
 export const PasskeysDocument = gql`
@@ -1378,6 +1515,18 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     RevokeToken(variables?: RevokeTokenMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RevokeTokenMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<RevokeTokenMutation>({ document: RevokeTokenDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RevokeToken', 'mutation', variables);
+    },
+    Avatar(variables: AvatarQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<AvatarQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<AvatarQuery>({ document: AvatarDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Avatar', 'query', variables);
+    },
+    RequestAvatarUpload(variables: RequestAvatarUploadMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RequestAvatarUploadMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<RequestAvatarUploadMutation>({ document: RequestAvatarUploadDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RequestAvatarUpload', 'mutation', variables);
+    },
+    ConfirmAvatarUpload(variables: ConfirmAvatarUploadMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ConfirmAvatarUploadMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ConfirmAvatarUploadMutation>({ document: ConfirmAvatarUploadDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ConfirmAvatarUpload', 'mutation', variables);
+    },
+    ClearAvatar(variables: ClearAvatarMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ClearAvatarMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ClearAvatarMutation>({ document: ClearAvatarDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ClearAvatar', 'mutation', variables);
     },
     Passkeys(variables: PasskeysQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<PasskeysQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<PasskeysQuery>({ document: PasskeysDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'Passkeys', 'query', variables);

@@ -6,6 +6,7 @@ type Query {
     defaultVariation(auid: ID!): DefaultVariation
     name(variationId: ID!): Name
     description(variationId: ID!): Description
+    avatar(variationId: ID!): Avatar
     status(variationId: ID!): Status
     parents(auid: ID!): Parents
     identities(contextAuid: ID!, recursive: Boolean = false, cursor: ID, limit: Int = 20): PaginatedIdentities!
@@ -32,6 +33,9 @@ type Mutation {
     changeName(auid: ID!, variationId: ID!, elements: [NameElementInput!]!): Name!
     changeDescription(auid: ID!, variationId: ID!, text: String): Description!
     clearDescription(auid: ID!, variationId: ID!): Description!
+    requestAvatarUpload(auid: ID!, variationId: ID!, contentType: String!, sizeBytes: Int!): AvatarUploadRequest!
+    confirmAvatarUpload(auid: ID!, variationId: ID!, objectKey: String!): Avatar!
+    clearAvatar(auid: ID!, variationId: ID!): Avatar!
     changeStatus(auid: ID!, variationId: ID!, text: String, emoji: String, expiresAt: String, durationMinutes: Int): Status!
     clearStatus(auid: ID!, variationId: ID!): Status!
     changeVariationLocationId(auid: ID!, variationId: ID!, locationId: String): Variation!
@@ -169,6 +173,23 @@ type Description {
     variationId: ID!
     text: String
     updatedAt: String!
+}
+
+type Avatar {
+    variationId: ID!
+    objectKey: String
+    contentType: String
+    sizeBytes: Int
+    updatedAt: String!
+}
+
+type AvatarUploadRequest {
+    variationId: ID!
+    objectKey: String!
+    uploadUrl: String!
+    contentType: String!
+    sizeBytes: Int!
+    expiresAt: String!
 }
 
 type Status {
