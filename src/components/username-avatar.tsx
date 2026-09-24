@@ -9,13 +9,14 @@ type UsernameAvatarProps = {
   username?: string | null;
   size?: AvatarSize;
   className?: string;
+  shape?: "circle" | "rounded";
 };
 
 /**
  * Profile photo for any username, resolved on demand. Starts with (and falls
  * back to) initials, so rows for other users never block on the lookup.
  */
-export function UsernameAvatar({ username, size = "sm", className }: UsernameAvatarProps) {
+export function UsernameAvatar({ username, size = "sm", className, shape }: UsernameAvatarProps) {
   const normalized = (username ?? "").trim().replace(/^@/, "");
   const [resolved, setResolved] = useState<{ username: string; url: string | null } | null>(null);
 
@@ -44,6 +45,7 @@ export function UsernameAvatar({ username, size = "sm", className }: UsernameAva
       seed={normalized || undefined}
       size={size}
       className={className}
+      shape={shape}
     />
   );
 }

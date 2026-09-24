@@ -1,4 +1,5 @@
 import { Avatar } from "@/components/ui/avatar";
+import { UsernameAvatar } from "@/components/username-avatar";
 import { cn } from "@/lib/utils";
 
 export type RequestingAppInfo = {
@@ -27,14 +28,18 @@ export function AppRequestCard({ app, appName, className }: AppRequestCardProps)
         className,
       )}
     >
-      <Avatar
-        size="md"
-        firstName={app?.firstName}
-        lastName={app?.lastName}
-        displayName={name}
-        seed={app?.username ?? name}
-        className="rounded-xl"
-      />
+      {handle ? (
+        <UsernameAvatar username={handle} size="md" shape="rounded" />
+      ) : (
+        <Avatar
+          size="md"
+          firstName={app?.firstName}
+          lastName={app?.lastName}
+          displayName={name}
+          seed={name}
+          className="rounded-xl"
+        />
+      )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-neutral-950">{name}</p>
         {handle ? <p className="truncate text-[13px] text-neutral-500">@{handle}</p> : null}

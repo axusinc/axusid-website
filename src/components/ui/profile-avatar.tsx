@@ -15,6 +15,11 @@ type ProfileAvatarProps = {
   seed?: string | null;
   size?: AvatarSize;
   className?: string;
+  /**
+   * Circles read as people, rounded squares as apps — the same two shapes the
+   * photo editor previews. Defaults to a circle.
+   */
+  shape?: "circle" | "rounded";
 };
 
 export function ProfileAvatar({
@@ -27,8 +32,10 @@ export function ProfileAvatar({
   seed,
   size = "md",
   className,
+  shape = "circle",
 }: ProfileAvatarProps) {
   const [imgError, setImgError] = useState(false);
+  const rounding = shape === "rounded" ? "rounded-[26%]" : "rounded-full";
 
   if (imageUrl && !imgError) {
     return (
@@ -38,8 +45,9 @@ export function ProfileAvatar({
         alt={alt}
         onError={() => setImgError(true)}
         className={cn(
-          "shrink-0 rounded-full object-cover ring-1 ring-black/[0.06]",
+          "shrink-0 object-cover ring-1 ring-black/[0.06]",
           avatarSizes[size],
+          rounding,
           className,
         )}
       />
@@ -54,7 +62,7 @@ export function ProfileAvatar({
       username={username}
       seed={seed}
       size={size}
-      className={className}
+      className={cn(rounding, className)}
     />
   );
 }
