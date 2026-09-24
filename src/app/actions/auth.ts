@@ -38,6 +38,7 @@ import {
   createSamlLogoutRequest,
 } from "@/lib/saml/saml-idp";
 import { formatSyntheticEmail } from "@/lib/user-profile";
+import { avatarImageUrl } from "@/lib/avatar-server";
 import {
   clearPendingGoogleRegistration,
   getGoogleClientId,
@@ -781,5 +782,40 @@ export async function addUsernameAction(
     return {
       error: formatGraphqlError(error, undefined, "Unable to add username."),
     };
+  }
+}
+
+/**
+ * Public profile photo URL for a username, or null when the user has none
+ * (or anything fails). Photo reads are public, so no session is required and
+ * failures degrade to the initials fallback rather than an error surface.
+ */
+export async function avatarUrlForUsernameAction(
+  username: string,
+): Promise<{ url: string | null }> {
+  const normalizedUsername = username.trim().replace(/^@/, "");
+  if (!normalizedUsername) {
+    return { url: null };
+  }
+
+  try {
+    const sdk = getAuthSdk();
+    const owner = await sdk.OwnerByUsername({ username: normalizedUsername });
+    const auid = owner.ownerByUsername;
+    if (!auid) {
+      return { url: null };
+    }
+    const details = await sdk.DefaultVariation({ auid });
+    const variationId = details.defaultVariation?.variationId;
+    if (!variationId) {
+      return { url: null };
+    }
+    const avatar = await sdk.Avatar({ variationId });
+    if (!avatar.avatar?.objectKey) {
+      return { url: null };
+    }
+    return { url: avatarImageUrl(variationId) };
+  } catch {
+    return { url: null };
   }
 }

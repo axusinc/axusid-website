@@ -6,7 +6,7 @@ import { useFormStatus } from "react-dom";
 import { denyConsentAction, consentAction } from "@/app/actions/auth";
 import { AppRequestCard, type RequestingAppInfo } from "@/components/app-request-card";
 import { AuthShell } from "@/components/auth-shell";
-import { Avatar } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { IdentityLabel } from "@/components/ui/identity-label";
 import { formatPermissionLabel } from "@/lib/oauth/scopes";
@@ -109,7 +109,9 @@ export function ConsentForm({
                 roundedRect,
               )}
             >
-              <Avatar
+              <ProfileAvatar
+                imageUrl={activeAccount.avatarUrl}
+                alt={activeAccount.displayName || activeAccount.username || "Account photo"}
                 firstName={activeAccount.firstName}
                 lastName={activeAccount.lastName}
                 displayName={activeAccount.displayName}

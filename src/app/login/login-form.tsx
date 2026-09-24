@@ -13,7 +13,8 @@ import {
 import { loginWithPasskeyAction, startPasskeyLoginAction } from "@/app/actions/passkey";
 import { AppRequestCard, type RequestingAppInfo } from "@/components/app-request-card";
 import { AuthPanelHeading, AuthShell } from "@/components/auth-shell";
-import { Avatar } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
+import { UsernameAvatar } from "@/components/username-avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Divider } from "@/components/ui/divider";
 import { Alert, FormError } from "@/components/ui/form-message";
@@ -342,7 +343,9 @@ export function LoginForm({
                       isSwitchPending && !isSelected && "opacity-50",
                     )}
                   >
-                    <Avatar
+                    <ProfileAvatar
+                      imageUrl={account.avatarUrl}
+                      alt={account.displayName || account.username || "Account photo"}
                       firstName={account.firstName}
                       lastName={account.lastName}
                       displayName={account.displayName}
@@ -530,7 +533,7 @@ export function LoginForm({
           roundedRect,
         )}
       >
-        <Avatar size="sm" username={normalizedUsername} displayName={normalizedUsername} />
+        <UsernameAvatar size="sm" username={normalizedUsername} />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-950">
           @{normalizedUsername}
         </span>

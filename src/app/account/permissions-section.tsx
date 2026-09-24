@@ -5,7 +5,7 @@ import { ArrowRight, KeyRound, Plus, RefreshCw, UsersRound } from "lucide-react"
 import { permissionAction } from "@/app/actions/permissions";
 import type { SharedPermission, UserPermission } from "@/lib/permission-types";
 import { SubsectionTitle } from "./dashboard-ui";
-import { Avatar } from "@/components/ui/avatar";
+import { UsernameAvatar } from "@/components/username-avatar";
 import { IdentityLabel } from "@/components/ui/identity-label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +53,7 @@ function SharePermission({ options, initialKey, onClose, onShared }: {
       <h3 ref={reviewRef} tabIndex={-1} className="text-sm font-semibold text-neutral-950 outline-none">{review ? "Review access" : "Share access"}</h3>
       {review ? (
         <div className="rounded-xl border border-black/[0.05] bg-white p-4">
-          <div className="flex items-center gap-3"><Avatar username={username} size="sm" /><p className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</p></div>
+          <div className="flex items-center gap-3"><UsernameAvatar username={username} size="sm" /><p className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</p></div>
           <p className="mt-4 text-sm font-medium">{permission?.label}</p>
           <p className="mt-1 text-[13px] text-neutral-500">{permission?.scope}</p>
           <p className="mt-2 text-sm text-neutral-600">{permission?.description}</p>
@@ -257,7 +257,7 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
         {view === "shared" ? <>
           {!shared.length ? <div className="py-8 text-center"><UsersRound aria-hidden className="mx-auto mb-3 h-6 w-6 text-neutral-400" /><p className="text-sm font-medium text-neutral-900">You haven’t shared any permissions</p><p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">Give someone specific access to your account. You can remove it here whenever you need to.</p></div> : <div className="space-y-5">
             {[...recipients.entries()].map(([id, grants]) => <section key={id} className="overflow-hidden rounded-xl border border-black/[0.07]">
-              <div className="flex items-center gap-3 border-b border-black/[0.05] bg-neutral-50/70 px-4 py-3"><Avatar username={grants[0].username} seed={id} size="sm" /><IdentityLabel username={grants[0].username} fallback="Account name unavailable" /></div>
+              <div className="flex items-center gap-3 border-b border-black/[0.05] bg-neutral-50/70 px-4 py-3"><UsernameAvatar username={grants[0].username} size="sm" /><IdentityLabel username={grants[0].username} fallback="Account name unavailable" /></div>
               <ul className="divide-y divide-black/[0.05] p-4">{grants.map((grant) => <SharedPermissionRow key={grant.id} grant={grant} disabled={sharing !== null || mutating} onPendingChange={setMutating} onRemoved={() => {
                 setShared((items) => items.filter((item) => item.id !== grant.id)); setMessage("Permission removed.");
                 requestAnimationFrame(() => shareButton.current?.focus());
@@ -302,7 +302,7 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
                     {[...senders.entries()].map(([id, group]) => (
                       <section key={id} className="overflow-hidden rounded-xl border border-black/[0.07]">
                         <div className="flex items-center gap-3 border-b border-black/[0.05] bg-neutral-50/70 px-4 py-3">
-                          <Avatar username={group.username} seed={id} size="sm" />
+                          <UsernameAvatar username={group.username} size="sm" />
                           <IdentityLabel username={group.username} fallback="Account name unavailable" />
                         </div>
                         <ul className="divide-y divide-black/[0.05] p-4">

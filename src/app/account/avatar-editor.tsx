@@ -251,26 +251,50 @@ function AvatarCropEditor({
         </div>
       </div>
 
-      <div className="flex w-full items-center gap-3">
-        <div
-          className="shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
-          style={{ width: PREVIEW_PX, height: PREVIEW_PX }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={image.url}
-            alt="Preview"
-            draggable={false}
-            className="pointer-events-none max-w-none select-none"
-            style={{
-              width: displayWidth * previewScale,
-              height: displayHeight * previewScale,
-              marginLeft: offset.x * previewScale,
-              marginTop: offset.y * previewScale,
-            }}
-          />
-        </div>
-        <p className="min-w-0 text-sm text-neutral-500">
+      <div className="flex w-full flex-wrap items-center gap-4">
+        <figure className="flex flex-col items-center gap-1.5">
+          <div
+            className="shrink-0 overflow-hidden rounded-full ring-1 ring-black/10"
+            style={{ width: PREVIEW_PX, height: PREVIEW_PX }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image.url}
+              alt="Circle preview"
+              draggable={false}
+              className="pointer-events-none max-w-none select-none"
+              style={{
+                width: displayWidth * previewScale,
+                height: displayHeight * previewScale,
+                marginLeft: offset.x * previewScale,
+                marginTop: offset.y * previewScale,
+              }}
+            />
+          </div>
+          <figcaption className="text-xs text-neutral-500">Circle</figcaption>
+        </figure>
+        <figure className="flex flex-col items-center gap-1.5">
+          <div
+            className="shrink-0 overflow-hidden ring-1 ring-black/10"
+            style={{ width: PREVIEW_PX, height: PREVIEW_PX, borderRadius: "26%" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image.url}
+              alt="Rounded preview"
+              draggable={false}
+              className="pointer-events-none max-w-none select-none"
+              style={{
+                width: displayWidth * previewScale,
+                height: displayHeight * previewScale,
+                marginLeft: offset.x * previewScale,
+                marginTop: offset.y * previewScale,
+              }}
+            />
+          </div>
+          <figcaption className="text-xs text-neutral-500">Rounded</figcaption>
+        </figure>
+        <p className="min-w-0 flex-1 text-sm text-neutral-500">
           Drag to reposition.
           <br />
           Use the slider to zoom.
