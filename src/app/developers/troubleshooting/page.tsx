@@ -123,9 +123,9 @@ export default function TroubleshootingPage() {
           <details
             key={issue.id}
             id={issue.id}
-            className="group rounded-xl border border-neutral-200 bg-white open:border-neutral-300"
+            className="group rounded-2xl border border-black/[0.07] bg-white open:border-black/[0.12]"
           >
-            <summary className="cursor-pointer p-5 text-sm font-semibold marker:text-neutral-400">
+            <summary className="cursor-pointer p-5 text-sm font-semibold text-neutral-950 marker:text-neutral-400">
               {issue.title}
             </summary>
             <div className="px-5 pb-5">

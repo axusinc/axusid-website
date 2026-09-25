@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { AxusIdButton } from "@/components/ui/axusid-button";
 import { CodeBlock } from "@/components/ui/code-block";
+import { FlowPlayground } from "@/components/ui/flow-playground";
 import { getIssuer } from "@/lib/oauth/constants";
-import { IntegrationConfig } from "../integration-settings";
+import { EnvConfig } from "../env-config";
 import { beginExample, exchangeExample, verifyExample } from "./examples";
 
 export const metadata: Metadata = {
@@ -28,13 +30,13 @@ export default function QuickstartPage() {
         own session.
       </p>
       <div className="mt-6 flex flex-wrap gap-2 text-xs text-neutral-600">
-        <span className="rounded-full border border-neutral-200 px-3 py-1.5">
+        <span className="rounded-full border border-black/10 bg-white px-3 py-1.5">
           Server-side TypeScript
         </span>
-        <span className="rounded-full border border-neutral-200 px-3 py-1.5">
+        <span className="rounded-full border border-black/10 bg-white px-3 py-1.5">
           Node.js + jose
         </span>
-        <span className="rounded-full border border-neutral-200 px-3 py-1.5">
+        <span className="rounded-full border border-black/10 bg-white px-3 py-1.5">
           No AXUS SDK
         </span>
       </div>
@@ -64,15 +66,15 @@ export default function QuickstartPage() {
           trailing slash must match.
         </p>
         <div className="mt-5">
-          <IntegrationConfig issuer={issuer} />
+          <EnvConfig issuer={issuer} />
         </div>
         <p>
           If your app already uses port 3000, use its actual callback port. The
           issuer points to AXUS ID; the redirect URI points to your app. Use
           HTTPS in production.
         </p>
-        <details className="mt-5 rounded-xl border border-neutral-200 p-4">
-          <summary className="cursor-pointer text-sm font-medium">
+        <details className="mt-5 rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
+          <summary className="cursor-pointer text-sm font-medium text-neutral-900">
             What are issuer, client ID and redirect URI?
           </summary>
           <dl className="mt-4 space-y-3 text-sm leading-7 text-neutral-600">
@@ -132,8 +134,29 @@ export default function QuickstartPage() {
           </Link>{" "}
           to match your existing sign-in options.
         </p>
-        <details className="mt-5 rounded-xl border border-neutral-200 p-4">
-          <summary className="cursor-pointer text-sm font-medium">
+        <div className="mt-5 grid max-w-md gap-2.5 rounded-2xl border border-black/[0.06] bg-neutral-50 p-4">
+          <p className="text-xs font-medium text-neutral-500">
+            White or black on light surfaces — same size as neighboring buttons
+          </p>
+          <AxusIdButton href="#authorize" tone="white" />
+          <AxusIdButton href="#authorize" tone="black" />
+        </div>
+        <div className="mt-8">
+          <h3 className="text-base font-semibold tracking-tight text-neutral-950">
+            Try it live
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+            Configure a request and press the real button into the flow. Locally, the
+            seeded <code>axusid-dev</code> client accepts{" "}
+            <code>http://localhost:3000/callback</code> after{" "}
+            <code>npm run db:seed</code>.
+          </p>
+          <div className="mt-4">
+            <FlowPlayground issuer={issuer} />
+          </div>
+        </div>
+        <details className="mt-5 rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
+          <summary className="cursor-pointer text-sm font-medium text-neutral-900">
             Why three random values?
           </summary>
           <p className="mt-3 text-sm leading-7 text-neutral-600">
@@ -266,7 +289,7 @@ export default function QuickstartPage() {
           ].map((item) => (
             <li
               key={item}
-              className="flex items-start gap-3 rounded-lg border border-neutral-200 p-3 text-xs leading-6 text-neutral-600"
+              className="flex items-start gap-3 rounded-xl border border-black/[0.07] bg-white p-3 text-xs leading-6 text-neutral-600"
             >
               <span
                 aria-hidden

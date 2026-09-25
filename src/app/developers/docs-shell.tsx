@@ -51,7 +51,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
       >
         Skip to content
       </a>
-      <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/95 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1536px] items-center gap-4 px-5 lg:px-8">
           <BrandMark size={28} className="shrink-0 whitespace-nowrap" />
           <span className="hidden border-l border-neutral-200 pl-4 text-sm text-neutral-500 sm:block">
@@ -69,7 +69,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search docs…"
-              className="h-10 w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-9 pr-12 text-sm outline-offset-2"
+              className="h-10 w-full rounded-xl border border-black/10 bg-white pl-9 pr-12 text-sm outline-offset-2"
             />
             {query ? (
               <button
@@ -91,7 +91,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
             {query.trim() && (
               <div
                 id="docs-search-results"
-                className="fixed inset-x-5 top-20 max-h-[65vh] sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[420px] overflow-y-auto rounded-xl border border-neutral-200 bg-white p-2 shadow-xl"
+                className="fixed inset-x-5 top-20 max-h-[65vh] sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[420px] overflow-y-auto rounded-2xl border border-black/[0.07] bg-white p-2 shadow-xl"
               >
                 <p role="status" className="px-3 py-2 text-xs text-neutral-500">
                   {results.length
@@ -118,7 +118,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
           </div>
           <Link
             href="/account?section=developer"
-            className="hidden shrink-0 items-center gap-2 rounded-lg bg-neutral-950 px-4 py-2.5 text-xs font-medium text-white sm:inline-flex"
+            className="hidden shrink-0 items-center gap-2 rounded-xl bg-neutral-950 px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-neutral-800 sm:inline-flex"
           >
             Developer console{" "}
             <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
@@ -141,7 +141,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto grid max-w-[1536px] lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_200px]">
         <aside
           id="docs-sidebar"
-          className={`${mobileOpen ? "block" : "hidden"} fixed inset-x-0 top-[72px] z-20 max-h-[calc(100dvh-72px)] overflow-y-auto border-b border-neutral-200 bg-neutral-50 p-6 lg:inset-x-auto lg:sticky lg:top-[72px] lg:block lg:h-[calc(100dvh-72px)] lg:overflow-y-auto lg:border-b-0 lg:border-r`}
+          className={`${mobileOpen ? "block" : "hidden"} fixed inset-x-0 top-[72px] z-20 max-h-[calc(100dvh-72px)] overflow-y-auto border-b border-black/[0.06] bg-[#fafafa] p-6 lg:inset-x-auto lg:sticky lg:top-[72px] lg:block lg:h-[calc(100dvh-72px)] lg:overflow-y-auto lg:border-b-0 lg:border-r`}
         >
           <nav aria-label="Developer documentation" className="space-y-7">
             {["Start here", "Build & explore", "Resources"].map((group) => (
@@ -160,7 +160,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
                         aria-current={
                           item.href === pathname ? "page" : undefined
                         }
-                        className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors ${item.href === pathname ? "bg-red-50 font-semibold text-brand" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950"}`}
+                        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] transition-colors ${item.href === pathname ? "bg-black/[0.05] font-semibold text-neutral-950" : "text-neutral-600 hover:bg-black/[0.04] hover:text-neutral-950"}`}
                       >
                         {item.href === pathname && (
                           <span className="h-1.5 w-1.5 rounded-full bg-brand" />
@@ -172,7 +172,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
               </div>
             ))}
           </nav>
-          <div className="mt-10 border-t border-neutral-200 px-3 pt-5 text-xs leading-relaxed text-neutral-500">
+          <div className="mt-10 border-t border-black/[0.06] px-3 pt-5 text-xs leading-relaxed text-neutral-500">
             <BookOpen aria-hidden className="mb-3 h-4 w-4" />
             Built on OAuth 2.0
             <br />
@@ -190,8 +190,9 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
         <main
           id="docs-content"
           tabIndex={-1}
-          className="min-w-0 px-5 pb-16 pt-8 outline-none sm:px-10 lg:px-12 lg:pt-10"
+          className="relative min-w-0 px-5 pb-16 pt-8 outline-none sm:px-10 lg:px-12 lg:pt-10"
         >
+          <div aria-hidden className="docs-glow" />
           <div className="mb-8 flex items-center gap-2 text-xs text-neutral-400">
             <span>Docs</span>
             <span>/</span>
@@ -221,7 +222,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
             </details>
           )}
           {children}
-          <div className="mt-16 border-t border-neutral-200 pt-8">
+          <div className="mt-16 border-t border-black/[0.06] pt-8">
             <SiteFooter />
           </div>
         </main>
@@ -248,7 +249,7 @@ export function DocsShell({ children }: { children: React.ReactNode }) {
           </nav>
           <Link
             href="/developers/troubleshooting"
-            className="mt-8 block border-t border-neutral-200 pt-5 text-xs text-neutral-500 hover:text-brand"
+            className="mt-8 block border-t border-black/[0.06] pt-5 text-xs text-neutral-500 hover:text-brand"
           >
             Something not working? ↗
           </Link>

@@ -6,6 +6,7 @@ import { PageBackground } from "@/components/page-background";
 import { AxusIdButton } from "@/components/ui/axusid-button";
 import { GoogleButton } from "@/components/ui/google-button";
 import { buttonVariants } from "@/components/ui/button";
+import { ButtonFinishTabs } from "./button-finish-tabs";
 
 export const metadata: Metadata = {
   title: "Button and brand",
@@ -47,6 +48,9 @@ export default function BrandPage() {
             White or black on light surfaces — white pairs with the Google button. Grey or
             black on dark surfaces. Same 18px mark and label on all of them.
           </p>
+          <div className="mt-5">
+            <ButtonFinishTabs />
+          </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <div className="space-y-2.5 rounded-2xl border border-black/[0.06] bg-neutral-50 p-4">
               <p className="text-xs font-medium text-neutral-500">Light surfaces</p>
@@ -87,8 +91,8 @@ export default function BrandPage() {
             AXUS ID into a “more options” menu while the others stay visible.
           </p>
           <div className="mt-5 grid max-w-md gap-2.5">
-            <GoogleButton href="/developers/quickstart#alongside-google" />
-            <AxusIdButton href="/developers/quickstart#alongside-google" />
+            <GoogleButton href="/developers/quickstart#providers" />
+            <AxusIdButton href="/developers/quickstart#providers" />
           </div>
         </section>
 
