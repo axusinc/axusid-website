@@ -27,7 +27,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const githubErrors: Record<string, string> = {
     github_cancelled: "GitHub sign-in was cancelled.",
     github_unavailable: "GitHub sign-in is not configured yet.",
-    github_not_linked: "This GitHub account isn’t connected to an AXUS ID yet. Sign in with another method, then connect GitHub in Security.",
+    github_not_linked: "This GitHub account isn’t connected to an AXUS ID yet. Create an account to link it, or sign in with another method first.",
     github_failed: "We couldn’t sign you in with GitHub. Try again.",
   };
   const authError = githubErrors[authErrorCode ?? ""] ?? (

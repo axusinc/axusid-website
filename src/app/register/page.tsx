@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { suggestUsernameFromEmailAction } from "@/app/actions/auth";
+import { checkUsernameAvailabilityAction, suggestUsernameFromEmailAction } from "@/app/actions/auth";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getValidSession } from "@/lib/session-access";
 import { getPendingGoogleRegistration } from "@/lib/google-oauth";
+import { getPendingGitHubRegistration } from "@/lib/github-oauth";
 import { RegisterForm } from "./register-form";
 
 export const metadata: Metadata = { title: "Create account" };
@@ -23,11 +24,23 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
 
   const session = await getValidSession();
   const pendingGoogle = await getPendingGoogleRegistration();
-  const suggestedUsername = pendingGoogle?.email
-    ? await suggestUsernameFromEmailAction(pendingGoogle.email)
-    : undefined;
+  const pendingGitHub = pendingGoogle ? null : await getPendingGitHubRegistration();
+  let suggestedUsername: string | undefined;
+  if (pendingGoogle?.email) {
+    suggestedUsername = await suggestUsernameFromEmailAction(pendingGoogle.email);
+  } else if (pendingGitHub) {
+    if (pendingGitHub.email) {
+      suggestedUsername = await suggestUsernameFromEmailAction(pendingGitHub.email);
+    }
+    if (!suggestedUsername && pendingGitHub.username) {
+      const availability = await checkUsernameAvailabilityAction(pendingGitHub.username);
+      if (availability.available) {
+        suggestedUsername = pendingGitHub.username;
+      }
+    }
+  }
 
-  if (session && !addAccount && !pendingGoogle && !contextAuid) {
+  if (session && !addAccount && !pendingGoogle && !pendingGitHub && !contextAuid) {
     redirect(resolveAuthenticatedRedirect({ redirectUri, next }));
   }
 
@@ -45,6 +58,16 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
               email: pendingGoogle.email,
               name: pendingGoogle.name,
               picture: pendingGoogle.picture,
+            }
+          : null
+      }
+      pendingGitHub={
+        pendingGitHub
+          ? {
+              username: pendingGitHub.username,
+              name: pendingGitHub.name,
+              email: pendingGitHub.email,
+              picture: pendingGitHub.picture,
             }
           : null
       }

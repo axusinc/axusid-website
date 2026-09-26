@@ -1,14 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FlowPlayground } from "@/components/ui/flow-playground";
+import { getAuthSdk } from "@/lib/auth-graphql";
+import { getOAuthClient } from "@/lib/oauth/clients";
 import { getIssuer } from "@/lib/oauth/constants";
+import { getValidMultiSession } from "@/lib/session-access";
+import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
 
 export const metadata: Metadata = {
   title: "Authorization request playground",
   description:
     "Build and inspect an AXUS ID authorization URL with a fresh PKCE challenge, state and nonce.",
 };
-export default function PlaygroundPage() {
+export default async function PlaygroundPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const requestedClient =
+    typeof params.client_id === "string" ? params.client_id : "";
+  const multiSession = await getValidMultiSession();
+  const accounts = multiSession
+    ? await fetchAccountsDisplayInfo(
+        multiSession.accounts,
+        multiSession.activeAuid,
+        getAuthSdk,
+      )
+    : [];
+  const activeAccount = accounts.find((a) => a.isActive) ?? null;
+  const activeClient = activeAccount ? await getOAuthClient(activeAccount.auid) : undefined;
   return (
     <>
       <p className="docs-eyebrow">Tools / Request playground</p>
@@ -22,7 +43,17 @@ export default function PlaygroundPage() {
         values and copy the request to understand each part of the flow.
       </p>
       <section id="start" className="mt-8">
-        <FlowPlayground issuer={getIssuer()} />
+        <FlowPlayground
+          key={activeAccount?.auid ?? "signed-out"}
+          issuer={getIssuer()}
+          accounts={accounts}
+          initialClientId={requestedClient}
+          developerClient={
+            activeAccount && activeClient
+              ? { auid: activeAccount.auid, redirectUris: activeClient.redirectUris }
+              : null
+          }
+        />
       </section>
       <section id="next" className="docs-section">
         <h2>What happens after authorization?</h2>

@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { AuidField } from "@/components/ui/auid-field";
 import { CodeBlock } from "@/components/ui/code-block";
 import { focusRing } from "@/lib/design";
 import { cn } from "@/lib/utils";
+import type { AccountItemInfo } from "@/lib/user-profile";
 
 /** Tailored .env.local snippet with local state — no shared context needed. */
-export function EnvConfig({ issuer }: { issuer: string }) {
+export function EnvConfig({
+  issuer,
+  accounts = [],
+}: {
+  issuer: string;
+  accounts?: AccountItemInfo[];
+}) {
   const [client, setClient] = useState("");
   const [redirect, setRedirect] = useState("http://localhost:3000/api/auth/axus/callback");
 
@@ -20,17 +28,13 @@ export function EnvConfig({ issuer }: { issuer: string }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-xs font-medium text-neutral-700">
-          Client ID · your AUID
-          <input
-            value={client}
-            onChange={(e) => setClient(e.target.value)}
-            placeholder="Paste from Developer settings"
-            autoCapitalize="none"
-            spellCheck={false}
-            className={inputClass}
-          />
-        </label>
+        <AuidField
+          id="env-client"
+          value={client}
+          onChange={setClient}
+          accounts={accounts}
+          placeholder="Paste from Developer settings"
+        />
         <label className="text-xs font-medium text-neutral-700">
           Callback URL
           <input

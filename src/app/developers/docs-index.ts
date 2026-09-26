@@ -104,6 +104,12 @@ export const docsIndex = [
     description: "Generate an authorization URL and inspect PKCE",
   },
   {
+    href: "/developers/api",
+    title: "GraphQL API explorer",
+    group: "Build & explore",
+    description: "Queries, mutations and types with the live endpoint",
+  },
+  {
     href: "/developers/troubleshooting",
     title: "Troubleshooting",
     group: "Resources",

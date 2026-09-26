@@ -130,6 +130,8 @@ test('checkUsernameAction returns friendly error when rate limited', async () =>
     '@/lib/user-profile': { formatSyntheticEmail: () => '' },
     '@/lib/avatar-server': { avatarImageUrl: (variationId) => `https://engine.test/v1/variations/${variationId}/avatar` },
     '@/lib/google-oauth': { clearPendingGoogleRegistration: async () => {}, getGoogleClientId: () => '', getGoogleProviderId: () => '', getPendingGoogleRegistration: async () => null, setGoogleRegistrationName: async () => {} },
+    '@/lib/github-oauth': { clearPendingGitHubRegistration: async () => {}, getGitHubClientId: () => '', getGitHubProviderId: () => '', getPendingGitHubRegistration: async () => null, setGitHubRegistrationName: async () => {} },
+    '@/lib/external-avatar': { importExternalAvatar: async () => false, normalizeGitHubAvatarUrl: (url) => url, normalizeGooglePictureUrl: (url) => url },
     '@/lib/last-auth-method-server': { setLastAuthMethod: async () => {}, getLastAuthMethod: async () => null },
   });
 

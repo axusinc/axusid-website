@@ -4,7 +4,12 @@ import { ArrowRight } from "lucide-react";
 import { AxusIdButton } from "@/components/ui/axusid-button";
 import { CodeBlock } from "@/components/ui/code-block";
 import { FlowPlayground } from "@/components/ui/flow-playground";
+import { SnippetTabs, type Snippet } from "@/components/ui/snippet-tabs";
+import { getAuthSdk } from "@/lib/auth-graphql";
+import { getOAuthClient } from "@/lib/oauth/clients";
 import { getIssuer } from "@/lib/oauth/constants";
+import { getValidMultiSession } from "@/lib/session-access";
+import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { EnvConfig } from "../env-config";
 import { beginExample, exchangeExample, verifyExample } from "./examples";
 
@@ -14,8 +19,47 @@ export const metadata: Metadata = {
     "A complete walkthrough of PKCE, callback handling, verified identity and the session adapter your app needs.",
 };
 
-export default function QuickstartPage() {
+export default async function QuickstartPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const issuer = getIssuer();
+  const params = await searchParams;
+  const requestedClient =
+    typeof params.client_id === "string" ? params.client_id : "";
+  const multiSession = await getValidMultiSession();
+  const accounts = multiSession
+    ? await fetchAccountsDisplayInfo(
+        multiSession.accounts,
+        multiSession.activeAuid,
+        getAuthSdk,
+      )
+    : [];
+  const activeAccount = accounts.find((a) => a.isActive) ?? null;
+  const activeClient = activeAccount ? await getOAuthClient(activeAccount.auid) : undefined;
+  const developerClient =
+    activeAccount && activeClient
+      ? { auid: activeAccount.auid, redirectUris: activeClient.redirectUris }
+      : null;
+
+  const startSnippets: Snippet[] = [
+    {
+      id: "html",
+      label: "HTML",
+      code: `<a id="axus-login" href="#">Continue with AXUS ID</a>\n<script>\nconst ISSUER = "${issuer}";\nconst CLIENT_ID = "YOUR_AUID";\nconst REDIRECT_URI = "https://app.example.com/auth/callback";\nconst b64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");\ndocument.getElementById("axus-login").addEventListener("click", async (e) => {\n  e.preventDefault();\n  const verifier = b64(crypto.getRandomValues(new Uint8Array(32)));\n  const challenge = b64(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));\n  const state = b64(crypto.getRandomValues(new Uint8Array(16)));\n  sessionStorage.setItem("axus_verifier", verifier);\n  sessionStorage.setItem("axus_state", state);\n  const q = new URLSearchParams({ response_type: "code", client_id: CLIENT_ID, redirect_uri: REDIRECT_URI, scope: "openid profile", state, code_challenge: challenge, code_challenge_method: "S256" });\n  location.href = ISSUER + "/authorize?" + q;\n});\n</script>\n<!-- Exchange the code from your backend (step 03), never in this script. -->`,
+    },
+    {
+      id: "react",
+      label: "React",
+      code: `const ISSUER = "${issuer}";\nconst CLIENT_ID = "YOUR_AUID";\nconst REDIRECT_URI = "https://app.example.com/auth/callback";\n\nasync function login() {\n  const b64 = (b: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");\n  const verifier = b64(crypto.getRandomValues(new Uint8Array(32)).buffer as ArrayBuffer);\n  const challenge = b64(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));\n  const state = b64(crypto.getRandomValues(new Uint8Array(16)).buffer as ArrayBuffer);\n  sessionStorage.setItem("axus_verifier", verifier);\n  sessionStorage.setItem("axus_state", state);\n  const q = new URLSearchParams({ response_type: "code", client_id: CLIENT_ID, redirect_uri: REDIRECT_URI, scope: "openid profile", state, code_challenge: challenge, code_challenge_method: "S256" });\n  location.href = ISSUER + "/authorize?" + q;\n}\n// Exchange the code from your backend (step 03), never in the component.`,
+    },
+    {
+      id: "nextjs",
+      label: "Next.js",
+      code: `// app/api/auth/axus/login/route.ts — exchange stays server-side (step 03)\nimport { randomBytes, createHash } from "node:crypto";\nimport { NextResponse } from "next/server";\n\nconst ISSUER = "${issuer}";\nconst b64url = (b: Buffer) => b.toString("base64").replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");\n\nexport async function GET() {\n  const verifier = b64url(randomBytes(32));\n  const challenge = b64url(createHash("sha256").update(verifier).digest());\n  const state = b64url(randomBytes(16));\n  const q = new URLSearchParams({ response_type: "code", client_id: process.env.AXUS_CLIENT_ID!, redirect_uri: process.env.AXUS_REDIRECT_URI!, scope: "openid profile", state, code_challenge: challenge, code_challenge_method: "S256" });\n  const res = NextResponse.redirect(ISSUER + "/authorize?" + q);\n  const opts = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/", maxAge: 600 };\n  res.cookies.set("axus_verifier", verifier, opts);\n  res.cookies.set("axus_state", state, opts);\n  return res;\n}`,
+    },
+  ];
   return (
     <>
       <p className="docs-eyebrow">Quickstart · Authorization Code + PKCE</p>
@@ -66,7 +110,7 @@ export default function QuickstartPage() {
           trailing slash must match.
         </p>
         <div className="mt-5">
-          <EnvConfig issuer={issuer} />
+          <EnvConfig issuer={issuer} accounts={accounts} />
         </div>
         <p>
           If your app already uses port 3000, use its actual callback port. The
@@ -127,6 +171,18 @@ export default function QuickstartPage() {
           cookie to identify that session, with Secure in production. Never put
           the transaction in a shared global variable.
         </div>
+        <div className="mt-6">
+          <h3 className="text-base font-semibold tracking-tight text-neutral-950">
+            The same redirect in your stack
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+            These start the flow only. The exchange, verification, and session
+            below stay server-side regardless of stack.
+          </p>
+          <div className="mt-4">
+            <SnippetTabs snippets={startSnippets} defaultId="nextjs" />
+          </div>
+        </div>
         <p>
           Point the “Continue with AXUS ID” button to that login route. Use the{" "}
           <Link className="docs-link" href="/brand">
@@ -152,7 +208,7 @@ export default function QuickstartPage() {
             <code>npm run db:seed</code>.
           </p>
           <div className="mt-4">
-            <FlowPlayground issuer={issuer} />
+            <FlowPlayground issuer={issuer} accounts={accounts} initialClientId={requestedClient} developerClient={developerClient} key={activeAccount?.auid ?? "signed-out"} />
           </div>
         </div>
         <details className="mt-5 rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">

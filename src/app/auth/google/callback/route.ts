@@ -19,6 +19,7 @@ import {
   setGoogleRegistrationName,
   type GoogleOAuthState,
 } from "@/lib/google-oauth";
+import { importExternalAvatar, normalizeGooglePictureUrl } from "@/lib/external-avatar";
 import { DOMAIN_ERROR_CODES, getPrimaryDomainError } from "@/lib/graphql-errors";
 import { addAccountToSession, getValidSession } from "@/lib/session-access";
 import type { IdPSession } from "@/lib/session";
@@ -129,6 +130,12 @@ export async function GET(request: NextRequest) {
       }
 
       await linkGoogleIdentity(session, refreshToken);
+      // Backfill the profile photo when the account has none yet.
+      await importExternalAvatar({
+        auid: session.auid,
+        tokenId: session.tokenId,
+        pictureUrl: normalizeGooglePictureUrl(googleProfile?.picture),
+      });
       return accountRedirect(request, "linked");
     }
 
@@ -143,6 +150,12 @@ export async function GET(request: NextRequest) {
 
       await addAccountToSession(session);
       await setLastAuthMethod("google");
+      // Backfill the profile photo when the account has none yet.
+      await importExternalAvatar({
+        auid: login.auid,
+        tokenId: login.tokenId,
+        pictureUrl: normalizeGooglePictureUrl(googleProfile?.picture),
+      });
 
       return NextResponse.redirect(
         new URL(
@@ -192,6 +205,13 @@ export async function GET(request: NextRequest) {
           auid,
           tokenId,
           profile: googleProfile ?? {},
+        });
+        // A fresh account has no photo yet: copy the Google picture in.
+        await importExternalAvatar({
+          auid,
+          tokenId,
+          pictureUrl: normalizeGooglePictureUrl(googleProfile?.picture),
+          onlyIfEmpty: false,
         });
         const session: IdPSession = {
           auid,

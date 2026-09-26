@@ -95,7 +95,16 @@ export default async function ReferencePage() {
         The contract behind the code.
       </h1>
       <p className="mt-4 max-w-2xl text-pretty text-[15px] leading-relaxed text-neutral-500">
-        This page matches the implementation. Worked examples are in the{" "}
+        This page matches the implementation — the sign-in half of AXUS ID
+        (OAuth2/OIDC endpoints). The other half, every engine function behind
+        the login, lives in the{" "}
+        <Link
+          href="/developers/api"
+          className="font-medium text-neutral-800 underline underline-offset-4 hover:text-neutral-950"
+        >
+          GraphQL API explorer
+        </Link>
+        . Worked examples are in the{" "}
         <Link
           href="/developers/quickstart"
           className="font-medium text-neutral-800 underline underline-offset-4 hover:text-neutral-950"
@@ -158,11 +167,8 @@ export default async function ReferencePage() {
       >
         <H id="authorize">GET /authorize</H>
         <P>
-          The only response type is <M>code</M>. PKCE is mandatory — there are
-          no client secrets, so the challenge is what ties the code to the app
-          that asked for it. The redirect URI must match a registered URI
-          exactly: no wildcards, no fragments. Codes are single-use and expire
-          after 5 minutes.
+          Authorization Code flow with mandatory PKCE (S256) — no client secrets
+          exist. Details per parameter:
         </P>
         <Table
           head={["Parameter", "Required", "Notes"]}
@@ -318,13 +324,9 @@ export default async function ReferencePage() {
           behavior when adapting a generic library.
         </div>
         <P>
-          Refresh tokens are bound to their client. A client mismatch or reuse
-          outside the rotation grace period can revoke the authorization.
-          Request <M>offline_access</M>
-          only when you need continued API access. Serialize refreshes per
-          authorization and atomically save the replacement token before another
-          refresh. On failure, require a new sign-in; do not loop over stale
-          tokens.
+          Refresh tokens are bound to their client. Request{" "}
+          <M>offline_access</M> only for continued API access; serialize
+          refreshes and save each replacement atomically.
         </P>
       </section>
 
@@ -415,14 +417,10 @@ export default async function ReferencePage() {
           Send a JSON GraphQL request with{" "}
           <M>Authorization: Bearer &lt;access_token&gt;</M>. The proxy resolves
           the OAuth token to the authorization’s native AXUS token and forwards
-          the request to the engine. Operations are limited by granted
-          permissions. Discovery exposes this URL as{" "}
-          <M>axus_graphql_proxy_endpoint</M>.
-        </P>
-        <P>
-          The separate <M>axus_access_token</M> is for direct native AXUS API
-          calls. It is a credential, not a user identifier or an ID token. Keep
-          it server-side.
+          the request to the engine, limited by granted permissions (discovery:{" "}
+          <M>axus_graphql_proxy_endpoint</M>). The separate{" "}
+          <M>axus_access_token</M> is a server-side credential for direct native
+          calls — not an identifier, not an ID token.
         </P>
       </section>
       <section className="mt-6 rounded-[20px] border border-black/[0.07] bg-white p-6 sm:p-8">

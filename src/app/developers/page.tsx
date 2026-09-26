@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Fingerprint, Terminal, Workflow } from "lucide-react";
-import { CopyField } from "@/components/ui/copy-field";
+import { getAuthSdk } from "@/lib/auth-graphql";
 import { getIssuer } from "@/lib/oauth/constants";
+import { getValidMultiSession } from "@/lib/session-access";
+import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { IntegrationBuilder } from "./integration-builder";
 
 export const metadata: Metadata = {
@@ -11,8 +13,16 @@ export const metadata: Metadata = {
     "Build AXUS ID sign-in with a guided OAuth and OpenID Connect integration, an AI-ready brief, and a practical API reference.",
 };
 
-export default function DevelopersPage() {
+export default async function DevelopersPage() {
   const issuer = getIssuer();
+  const multiSession = await getValidMultiSession();
+  const accounts = multiSession
+    ? await fetchAccountsDisplayInfo(
+        multiSession.accounts,
+        multiSession.activeAuid,
+        getAuthSdk,
+      )
+    : [];
   return (
     <>
       <div id="start" className="docs-eyebrow">
@@ -40,7 +50,7 @@ export default function DevelopersPage() {
           </span>
         ))}
       </div>
-      <IntegrationBuilder issuer={issuer} />
+      <IntegrationBuilder issuer={issuer} accounts={accounts} />
       <section className="docs-section" aria-labelledby="flow-heading">
         <h2 id="flow-heading">A familiar sign-in. Four small steps.</h2>
         <p>
@@ -76,6 +86,47 @@ export default function DevelopersPage() {
           ))}
         </ol>
       </section>
+      <section className="docs-section" aria-labelledby="two-apis-heading">
+        <h2 id="two-apis-heading">Two APIs. Two jobs.</h2>
+        <p>
+          Sign-in speaks standard OAuth 2.0 and OpenID Connect — any library
+          works, nothing AXUS-specific to learn. Everything else (users,
+          usernames, variations, passkeys, permissions, tokens) is GraphQL on
+          the engine.
+        </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/developers/reference"
+            className="group rounded-xl border border-neutral-200 p-5 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+          >
+            <h3 className="text-sm font-semibold">Sign users in · OAuth2 / OIDC</h3>
+            <p className="mt-2 text-xs leading-6 text-neutral-500">
+              Authorize, token, userinfo, revocation, introspection, discovery.
+              Compliant endpoints your existing stack already understands.
+            </p>
+            <ArrowRight
+              aria-hidden
+              size={15}
+              className="mt-4 text-neutral-400 group-hover:text-brand"
+            />
+          </Link>
+          <Link
+            href="/developers/api"
+            className="group rounded-xl border border-neutral-200 p-5 transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+          >
+            <h3 className="text-sm font-semibold">Run AXUS ID functions · GraphQL</h3>
+            <p className="mt-2 text-xs leading-6 text-neutral-500">
+              The complete engine API behind the login: identities, credentials,
+              delegation, and tokens. Bearer <code>axus_access_token</code>.
+            </p>
+            <ArrowRight
+              aria-hidden
+              size={15}
+              className="mt-4 text-neutral-400 group-hover:text-brand"
+            />
+          </Link>
+        </div>
+      </section>
       <section id="next" className="docs-section">
         <h2>Go straight to what you need.</h2>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -89,9 +140,9 @@ export default function DevelopersPage() {
             },
             {
               icon: Terminal,
-              title: "Explore the API",
+              title: "Read the OAuth reference",
               description:
-                "Parameters, claims, token lifetimes and provider-specific behavior.",
+                "Compliant endpoints, claims, token lifetimes — the sign-in half.",
               href: "/developers/reference",
             },
             {
@@ -119,32 +170,6 @@ export default function DevelopersPage() {
               />
             </Link>
           ))}
-        </div>
-      </section>
-      <section className="docs-section">
-        <h2>Already have an OIDC library?</h2>
-        <p>
-          Use discovery with Authorization Code, PKCE S256 and token endpoint
-          authentication set to <code>none</code>. Check your library’s
-          public-client support. AXUS-specific claims and scope behavior are
-          described in the{" "}
-          <Link href="/developers/reference#tokens" className="docs-link">
-            reference
-          </Link>
-          .
-        </p>
-        <div className="mt-5 grid gap-4">
-          <CopyField label="Issuer" value={issuer} />
-          <CopyField
-            label="Discovery document"
-            value={`${issuer}/.well-known/openid-configuration`}
-          />
-        </div>
-        <div className="docs-note">
-          <strong>One detail to know early:</strong> the email claim is a
-          synthetic compatibility address. Identify users by issuer + subject (
-          <code>sub</code>), and collect a verified contact email separately if
-          your app needs one.
         </div>
       </section>
     </>

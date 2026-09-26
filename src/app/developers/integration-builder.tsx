@@ -4,15 +4,25 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Braces, Check, Copy, Sparkles } from "lucide-react";
 import { CodeBlock } from "@/components/ui/code-block";
+import { AuidField } from "@/components/ui/auid-field";
 import { focusRing } from "@/lib/design";
 import { cn } from "@/lib/utils";
+import type { AccountItemInfo } from "@/lib/user-profile";
 
 const stacks = [
   "Next.js App Router",
-  "React with an existing backend",
+  "React + backend",
+  "HTML + JS",
   "Python",
   "PHP / Laravel",
-  "another stack (ask me which)",
+  "Something else",
+];
+
+const covers = [
+  "Issuer, discovery, and JWKS URLs — prefilled",
+  "PKCE flow with exact params and lifetimes",
+  "Token verification and verifier-handling rules",
+  "Button mark, label, and sizing spec",
 ];
 
 function buildConfig(issuer: string, client: string, redirect: string) {
@@ -23,7 +33,13 @@ function buildPrompt(issuer: string, stack: string, config: string) {
   return `Implement “Continue with AXUS ID” in my ${stack} app. Inspect the existing authentication and session architecture first. Preserve existing sign-in methods and use the project's conventions.\n\nConfiguration:\n${config}\n\nProvider contract:\n- Discovery: ${issuer}/.well-known/openid-configuration\n- Authorization Code flow only. Public client, token_endpoint_auth_method=none, no client secret. PKCE S256 is mandatory. client_id is my AXUS account's AUID. I must register the exact redirect URI in ${issuer}/account?section=developer. Do not invent an AUID.\n- GET ${issuer}/authorize: response_type=code, client_id, redirect_uri, scope=openid profile, fresh state, nonce, code_challenge and code_challenge_method=S256. Generate a random 32-byte base64url verifier; challenge is base64url(SHA256(verifier)).\n- Bind state, nonce and verifier to the initiating browser session in short-lived server storage. Consume the transaction once on callback, including error paths. Validate state before handling provider errors. Never share one transaction across users.\n- POST ${issuer}/oauth/token with form-encoded grant_type=authorization_code, client_id, redirect_uri, code, code_verifier. Codes expire after five minutes and are single-use. Do not retry a failed exchange with the same code.\n- Verify id_token using a maintained JWT/OIDC library and ${issuer}/.well-known/jwks.json: RS256, issuer, audience=client_id, expiry, required sub and nonce matching the transaction. Decoding is not verification.\n- GET ${issuer}/oauth/userinfo with Authorization: Bearer access_token. Check status and require userinfo.sub === verified ID token sub. Profile fields can be absent.\n- Key local users by (issuer, sub). Email, if requested, is synthetic (<auid>@amail.com), not a verified contact address. Never merge accounts by email.\n- Create or rotate my app's own server session. Keep provider tokens server-side; set an HttpOnly, SameSite=Lax cookie, Secure in production. Use a fixed safe post-login destination.\n- Token response also includes axus_access_token for native AXUS APIs; do not use it as the ID token. OIDC-only responses omit scope; when present, scope lists AXUS permission keys, not the full OIDC scopes.\n- Request offline_access only for background access. Refresh tokens rotate; store the replacement atomically and serialize refreshes. Reuse outside the 30-second grace period revokes the authorization.\n- No browser CORS support is promised. Use my backend for token and userinfo requests. If I have no backend, explain the required architecture before implementation.\n\nDeliver the actual integration, including loading, cancellation and retry UI, and the AXUS button (${issuer}/axus-mark.png). Clearly identify any session/database adapters I must supply. Test success, denied consent, missing/mismatched state, expired/replayed code, invalid ID token, and subject mismatch. Do not claim completion while a placeholder session implementation remains.\n\nDocs: ${issuer}/developers/quickstart\nReference: ${issuer}/developers/reference`;
 }
 
-export function IntegrationBuilder({ issuer }: { issuer: string }) {
+export function IntegrationBuilder({
+  issuer,
+  accounts = [],
+}: {
+  issuer: string;
+  accounts?: AccountItemInfo[];
+}) {
   const [mode, setMode] = useState<"code" | "ai">("code");
   const [client, setClient] = useState("");
   const [redirect, setRedirect] = useState("http://localhost:3000/api/auth/axus/callback");
@@ -105,18 +121,14 @@ export function IntegrationBuilder({ issuer }: { issuer: string }) {
           </span>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="text-xs font-medium text-neutral-700">
-            Client ID · your AUID
-            <input
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              placeholder="Paste from Developer settings"
-              autoCapitalize="none"
-              spellCheck={false}
-              aria-invalid={!validClient}
-              className={inputClass}
-            />
-          </label>
+          <AuidField
+            id="builder-client"
+            value={client}
+            onChange={setClient}
+            accounts={accounts}
+            placeholder="Paste from Developer settings"
+            invalid={!validClient}
+          />
           <label className="text-xs font-medium text-neutral-700">
             Callback URL
             <input
@@ -141,18 +153,31 @@ export function IntegrationBuilder({ issuer }: { issuer: string }) {
               : "Register this exact callback URL in the developer console. Use HTTPS in production."}
         </p>
         {mode === "ai" && (
-          <label className="mt-5 block text-xs font-medium text-neutral-700">
-            Your stack
-            <select
-              value={stack}
-              onChange={(e) => setStack(e.target.value)}
-              className={cn("ml-3 rounded-xl border border-black/10 bg-white p-2 text-sm text-neutral-900", focusRing)}
-            >
-              {stacks.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </label>
+          <div className="mt-5">
+            <p className="text-xs font-medium text-neutral-700">Your stack — baked into the brief</p>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Your stack">
+              {stacks.map((value) => {
+                const selected = value === stack;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStack(value)}
+                    aria-pressed={selected}
+                    className={cn(
+                      "cursor-pointer rounded-xl px-3 py-1.5 text-[13px] font-medium transition-colors",
+                      focusRing,
+                      selected
+                        ? "bg-neutral-950 text-white"
+                        : "bg-black/[0.04] text-neutral-600 hover:bg-black/[0.08] hover:text-neutral-950",
+                    )}
+                  >
+                    {value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
         {valid && (
           <div className="mt-5">
@@ -160,11 +185,14 @@ export function IntegrationBuilder({ issuer }: { issuer: string }) {
               <CodeBlock label=".env.local · in your app" code={config} />
             ) : (
               <>
-                <p className="mb-3 text-xs leading-relaxed text-neutral-500">
-                  Paste this brief into your coding agent. It includes the
-                  provider contract, verification rules and acceptance tests.
-                  Review its changes before shipping.
-                </p>
+                <ul className="mb-3 grid gap-x-4 gap-y-2 sm:grid-cols-2" aria-label="What the brief covers">
+                  {covers.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-xs leading-relaxed text-neutral-500">
+                      <Check aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" strokeWidth={2.5} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
                 <div className="overflow-hidden rounded-xl border border-black/[0.07] bg-neutral-950 text-white">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-2">
                     <span className="text-xs font-medium text-neutral-300">Agent integration brief</span>

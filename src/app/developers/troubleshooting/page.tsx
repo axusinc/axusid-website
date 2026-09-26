@@ -28,8 +28,7 @@ const issues = [
     steps: [
       "Check that client_id and redirect_uri are identical to those used to start authorization.",
       "Send the original verifier, not the challenge. Its SHA-256 digest must encode to the challenge with base64url, without padding.",
-      "Use each code only once, within five minutes. A failed exchange can consume it. Reloading a callback or exchanging in both frontend and backend causes reuse.",
-      "Start a new flow. If it still fails, inspect the error_description on your server without logging the code, verifier or tokens.",
+      "Use each code once, within five minutes — a failed exchange can consume it, so start a new flow instead of retrying. Inspect error_description on your server without logging codes, verifiers, or tokens.",
     ],
     link: "/developers/reference#token",
     cta: "Read token errors",
@@ -40,9 +39,8 @@ const issues = [
     symptom:
       "Your app rejects the callback or works in one tab but fails in another.",
     steps: [
-      "Confirm your login route saved a browser-bound transaction before redirecting, and your callback reads the same store.",
+      "Confirm your login route saved a browser-bound transaction before redirecting, and your callback reads the same store — separate transactions per state, consumed atomically, so two tabs never overwrite each other.",
       "Use HttpOnly, SameSite=Lax cookies, Secure in production. Check cookie domain and path; localhost and 127.0.0.1 are different hosts.",
-      "Store separate transactions per state so two tabs do not overwrite each other. Consume each transaction atomically once.",
       "A link generated in the playground does not create your app's transaction. Test the complete flow from your app's login button.",
     ],
     link: "/developers/quickstart#callback",
@@ -54,10 +52,8 @@ const issues = [
     symptom:
       "Sign-in succeeds, but a claim is absent or the email ends in @amail.com.",
     steps: [
-      "Request profile for name and preferred_username, and email for the synthetic email claim. Claims depend on granted scopes and available profile data.",
-      "Treat names and usernames as optional. Use issuer + sub as the stable external identity.",
-      "The synthetic email is not a verified contact address. Ask for and verify a contact email in your app if needed.",
-      "Do not infer the full OIDC scope set from the token response's scope field: that field contains AXUS permission keys only.",
+      "Request profile for name and preferred_username, and email for the synthetic email claim — a compatibility address, not a verified contact. Treat names as optional and key users by issuer + sub.",
+      "The token response's scope field lists AXUS permission keys only; don't infer granted OIDC scopes from it.",
     ],
     link: "/developers/reference#userinfo",
     cta: "See claims by scope",

@@ -63,8 +63,8 @@ export function CodeBlock({
         tabIndex={0}
         aria-label={label ?? "Code example"}
         className={cn(
-          "overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-neutral-100",
-          wrap && "max-h-[420px] whitespace-pre-wrap break-words",
+          "max-h-[380px] overflow-auto p-4 font-mono text-[13px] leading-relaxed text-neutral-100",
+          wrap && "whitespace-pre-wrap break-words",
         )}
       >
         <code>{code}</code>

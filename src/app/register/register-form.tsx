@@ -7,15 +7,17 @@ import { ArrowLeft, Check, Dices, X } from "lucide-react";
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import {
   checkUsernameAvailabilityAction,
+  clearPendingGitHubRegistrationAction,
   clearPendingGoogleRegistrationAction,
   registerAction,
   type AuthActionState,
 } from "@/app/actions/auth";
 import { AuthPanelHeading, AuthShell } from "@/components/auth-shell";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Divider } from "@/components/ui/divider";
 import { FormError } from "@/components/ui/form-message";
+import { GitHubIcon } from "@/components/ui/github-icon";
 import { GoogleButton } from "@/components/ui/google-button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -38,6 +40,12 @@ type RegisterFormProps = {
   pendingGoogle?: {
     email?: string;
     name?: string;
+    picture?: string;
+  } | null;
+  pendingGitHub?: {
+    username?: string;
+    name?: string;
+    email?: string;
     picture?: string;
   } | null;
 };
@@ -140,6 +148,21 @@ function buildGoogleInitHref({
   return query ? `/auth/google?${query}` : "/auth/google";
 }
 
+function buildGitHubInitHref({
+  redirectUri,
+  next,
+}: {
+  redirectUri?: string;
+  next?: string;
+}) {
+  const params = new URLSearchParams();
+  if (redirectUri) params.set("redirect_uri", redirectUri);
+  if (next) params.set("next", next);
+
+  const query = params.toString();
+  return query ? `/auth/github?${query}` : "/auth/github";
+}
+
 function PendingGoogleAvatar({
   picture,
   name,
@@ -169,6 +192,35 @@ function PendingGoogleAvatar({
   );
 }
 
+function PendingGitHubAvatar({
+  picture,
+  username,
+}: {
+  picture?: string;
+  username?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  if (picture && !imgError) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={picture}
+        alt={username ? `${username}’s GitHub avatar` : "GitHub avatar"}
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
+        className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-black/10"
+      />
+    );
+  }
+
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-neutral-950 ring-1 ring-black/10">
+      <GitHubIcon className="h-5 w-5" />
+    </span>
+  );
+}
+
 export function RegisterForm({
   redirectUri,
   next,
@@ -177,14 +229,17 @@ export function RegisterForm({
   authError,
   initialUsername,
   pendingGoogle,
+  pendingGitHub,
 }: RegisterFormProps) {
-  // Keep the same Google registration key when retrying the server action.
-  const googleRegistrationKeyRef = useRef<string | null>(null);
+  const pendingExternal = pendingGoogle ?? pendingGitHub;
+  const pendingProvider = pendingGoogle ? "google" : pendingGitHub ? "github" : null;
+  // Keep the same external registration key when retrying the server action.
+  const externalRegistrationKeyRef = useRef<string | null>(null);
   const [state, formAction, pending] = useActionState(
     (previousState: AuthActionState, formData: FormData) => {
-      if (pendingGoogle) {
-        googleRegistrationKeyRef.current ??= crypto.randomUUID();
-        formData.set("registrationKey", googleRegistrationKeyRef.current);
+      if (pendingExternal) {
+        externalRegistrationKeyRef.current ??= crypto.randomUUID();
+        formData.set("registrationKey", externalRegistrationKeyRef.current);
       }
       return registerAction(previousState, formData);
     },
@@ -199,7 +254,7 @@ export function RegisterForm({
   const [confirmTouched, setConfirmTouched] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isUsernamePending, startUsernameTransition] = useTransition();
-  const [isClearGooglePending, startClearGoogleTransition] = useTransition();
+  const [isClearExternalPending, startClearExternalTransition] = useTransition();
   const router = useRouter();
   const [usernameAvailability, setUsernameAvailability] =
     useState<UsernameAvailability>(() =>
@@ -228,21 +283,34 @@ export function RegisterForm({
       : undefined;
   const signInHref = buildLoginHref({ redirectUri, next, addAccount: isAddAccount });
   const googleInitHref = buildGoogleInitHref({ redirectUri, next });
+  const githubInitHref = buildGitHubInitHref({ redirectUri, next });
+
+  const clearPendingExternal = pendingProvider === "github"
+    ? clearPendingGitHubRegistrationAction
+    : clearPendingGoogleRegistrationAction;
 
   const authErrorMessage =
     authError === "google_unavailable"
       ? "Google account creation is currently unavailable. Try again later."
-      : authError === "google_cancelled"
-        ? "Google sign-up was cancelled."
-        : authError === "google_failed"
-          ? "We couldn’t sign you up with Google. Try again."
-          : authError === "already_linked"
-            ? "That Google account is already linked to another AXUS ID."
-            : authError === "username_taken"
-              ? "That username is taken. Choose another one."
-              : authError === "invalid_username"
-                ? "Choose a valid username."
-                : authError;
+      : authError === "github_unavailable"
+        ? "GitHub account creation is currently unavailable. Try again later."
+        : authError === "google_cancelled"
+          ? "Google sign-up was cancelled."
+          : authError === "github_cancelled"
+            ? "GitHub sign-up was cancelled."
+            : authError === "google_failed"
+              ? "We couldn’t sign you up with Google. Try again."
+              : authError === "github_failed"
+                ? "We couldn’t sign you up with GitHub. Try again."
+                : authError === "already_linked"
+                  ? pendingProvider === "github"
+                    ? "That GitHub account is already linked to another AXUS ID."
+                    : "That Google account is already linked to another AXUS ID."
+                  : authError === "username_taken"
+                    ? "That username is taken. Choose another one."
+                    : authError === "invalid_username"
+                      ? "Choose a valid username."
+                      : authError;
 
   const performUsernameAvailabilityCheck = (
     username: string,
@@ -331,14 +399,18 @@ export function RegisterForm({
         : "At least 4 characters. Letters, numbers and underscores work best.";
 
   if (stage === "identity") {
+    const pendingTitle = pendingProvider === "github"
+      ? "Pick a username and you’re done. Your GitHub account will be linked for sign-in."
+      : pendingProvider === "google"
+        ? "Pick a username and you’re done. Your Google account will be linked for sign-in."
+        : "One account for every app that supports AXUS ID. It takes less than a minute.";
     return (
       <AuthShell
-        step={pendingGoogle ? undefined : { current: 1, total: 2 }}
+        step={pendingExternal ? undefined : { current: 1, total: 2 }}
         title={contextAuid ? "Create another identity" : "Create your AXUS ID"}
-        description={
-          pendingGoogle
-            ? "Pick a username and you’re done. Your Google account will be linked for sign-in."
-            : "One account for every app that supports AXUS ID. It takes less than a minute."
+        description={pendingExternal
+          ? pendingTitle
+          : "One account for every app that supports AXUS ID. It takes less than a minute."
         }
       >
         {pendingGoogle ? (
@@ -363,8 +435,8 @@ export function RegisterForm({
               variant="ghost"
               size="icon"
               onClick={() => {
-                startClearGoogleTransition(async () => {
-                  await clearPendingGoogleRegistrationAction();
+                startClearExternalTransition(async () => {
+                  await clearPendingExternal();
                   const params = new URLSearchParams();
                   if (redirectUri) params.set("redirect_uri", redirectUri);
                   if (next) params.set("next", next);
@@ -376,9 +448,52 @@ export function RegisterForm({
               }}
               aria-label="Cancel Google sign-up"
               title="Cancel Google sign-up"
-              loading={isClearGooglePending}
+              loading={isClearExternalPending}
             >
-              {isClearGooglePending ? null : <X aria-hidden className="h-4 w-4" />}
+              {isClearExternalPending ? null : <X aria-hidden className="h-4 w-4" />}
+            </Button>
+          </div>
+        ) : null}
+        {pendingGitHub ? (
+          <div
+            className={cn(
+              "mb-6 flex items-center gap-3 border border-black/[0.06] bg-neutral-50 p-3",
+              roundedRect,
+            )}
+          >
+            <PendingGitHubAvatar picture={pendingGitHub.picture} username={pendingGitHub.username} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-neutral-500">Signing up with GitHub</p>
+              <p className="truncate text-sm font-semibold text-neutral-950">
+                {pendingGitHub.name || (pendingGitHub.username ? `@${pendingGitHub.username}` : null) || pendingGitHub.email || "GitHub account"}
+              </p>
+              {pendingGitHub.username && (pendingGitHub.name || pendingGitHub.email) ? (
+                <p className="truncate text-xs text-neutral-500">@{pendingGitHub.username}</p>
+              ) : pendingGitHub.email && pendingGitHub.name ? (
+                <p className="truncate text-xs text-neutral-500">{pendingGitHub.email}</p>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                startClearExternalTransition(async () => {
+                  await clearPendingExternal();
+                  const params = new URLSearchParams();
+                  if (redirectUri) params.set("redirect_uri", redirectUri);
+                  if (next) params.set("next", next);
+                  if (isAddAccount) params.set("add_account", "true");
+                  if (contextAuid) params.set("contextAuid", contextAuid);
+                  const query = params.toString();
+                  router.push(query ? `/register?${query}` : "/register");
+                });
+              }}
+              aria-label="Cancel GitHub sign-up"
+              title="Cancel GitHub sign-up"
+              loading={isClearExternalPending}
+            >
+              {isClearExternalPending ? null : <X aria-hidden className="h-4 w-4" />}
             </Button>
           </div>
         ) : null}
@@ -393,12 +508,12 @@ export function RegisterForm({
         />
 
         <form
-          action={pendingGoogle ? formAction : undefined}
+          action={pendingExternal ? formAction : undefined}
           className="space-y-4"
           aria-busy={isCheckingUsername || pending}
           noValidate
           onSubmit={(event) => {
-            if (pendingGoogle) {
+            if (pendingExternal) {
               if (!normalizedUsername) {
                 event.preventDefault();
                 setUsernameError("Enter a username.");
@@ -457,7 +572,7 @@ export function RegisterForm({
             );
           }}
         >
-          {pendingGoogle ? (
+          {pendingExternal ? (
             <>
               <input type="hidden" name="username" value={normalizedUsername} />
               {redirectUri ? <input type="hidden" name="redirect_uri" value={redirectUri} /> : null}
@@ -469,7 +584,7 @@ export function RegisterForm({
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
             <Input
               id="register-username"
-              name={pendingGoogle ? undefined : "username"}
+              name={pendingExternal ? undefined : "username"}
               label="Username"
               value={customUsername}
               onChange={(event) => {
@@ -532,17 +647,24 @@ export function RegisterForm({
               ? "Creating your account…"
               : isCheckingUsername
                 ? "Checking username…"
-                : pendingGoogle
+                : pendingExternal
                   ? contextAuid
                     ? "Create identity"
                     : "Create AXUS ID"
                   : "Continue"}
           </Button>
 
-          {!pendingGoogle ? (
+          {!pendingExternal ? (
             <>
               <Divider label="or" />
               <GoogleButton href={googleInitHref} label="Sign up with Google" />
+              <a
+                href={githubInitHref}
+                className={buttonVariants({ variant: "secondary", className: "w-full gap-3" })}
+              >
+                <GitHubIcon className="h-[18px] w-[18px]" aria-hidden />
+                <span>Sign up with GitHub</span>
+              </a>
             </>
           ) : null}
         </form>

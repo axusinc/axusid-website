@@ -46,6 +46,14 @@ import {
   getPendingGoogleRegistration,
   setGoogleRegistrationName,
 } from "@/lib/google-oauth";
+import {
+  clearPendingGitHubRegistration,
+  getGitHubClientId,
+  getGitHubProviderId,
+  getPendingGitHubRegistration,
+  setGitHubRegistrationName,
+} from "@/lib/github-oauth";
+import { importExternalAvatar, normalizeGitHubAvatarUrl, normalizeGooglePictureUrl } from "@/lib/external-avatar";
 
 export type AuthActionState = {
   error?: string;
@@ -530,6 +538,11 @@ export async function clearPendingGoogleRegistrationAction(): Promise<AuthAction
   return { success: "Google signup cleared." };
 }
 
+export async function clearPendingGitHubRegistrationAction(): Promise<AuthActionState> {
+  await clearPendingGitHubRegistration();
+  return { success: "GitHub signup cleared." };
+}
+
 export async function registerAction(
   _prevState: AuthActionState,
   formData: FormData,
@@ -586,6 +599,13 @@ export async function registerAction(
         tokenId,
         profile: pendingGoogle,
       });
+      // A fresh account has no photo yet: copy the Google picture in.
+      await importExternalAvatar({
+        auid,
+        tokenId,
+        pictureUrl: normalizeGooglePictureUrl(pendingGoogle.picture),
+        onlyIfEmpty: false,
+      });
       const session: IdPSession = {
         auid,
         tokenId,
@@ -601,6 +621,73 @@ export async function registerAction(
           error,
           undefined,
           "Unable to create account with Google. Try again.",
+        ),
+        registrationKey,
+      };
+    }
+
+    redirect(
+      resolveAuthenticatedRedirect({
+        redirectUri: redirectUri || undefined,
+        next: next || undefined,
+      }),
+    );
+  }
+
+  const pendingGitHub = await getPendingGitHubRegistration();
+
+  if (pendingGitHub) {
+    try {
+      const sdk = getAuthSdk();
+      const result = await sdk.CreateUser({
+        registrationKey,
+        contextAuid: contextAuid || undefined,
+      });
+      const auid = result.createUser.auid;
+      const tokenId = result.createUser.token.id;
+
+      await ensureRegistrationUsername({
+        auid,
+        tokenId,
+        username: requestedUsername,
+      });
+
+      await getAuthSdk(tokenId).LinkExternalIdentity({
+        auid,
+        authentication: {
+          providerId: getGitHubProviderId(),
+          refreshToken: pendingGitHub.refreshToken,
+          clientId: getGitHubClientId(),
+        },
+      });
+
+      await setGitHubRegistrationName({
+        auid,
+        tokenId,
+        profile: { name: pendingGitHub.name },
+      });
+      // A fresh account has no photo yet: copy the GitHub picture in.
+      await importExternalAvatar({
+        auid,
+        tokenId,
+        pictureUrl: normalizeGitHubAvatarUrl(pendingGitHub.picture),
+        onlyIfEmpty: false,
+      });
+      const session: IdPSession = {
+        auid,
+        tokenId,
+        consentedClients: [],
+      };
+
+      await addAccountToSession(session);
+      await clearPendingGitHubRegistration();
+      await setLastAuthMethod("github");
+    } catch (error) {
+      return {
+        error: formatGraphqlError(
+          error,
+          undefined,
+          "Unable to create account with GitHub. Try again.",
         ),
         registrationKey,
       };
