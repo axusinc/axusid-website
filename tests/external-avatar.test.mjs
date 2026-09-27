@@ -179,3 +179,15 @@ test("undecodable images and failed uploads report false without throwing", asyn
   t.after(net2.restore);
   assert.equal(await mod2.importExternalAvatar({ auid: "a", tokenId: "t", pictureUrl: picture }), false);
 });
+
+test("when sharp module fails to load (e.g. missing native runtime), importExternalAvatar returns false without throwing", async t => {
+  const mod = loadTs("src/lib/external-avatar.ts", {
+    "server-only": {},
+    "sharp": () => { throw new Error("ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.6"); },
+    "@/lib/auth-graphql": { getAuthSdk: () => ({ DefaultVariation: async () => ({ defaultVariation: { variationId: "var-1" } }) }) },
+    "@/lib/avatar": { MAX_AVATAR_SIZE_BYTES },
+  });
+  const net = mockFetch(() => sourceImage());
+  t.after(net.restore);
+  assert.equal(await mod.importExternalAvatar({ auid: "a", tokenId: "t", pictureUrl: picture }), false);
+});

@@ -1,6 +1,20 @@
 import "server-only";
+import type sharp from "sharp";
 
-import sharp from "sharp";
+type SharpFn = typeof sharp;
+let cachedSharp: SharpFn | null = null;
+
+async function getSharp(): Promise<SharpFn | null> {
+  if (cachedSharp) return cachedSharp;
+  try {
+    const mod = await import("sharp");
+    cachedSharp = ((mod as unknown as { default?: SharpFn }).default ?? mod) as SharpFn;
+    return cachedSharp;
+  } catch (err) {
+    console.warn("[External avatar import skipped] sharp could not be loaded:", err);
+    return null;
+  }
+}
 
 import { getAuthSdk } from "@/lib/auth-graphql";
 import { MAX_AVATAR_SIZE_BYTES } from "@/lib/avatar";
@@ -72,6 +86,9 @@ async function resolveDefaultVariationId(sdk: ReturnType<typeof getAuthSdk>, aui
 }
 
 async function processToAvatarJpeg(source: Buffer): Promise<Buffer | null> {
+  const sharp = await getSharp();
+  if (!sharp) return null;
+
   // The editor exports a 512px JPEG ladder; mirror that server-side so every
   // provider picture ends up a compliant square without client work.
   const ladder: Array<{ px: number; quality: number }> = [
