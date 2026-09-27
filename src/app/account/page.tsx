@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AccountDashboard } from "@/app/account/account-dashboard";
-import { SessionRecovery } from "@/app/account/session-recovery";
 import { StatusPage } from "@/components/status-page";
 import { buttonVariants } from "@/components/ui/button";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
-import { formatGraphqlError, isRateLimitError, isTokenInvalidError } from "@/lib/graphql-errors";
+import { formatGraphqlError, isAuthError, isRateLimitError, isTokenInvalidError } from "@/lib/graphql-errors";
 import { listClientsByOwner } from "@/lib/oauth/client-store";
 import { listGrantsForUser } from "@/lib/oauth/grants";
 import { getIssuer } from "@/lib/oauth/constants";
@@ -26,13 +25,27 @@ export const metadata: Metadata = { title: "Account" };
 // Handle the error before creating JSX so React does not serialize the raw
 // backend error (and its stack) as development component props.
 function renderAccountLoadError(error: unknown, auid: string) {
-  if (isTokenInvalidError(error)) return <SessionRecovery auid={auid} />;
+  if (isTokenInvalidError(error) || isAuthError(error)) {
+    redirect(`/auth/session-recovery?auid=${encodeURIComponent(auid)}`);
+  }
   return (
     <StatusPage
       tone="error"
       title={isRateLimitError(error) ? "Too many requests" : "We couldn’t load your account"}
       description={formatGraphqlError(error, "account", "Something went wrong on our side. Try again.")}
-      actions={<a href="/account" className={buttonVariants({ className: "w-full sm:w-auto" })}>Try again</a>}
+      actions={
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <a href="/account" className={buttonVariants({ className: "w-full sm:w-auto" })}>
+            Try again
+          </a>
+          <a
+            href={`/auth/session-recovery?auid=${encodeURIComponent(auid)}`}
+            className={buttonVariants({ variant: "secondary", className: "w-full sm:w-auto" })}
+          >
+            Sign out
+          </a>
+        </div>
+      }
     />
   );
 }
@@ -64,7 +77,7 @@ export default async function AccountPage() {
   ]);
 
   const failure = [accountResult, profileResult, detailsResult].find(
-    (result) => result.status === "rejected" && isTokenInvalidError(result.reason),
+    (result) => result.status === "rejected" && (isTokenInvalidError(result.reason) || isAuthError(result.reason)),
   ) ?? [accountResult, profileResult, detailsResult].find((result) => result.status === "rejected");
   if (failure?.status === "rejected") return renderAccountLoadError(failure.reason, session.auid);
 

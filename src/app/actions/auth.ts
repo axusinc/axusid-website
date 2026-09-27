@@ -282,12 +282,16 @@ export async function logoutAllAction() {
   redirect("/login");
 }
 
-export async function discardInvalidSessionAction(expectedAuid: string): Promise<string> {
+export async function discardInvalidSessionAction(expectedAuid: string): Promise<never> {
   const session = await getValidSession();
-  if (!session) return "/login?add_account=true";
-  if (session.auid !== expectedAuid) return "/account";
+  if (!session) {
+    redirect("/login?add_account=true");
+  }
+  if (session.auid !== expectedAuid) {
+    redirect("/account");
+  }
   const remaining = await removeAccountFromSession(session.auid);
-  return remaining ? "/account" : "/login?add_account=true";
+  redirect(remaining ? "/account" : "/login?add_account=true");
 }
 
 export async function logoutAction(formData?: FormData) {

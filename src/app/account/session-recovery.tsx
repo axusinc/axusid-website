@@ -8,29 +8,33 @@ export function SessionRecovery({ auid }: { auid: string }) {
   const started = useRef(false);
   const active = useRef(false);
 
+  const recoveryUrl = `/auth/session-recovery?auid=${encodeURIComponent(auid)}`;
+
   useEffect(() => {
     active.current = true;
     if (started.current) return () => { active.current = false; };
     started.current = true;
     discardInvalidSessionAction(auid)
-      .then((destination) => {
-        if (active.current) window.location.replace(destination);
-      })
       .catch(() => {
-        if (active.current) setFailed(true);
+        if (active.current) {
+          setFailed(true);
+          window.location.replace(recoveryUrl);
+        }
       });
     return () => {
       active.current = false;
     };
-  }, [auid]);
+  }, [auid, recoveryUrl]);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 p-6 text-center">
       <h1 className="text-xl font-semibold">Your session ended</h1>
       <p className="text-sm text-neutral-600">
-        {failed ? "We couldn’t finish signing you out. Reload to try again." : "Taking you to sign in…"}
+        {failed ? "We couldn’t finish signing you out." : "Taking you to sign in…"}
       </p>
-      {failed ? <button type="button" onClick={() => window.location.reload()} className="underline">Reload</button> : null}
+      <a href={recoveryUrl} className="text-sm underline text-neutral-800 hover:text-black">
+        {failed ? "Sign in again" : "Click here if you are not redirected"}
+      </a>
     </main>
   );
 }

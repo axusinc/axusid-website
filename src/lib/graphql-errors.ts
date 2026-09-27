@@ -281,16 +281,69 @@ export function isTokenInvalidError(error: unknown): boolean {
     return false;
   }
 
-  if (getPrimaryDomainError(error)?.code === DOMAIN_ERROR_CODES.TOKEN_INVALID) {
+  const primaryCode = getPrimaryDomainError(error)?.code;
+  if (
+    primaryCode === DOMAIN_ERROR_CODES.TOKEN_INVALID ||
+    primaryCode === DOMAIN_ERROR_CODES.INVALID_TOKEN_ID ||
+    primaryCode === DOMAIN_ERROR_CODES.TOKEN_REQUIRED
+  ) {
     return true;
   }
 
-  return (
-    isGraphqlClientError(error) &&
-    error.response.errors?.some(
-      (item) => item.extensions?.code === DOMAIN_ERROR_CODES.TOKEN_INVALID,
-    ) === true
-  );
+  if (isGraphqlClientError(error)) {
+    if (error.response.status === 401 || error.response.status === 403) {
+      return true;
+    }
+    const hasInvalidCode = error.response.errors?.some((item) => {
+      const code = item.extensions?.code;
+      return (
+        code === DOMAIN_ERROR_CODES.TOKEN_INVALID ||
+        code === DOMAIN_ERROR_CODES.INVALID_TOKEN_ID ||
+        code === DOMAIN_ERROR_CODES.TOKEN_REQUIRED ||
+        code === "TOKEN_INVALID" ||
+        code === "INVALID_TOKEN_ID" ||
+        code === "TOKEN_REQUIRED" ||
+        code === "UNAUTHENTICATED"
+      );
+    });
+    if (hasInvalidCode) {
+      return true;
+    }
+
+    const hasTokenMessage = error.response.errors?.some((item) => {
+      if (typeof item.message !== "string") return false;
+      const msg = item.message.toLowerCase();
+      return (
+        (msg.includes("token") &&
+          (msg.includes("invalid") ||
+            msg.includes("not found") ||
+            msg.includes("expired") ||
+            msg.includes("revoked") ||
+            msg.includes("required"))) ||
+        msg.includes("unauthenticated")
+      );
+    });
+    if (hasTokenMessage) {
+      return true;
+    }
+  }
+
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    if (
+      (msg.includes("token") &&
+        (msg.includes("invalid") ||
+          msg.includes("not found") ||
+          msg.includes("expired") ||
+          msg.includes("revoked") ||
+          msg.includes("required"))) ||
+      msg.includes("unauthenticated")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function isAuthError(error: unknown): boolean {
