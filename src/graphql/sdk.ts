@@ -53,6 +53,29 @@ export type SchemaDefaultVariation = {
   variationId: Scalars['ID']['output'];
 };
 
+export type SchemaDescribedParam = {
+  __typename?: 'DescribedParam';
+  description?: Maybe<Scalars['String']['output']>;
+  hint?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  value?: Maybe<Scalars['String']['output']>;
+  valueIcon?: Maybe<Scalars['String']['output']>;
+  valueLabel?: Maybe<Scalars['String']['output']>;
+};
+
+export type SchemaDescribedPermission = {
+  __typename?: 'DescribedPermission';
+  context: Scalars['ID']['output'];
+  declarationId: Scalars['ID']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  key: Scalars['String']['output'];
+  params: Array<SchemaDescribedParam>;
+  title: Scalars['String']['output'];
+};
+
 export type SchemaDescription = {
   __typename?: 'Description';
   text?: Maybe<Scalars['String']['output']>;
@@ -113,6 +136,8 @@ export type SchemaMutation = {
   loginWithPassword: SchemaToken;
   loginWithToken: SchemaToken;
   loginWithTotp: SchemaAuthenticatedToken;
+  notifyValidationChanged: Scalars['Boolean']['output'];
+  publishPermissionDeclaration: SchemaPermissionDeclaration;
   removeUsername: SchemaUsernames;
   reorderParents: SchemaParents;
   requestAvatarUpload: SchemaAvatarUploadRequest;
@@ -236,6 +261,7 @@ export type SchemaMutationDelegatePermissionArgs = {
   granteeAuid: Scalars['ID']['input'];
   granterAuid: Scalars['ID']['input'];
   permission: Scalars['String']['input'];
+  permissionContext?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -287,6 +313,17 @@ export type SchemaMutationLoginWithTokenArgs = {
 export type SchemaMutationLoginWithTotpArgs = {
   code: Scalars['String']['input'];
   totpToken: Scalars['String']['input'];
+};
+
+
+export type SchemaMutationNotifyValidationChangedArgs = {
+  declarationId: Scalars['ID']['input'];
+};
+
+
+export type SchemaMutationPublishPermissionDeclarationArgs = {
+  declaration: SchemaPermissionDeclarationInput;
+  ownerAuid: Scalars['ID']['input'];
 };
 
 
@@ -413,6 +450,31 @@ export type SchemaPaginatedIdentities = {
   nextCursor?: Maybe<Scalars['ID']['output']>;
 };
 
+export type SchemaParamDefInput = {
+  allowWildcard?: InputMaybe<Scalars['Boolean']['input']>;
+  allowedValues?: InputMaybe<Array<Scalars['String']['input']>>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  hint?: InputMaybe<Scalars['String']['input']>;
+  icon?: InputMaybe<Scalars['String']['input']>;
+  label?: InputMaybe<Scalars['String']['input']>;
+  maxLength?: InputMaybe<Scalars['Int']['input']>;
+  maxNumber?: InputMaybe<Scalars['Float']['input']>;
+  minLength?: InputMaybe<Scalars['Int']['input']>;
+  minNumber?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  regex?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type SchemaParamOption = {
+  __typename?: 'ParamOption';
+  degraded: Scalars['Boolean']['output'];
+  dynamic: Scalars['Boolean']['output'];
+  label?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  values: Array<SchemaValueOption>;
+};
+
 export type SchemaParent = {
   __typename?: 'Parent';
   auid: Scalars['ID']['output'];
@@ -454,6 +516,30 @@ export type SchemaPermissionCheck = {
   reason: Scalars['String']['output'];
 };
 
+export type SchemaPermissionDeclaration = {
+  __typename?: 'PermissionDeclaration';
+  context: Scalars['ID']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  template: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+  validatorUrl?: Maybe<Scalars['String']['output']>;
+  version: Scalars['Int']['output'];
+};
+
+export type SchemaPermissionDeclarationInput = {
+  combinationInvariantJs?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  icon?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  params?: InputMaybe<Array<SchemaParamDefInput>>;
+  template: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  validatorUrl?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type SchemaPermissionGrant = {
   __typename?: 'PermissionGrant';
   activationState: SchemaPermissionGrantActivationState;
@@ -463,6 +549,7 @@ export type SchemaPermissionGrant = {
   isShadow: Scalars['Boolean']['output'];
   origin: SchemaPermissionGrantOrigin;
   permission: Scalars['String']['output'];
+  permissionContext?: Maybe<Scalars['ID']['output']>;
 };
 
 export enum SchemaPermissionGrantActivationState {
@@ -490,12 +577,22 @@ export enum SchemaPermissionGrantOriginType {
   Direct = 'DIRECT'
 }
 
+export type SchemaPermissionTreeNode = {
+  __typename?: 'PermissionTreeNode';
+  children: Array<SchemaPermissionTreeNode>;
+  declarations: Array<Scalars['ID']['output']>;
+  keyPrefix: Scalars['String']['output'];
+  params: Array<SchemaParamOption>;
+  title?: Maybe<Scalars['String']['output']>;
+};
+
 export type SchemaQuery = {
   __typename?: 'Query';
   avatar?: Maybe<SchemaAvatar>;
   checkPermission: SchemaPermissionCheck;
   defaultVariation?: Maybe<SchemaDefaultVariation>;
   delegatedGrants: Array<SchemaPermissionGrant>;
+  describePermission: SchemaDescribedPermission;
   description?: Maybe<SchemaDescription>;
   externalIdentities: Array<SchemaExternalIdentity>;
   externalIdentityAccessToken: SchemaExternalIdentityAccessTokenResponse;
@@ -506,6 +603,9 @@ export type SchemaQuery = {
   ownerByUsername?: Maybe<Scalars['ID']['output']>;
   parents?: Maybe<SchemaParents>;
   passkeys: Array<SchemaPasskeyCredential>;
+  permissionDeclarations: Array<SchemaPermissionDeclaration>;
+  permissionTree: Array<SchemaPermissionTreeNode>;
+  searchPermissionValues: SchemaParamOption;
   status?: Maybe<SchemaStatus>;
   user?: Maybe<SchemaUser>;
   usernames?: Maybe<SchemaUsernames>;
@@ -521,6 +621,7 @@ export type SchemaQueryAvatarArgs = {
 export type SchemaQueryCheckPermissionArgs = {
   auid: Scalars['ID']['input'];
   permission: Scalars['String']['input'];
+  permissionContext?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -531,6 +632,12 @@ export type SchemaQueryDefaultVariationArgs = {
 
 export type SchemaQueryDelegatedGrantsArgs = {
   auid: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryDescribePermissionArgs = {
+  contextAuid: Scalars['ID']['input'];
+  permission: Scalars['String']['input'];
 };
 
 
@@ -588,6 +695,25 @@ export type SchemaQueryPasskeysArgs = {
 };
 
 
+export type SchemaQueryPermissionDeclarationsArgs = {
+  contextAuid: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryPermissionTreeArgs = {
+  contextAuid: Scalars['ID']['input'];
+};
+
+
+export type SchemaQuerySearchPermissionValuesArgs = {
+  contextAuid: Scalars['ID']['input'];
+  declarationId: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  param: Scalars['String']['input'];
+  query: Scalars['String']['input'];
+};
+
+
 export type SchemaQueryStatusArgs = {
   variationId: Scalars['ID']['input'];
 };
@@ -642,6 +768,14 @@ export type SchemaUsernames = {
   usernames: Array<Scalars['String']['output']>;
 };
 
+export type SchemaValueOption = {
+  __typename?: 'ValueOption';
+  description?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  value: Scalars['String']['output'];
+};
+
 export type SchemaVariation = {
   __typename?: 'Variation';
   auid: Scalars['ID']['output'];
@@ -676,6 +810,33 @@ export type NameSeparatorType =
   | 'COMMA_SPACE'
   | 'HYPHEN'
   | 'SPACE';
+
+export type ParamDefInput = {
+  allowWildcard?: boolean | null | undefined;
+  allowedValues?: Array<string> | null | undefined;
+  description?: string | null | undefined;
+  hint?: string | null | undefined;
+  icon?: string | null | undefined;
+  label?: string | null | undefined;
+  maxLength?: number | null | undefined;
+  maxNumber?: number | null | undefined;
+  minLength?: number | null | undefined;
+  minNumber?: number | null | undefined;
+  name: string;
+  regex?: string | null | undefined;
+  type?: string | null | undefined;
+};
+
+export type PermissionDeclarationInput = {
+  combinationInvariantJs?: string | null | undefined;
+  description?: string | null | undefined;
+  icon?: string | null | undefined;
+  name: string;
+  params?: Array<ParamDefInput> | null | undefined;
+  template: string;
+  title?: string | null | undefined;
+  validatorUrl?: string | null | undefined;
+};
 
 export type PermissionGrantActivationState =
   | 'ACTIVE'
@@ -851,18 +1012,19 @@ export type MyGrantsQueryVariables = Exact<{
 }>;
 
 
-export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string, permission: string, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
+export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
 
 export type MyDelegatedGrantsQueryVariables = Exact<{
   auid: string | number;
 }>;
 
 
-export type MyDelegatedGrantsQuery = { delegatedGrants: Array<{ id: string, granteeAuid: string, permission: string, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean }> };
+export type MyDelegatedGrantsQuery = { delegatedGrants: Array<{ id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean }> };
 
 export type EffectivePermissionQueryVariables = Exact<{
   auid: string | number;
   permission: string;
+  permissionContext?: string | number | null | undefined;
 }>;
 
 
@@ -872,10 +1034,63 @@ export type SharePermissionMutationVariables = Exact<{
   granterAuid: string | number;
   granteeAuid: string | number;
   permission: string;
+  permissionContext?: string | number | null | undefined;
 }>;
 
 
-export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string, permission: string, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean } };
+export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean } };
+
+export type DeclarationSummaryFragment = { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null };
+
+export type ParameterOptionsFragment = { name: string, label: string | null, dynamic: boolean, degraded: boolean, values: Array<{ value: string, label: string | null, icon: string | null, description: string | null }> };
+
+export type PermissionDeclarationsQueryVariables = Exact<{
+  contextAuid: string | number;
+}>;
+
+
+export type PermissionDeclarationsQuery = { permissionDeclarations: Array<{ id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null }> };
+
+export type DescribePermissionQueryVariables = Exact<{
+  contextAuid: string | number;
+  permission: string;
+}>;
+
+
+export type DescribePermissionQuery = { describePermission: { key: string, context: string, declarationId: string, title: string, description: string | null, icon: string | null, params: Array<{ name: string, value: string | null, label: string | null, description: string | null, icon: string | null, hint: string | null, valueLabel: string | null, valueIcon: string | null }> } };
+
+export type PermissionTreeQueryVariables = Exact<{
+  contextAuid: string | number;
+}>;
+
+
+export type PermissionTreeQuery = { permissionTree: Array<{ keyPrefix: string, title: string | null, declarations: Array<string>, params: Array<{ name: string, label: string | null, dynamic: boolean, degraded: boolean, values: Array<{ value: string, label: string | null, icon: string | null, description: string | null }> }>, children: Array<{ keyPrefix: string, title: string | null, declarations: Array<string>, params: Array<{ name: string, label: string | null, dynamic: boolean, degraded: boolean, values: Array<{ value: string, label: string | null, icon: string | null, description: string | null }> }>, children: Array<{ keyPrefix: string, title: string | null, declarations: Array<string>, params: Array<{ name: string, label: string | null, dynamic: boolean, degraded: boolean, values: Array<{ value: string, label: string | null, icon: string | null, description: string | null }> }>, children: Array<{ keyPrefix: string, title: string | null, declarations: Array<string>, params: Array<{ name: string, label: string | null, dynamic: boolean, degraded: boolean, values: Array<{ value: string, label: string | null, icon: string | null, description: string | null }> }>, children: Array<{ keyPrefix: string }> }> }> }> }> };
+
+export type SearchPermissionValuesQueryVariables = Exact<{
+  contextAuid: string | number;
+  declarationId: string | number;
+  param: string;
+  query: string;
+  limit?: number | null | undefined;
+}>;
+
+
+export type SearchPermissionValuesQuery = { searchPermissionValues: { name: string, label: string | null, dynamic: boolean, degraded: boolean, values: Array<{ value: string, label: string | null, icon: string | null, description: string | null }> } };
+
+export type PublishPermissionDeclarationMutationVariables = Exact<{
+  ownerAuid: string | number;
+  declaration: PermissionDeclarationInput;
+}>;
+
+
+export type PublishPermissionDeclarationMutation = { publishPermissionDeclaration: { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null } };
+
+export type NotifyValidationChangedMutationVariables = Exact<{
+  declarationId: string | number;
+}>;
+
+
+export type NotifyValidationChangedMutation = { notifyValidationChanged: boolean };
 
 export type RemoveSharedPermissionMutationVariables = Exact<{
   grantId: string | number;
@@ -1041,7 +1256,33 @@ export type UnlinkExternalIdentityMutationVariables = Exact<{
 
 export type UnlinkExternalIdentityMutation = { unlinkExternalIdentity: boolean };
 
-
+export const DeclarationSummaryFragmentDoc = gql`
+    fragment DeclarationSummary on PermissionDeclaration {
+  id
+  context
+  name
+  version
+  template
+  validatorUrl
+  title
+  description
+  icon
+}
+    `;
+export const ParameterOptionsFragmentDoc = gql`
+    fragment ParameterOptions on ParamOption {
+  name
+  label
+  dynamic
+  degraded
+  values {
+    value
+    label
+    icon
+    description
+  }
+}
+    `;
 export const LoginWithPasswordDocument = gql`
     mutation LoginWithPassword($auid: ID!, $password: String!, $permissions: [String!]) {
   loginWithPassword(auid: $auid, password: $password, permissions: $permissions) {
@@ -1223,6 +1464,7 @@ export const MyGrantsDocument = gql`
     id
     granteeAuid
     permission
+    permissionContext
     effect
     origin {
       type
@@ -1239,6 +1481,7 @@ export const MyDelegatedGrantsDocument = gql`
     id
     granteeAuid
     permission
+    permissionContext
     effect
     activationState
     isShadow
@@ -1246,26 +1489,125 @@ export const MyDelegatedGrantsDocument = gql`
 }
     `;
 export const EffectivePermissionDocument = gql`
-    query EffectivePermission($auid: ID!, $permission: String!) {
-  checkPermission(auid: $auid, permission: $permission) {
+    query EffectivePermission($auid: ID!, $permission: String!, $permissionContext: ID) {
+  checkPermission(
+    auid: $auid
+    permission: $permission
+    permissionContext: $permissionContext
+  ) {
     allowed
   }
 }
     `;
 export const SharePermissionDocument = gql`
-    mutation SharePermission($granterAuid: ID!, $granteeAuid: ID!, $permission: String!) {
+    mutation SharePermission($granterAuid: ID!, $granteeAuid: ID!, $permission: String!, $permissionContext: ID) {
   delegatePermission(
     granterAuid: $granterAuid
     granteeAuid: $granteeAuid
     permission: $permission
+    permissionContext: $permissionContext
   ) {
     id
     granteeAuid
     permission
+    permissionContext
     effect
     activationState
     isShadow
   }
+}
+    `;
+export const PermissionDeclarationsDocument = gql`
+    query PermissionDeclarations($contextAuid: ID!) {
+  permissionDeclarations(contextAuid: $contextAuid) {
+    ...DeclarationSummary
+  }
+}
+    ${DeclarationSummaryFragmentDoc}`;
+export const DescribePermissionDocument = gql`
+    query DescribePermission($contextAuid: ID!, $permission: String!) {
+  describePermission(contextAuid: $contextAuid, permission: $permission) {
+    key
+    context
+    declarationId
+    title
+    description
+    icon
+    params {
+      name
+      value
+      label
+      description
+      icon
+      hint
+      valueLabel
+      valueIcon
+    }
+  }
+}
+    `;
+export const PermissionTreeDocument = gql`
+    query PermissionTree($contextAuid: ID!) {
+  permissionTree(contextAuid: $contextAuid) {
+    keyPrefix
+    title
+    declarations
+    params {
+      ...ParameterOptions
+    }
+    children {
+      keyPrefix
+      title
+      declarations
+      params {
+        ...ParameterOptions
+      }
+      children {
+        keyPrefix
+        title
+        declarations
+        params {
+          ...ParameterOptions
+        }
+        children {
+          keyPrefix
+          title
+          declarations
+          params {
+            ...ParameterOptions
+          }
+          children {
+            keyPrefix
+          }
+        }
+      }
+    }
+  }
+}
+    ${ParameterOptionsFragmentDoc}`;
+export const SearchPermissionValuesDocument = gql`
+    query SearchPermissionValues($contextAuid: ID!, $declarationId: ID!, $param: String!, $query: String!, $limit: Int) {
+  searchPermissionValues(
+    contextAuid: $contextAuid
+    declarationId: $declarationId
+    param: $param
+    query: $query
+    limit: $limit
+  ) {
+    ...ParameterOptions
+  }
+}
+    ${ParameterOptionsFragmentDoc}`;
+export const PublishPermissionDeclarationDocument = gql`
+    mutation PublishPermissionDeclaration($ownerAuid: ID!, $declaration: PermissionDeclarationInput!) {
+  publishPermissionDeclaration(ownerAuid: $ownerAuid, declaration: $declaration) {
+    ...DeclarationSummary
+  }
+}
+    ${DeclarationSummaryFragmentDoc}`;
+export const NotifyValidationChangedDocument = gql`
+    mutation NotifyValidationChanged($declarationId: ID!) {
+  notifyValidationChanged(declarationId: $declarationId)
 }
     `;
 export const RemoveSharedPermissionDocument = gql`
@@ -1560,6 +1902,24 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     SharePermission(variables: SharePermissionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SharePermissionMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<SharePermissionMutation>({ document: SharePermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SharePermission', 'mutation', variables);
+    },
+    PermissionDeclarations(variables: PermissionDeclarationsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<PermissionDeclarationsQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<PermissionDeclarationsQuery>({ document: PermissionDeclarationsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'PermissionDeclarations', 'query', variables);
+    },
+    DescribePermission(variables: DescribePermissionQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<DescribePermissionQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<DescribePermissionQuery>({ document: DescribePermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'DescribePermission', 'query', variables);
+    },
+    PermissionTree(variables: PermissionTreeQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<PermissionTreeQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<PermissionTreeQuery>({ document: PermissionTreeDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'PermissionTree', 'query', variables);
+    },
+    SearchPermissionValues(variables: SearchPermissionValuesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SearchPermissionValuesQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<SearchPermissionValuesQuery>({ document: SearchPermissionValuesDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SearchPermissionValues', 'query', variables);
+    },
+    PublishPermissionDeclaration(variables: PublishPermissionDeclarationMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<PublishPermissionDeclarationMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<PublishPermissionDeclarationMutation>({ document: PublishPermissionDeclarationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'PublishPermissionDeclaration', 'mutation', variables);
+    },
+    NotifyValidationChanged(variables: NotifyValidationChangedMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<NotifyValidationChangedMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<NotifyValidationChangedMutation>({ document: NotifyValidationChangedDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'NotifyValidationChanged', 'mutation', variables);
     },
     RemoveSharedPermission(variables: RemoveSharedPermissionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RemoveSharedPermissionMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<RemoveSharedPermissionMutation>({ document: RemoveSharedPermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RemoveSharedPermission', 'mutation', variables);

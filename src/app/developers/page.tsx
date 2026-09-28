@@ -152,6 +152,8 @@ export default async function DevelopersPage() {
                 "See how your settings become a PKCE authorization URL.",
               href: "/developers/playground",
             },
+            { icon: Terminal, title: "Declare permissions", description: "Discover and delegate typed permissions in the right app context.", href: "/developers/permissions" },
+            { icon: Workflow, title: "Become an app", description: "Publish permission templates and connect your dynamic validator.", href: "/developers/become-an-app" },
           ].map(({ icon: Icon, title, description, href }) => (
             <Link
               key={href}

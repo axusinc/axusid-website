@@ -105,6 +105,43 @@ test("token exchange uses refresh token as engine proof and rejects OAuth errors
   await assert.rejects(oauth.exchangeGitHubCode("code", state, "https://id.example.com"));
 });
 
+test("engine login and linking send only supported external authentication fields", async () => {
+  const calls = [];
+  const provider = loadTs("src/lib/oauth-provider.ts", {
+    "server-only": {},
+    "@/lib/auth-graphql": {
+      getAuthSdk: token => ({
+        LoginWithExternalIdentity: async args => {
+          calls.push(["login", token, args]);
+          return { loginWithExternalIdentity: { auid: "1", id: "native-token" } };
+        },
+        LinkExternalIdentity: async args => { calls.push(["link", token, args]); },
+      }),
+    },
+  });
+  const githubTokens = {
+    providerId: "github",
+    clientId: "test-client",
+    refreshToken: "refresh-proof",
+    accessToken: "profile-only-token",
+  };
+  const proof = {
+    providerId: "github",
+    clientId: "test-client",
+    refreshToken: "refresh-proof",
+  };
+
+  assert.deepEqual(await provider.loginWithOAuthIdentity(githubTokens, ["*"]), {
+    auid: "1", tokenId: "native-token",
+  });
+  await provider.linkOAuthIdentity({ auid: "1", tokenId: "native-token" }, githubTokens);
+
+  assert.deepEqual(calls, [
+    ["login", undefined, { authentication: proof, permissions: ["*"] }],
+    ["link", "native-token", { auid: "1", authentication: proof }],
+  ]);
+});
+
 function callbackHarness(state, options = {}) {
   const calls = [];
   const sdk = {

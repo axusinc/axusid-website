@@ -1,85 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, KeyRound, Plus, RefreshCw, UsersRound } from "lucide-react";
+import { Plus, RefreshCw, UsersRound } from "lucide-react";
 import { permissionAction } from "@/app/actions/permissions";
-import type { SharedPermission, UserPermission } from "@/lib/permission-types";
+import type { PermissionContext, SharedPermission, UserPermission } from "@/lib/permission-types";
+import { PermissionIcon } from "@/components/permission-icon";
+import { PermissionPicker } from "./permission-picker";
+import { permissionIdentity } from "@/lib/permission-context";
 import { SubsectionTitle } from "./dashboard-ui";
 import { UsernameAvatar } from "@/components/username-avatar";
 import { IdentityLabel } from "@/components/ui/identity-label";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input, Field, controlClassName } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
 import { Spinner } from "@/components/ui/spinner";
 import { focusRing } from "@/lib/design";
 import { cn } from "@/lib/utils";
-
-function SharePermission({ options, initialKey, onClose, onShared }: {
-  options: UserPermission[];
-  initialKey?: string;
-  onClose: () => void;
-  onShared: (grant: SharedPermission, alreadyShared: boolean) => void;
-}) {
-  const [selectedKey, setSelectedKey] = useState(initialKey ?? options[0]?.key ?? "");
-  const permission = options.find((option) => option.key === selectedKey);
-  const [review, setReview] = useState(false);
-  const [username, setUsername] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  const submitting = useRef(false);
-  const reviewRef = useRef<HTMLHeadingElement>(null);
-
-  return (
-    <form className="mb-6 space-y-4 rounded-xl border border-black/[0.07] bg-neutral-50 p-4 sm:p-5" onSubmit={async (event) => {
-      event.preventDefault();
-      if (submitting.current || !permission) return;
-      if (!username.trim().replace(/^@/, "")) { setError("Enter a username to continue."); return; }
-      if (!review) {
-        setError(""); setReview(true);
-        requestAnimationFrame(() => reviewRef.current?.focus());
-        return;
-      }
-      submitting.current = true;
-      setPending(true); setError("");
-      try {
-        const result = await permissionAction({ kind: "share", username, permission: permission.key });
-        if (result.error) setError(result.error);
-        if (result.sharedGrant) onShared(result.sharedGrant, !!result.alreadyShared);
-      } catch { setError("Couldn’t share this permission. Please try again."); }
-      finally { setPending(false); submitting.current = false; }
-    }}>
-      <h3 ref={reviewRef} tabIndex={-1} className="text-sm font-semibold text-neutral-950 outline-none">{review ? "Review access" : "Share access"}</h3>
-      {review ? (
-        <div className="rounded-xl border border-black/[0.05] bg-white p-4">
-          <div className="flex items-center gap-3"><UsernameAvatar username={username} size="sm" /><p className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</p></div>
-          <p className="mt-4 text-sm font-medium">{permission?.label}</p>
-          <p className="mt-1 text-[13px] text-neutral-500">{permission?.scope}</p>
-          <p className="mt-2 text-sm text-neutral-600">{permission?.description}</p>
-        </div>
-      ) : (
-        <>
-          <Input id="share-username" label="Who do you want to share with?" placeholder="@username" hint="Their AXUS ID username." value={username}
-            onChange={(event) => { setUsername(event.target.value); setError(""); }} autoFocus autoComplete="off" autoCapitalize="none" spellCheck={false} required maxLength={256} />
-          <Field id="share-access" label="What can they do?" hint={permission?.description}>
-            <select id="share-access" aria-describedby="share-access-hint" className={`${controlClassName} h-11 px-3`} value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)} required>
-              {options.map((option) => <option key={option.key} value={option.key}>{option.label} — {option.scope}</option>)}
-            </select>
-          </Field>
-        </>
-      )}
-      {permission?.key.endsWith(".grants.delegate") ? <p className="text-[13px] leading-relaxed text-amber-800">This lets them share permissions on your behalf. Only give this access to someone you trust.</p> : null}
-      {review ? <p className="text-[13px] leading-relaxed text-neutral-500">You can remove this permission anytime. Signing out won’t remove it; access pauses if you lose the permission yourself.</p> : null}
-      {error ? <FormError>{error}</FormError> : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" size="sm" loading={pending}>{pending ? "Sharing…" : review ? "Confirm and share" : "Review access"}{!review ? <ArrowRight aria-hidden className="h-3.5 w-3.5" /> : null}</Button>
-        {review ? <Button size="sm" variant="ghost" disabled={pending} onClick={() => { setReview(false); setError(""); }}>Back</Button> : null}
-        <Button size="sm" variant="ghost" disabled={pending} onClick={onClose}>Cancel</Button>
-      </div>
-    </form>
-  );
-}
 
 const sharedStates: Record<SharedPermission["state"], string> = {
   shared: "Shared", paused: "Paused", pending: "Awaiting approval", restricted: "Restricted", unverified: "Status unavailable",
@@ -139,7 +77,7 @@ function UserPermissionRow({ permission, canShare, disabled, onShare }: { permis
   const isPaused = Boolean(permission.receivedFrom && permission.available === false);
   return (
     <li className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
-      <KeyRound aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+      <PermissionIcon name={permission.icon} className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <p className="text-sm font-medium text-neutral-900">{permission.label}</p>
@@ -166,13 +104,17 @@ function UserPermissionRow({ permission, canShare, disabled, onShare }: { permis
   );
 }
 
-export function PermissionsSection({ onEditingChange }: { onEditingChange?: (editing: boolean) => void }) {
+export function PermissionsSection({ auid, onEditingChange }: { auid: string; onEditingChange?: (editing: boolean) => void }) {
+  const [contexts, setContexts] = useState<PermissionContext[]>([]);
+  const [systemContext, setSystemContext] = useState("");
+  const [accountAuid, setAccountAuid] = useState("");
   const [shareOptions, setShareOptions] = useState<UserPermission[]>([]);
   const [permissions, setPermissions] = useState<UserPermission[]>([]);
   const [shared, setShared] = useState<SharedPermission[]>([]);
   const [view, setView] = useState<"shared" | "yours">("shared");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
   const [message, setMessage] = useState("");
   const [mutating, setMutating] = useState(false);
   const [reload, setReload] = useState(0);
@@ -186,10 +128,13 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
       if (cancelled) return;
       if (!result.error) {
         setPermissions(result.permissions ?? []);
+        setContexts(result.contexts ?? []);
+        setSystemContext(result.systemContext ?? "");
+        setAccountAuid(result.accountAuid ?? "");
         setShareOptions(result.shareOptions ?? []);
         setShared(result.shared ?? []);
       }
-      setError(result.error ?? ""); setLoading(false);
+      setError(result.error ?? ""); setRecoveryRequired(Boolean(result.recoveryRequired)); setLoading(false);
     }).catch(() => {
       if (!cancelled) { setError("Couldn’t load your permissions. Please try again."); setLoading(false); }
     });
@@ -201,7 +146,7 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
     setSharing(null); onEditingChange?.(false);
     requestAnimationFrame(() => shareButton.current?.focus());
   }
-  function refresh() { setLoading(true); setError(""); setReload((value) => value + 1); }
+  function refresh() { setLoading(true); setError(""); setRecoveryRequired(false); setReload((value) => value + 1); }
   const query = filter.toLowerCase();
 
   const directPermissions = permissions.filter((p) => !p.receivedFrom);
@@ -234,11 +179,11 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <SubsectionTitle title="Account access" description="Manage what you share and see the permissions you have." />
         <div className="flex items-center gap-2">
-          <Button ref={shareButton} size="sm" disabled={loading || !!error || sharing !== null || mutating || !shareOptions.length} onClick={() => openShare()}><Plus aria-hidden className="h-3.5 w-3.5" />Share access</Button>
+          <Button ref={shareButton} size="sm" disabled={loading || !!error || sharing !== null || mutating} onClick={() => openShare()}><Plus aria-hidden className="h-3.5 w-3.5" />Share access</Button>
           <Button size="sm" variant="ghost" aria-label="Refresh permissions" disabled={loading || sharing !== null || mutating} onClick={refresh}><RefreshCw aria-hidden className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
-      {sharing !== null ? <SharePermission key={sharing} options={shareOptions} initialKey={sharing === "new" ? undefined : sharing} onClose={closeShare} onShared={(grant, alreadyShared) => {
+      {sharing !== null ? <PermissionPicker key={sharing} contexts={contexts} systemContext={systemContext} accountAuid={accountAuid} initial={shareOptions.find((option) => permissionIdentity(option.key, option.context) === sharing)} onClose={closeShare} onShared={(grant, alreadyShared) => {
         setShared((items) => [...items.filter((item) => item.id !== grant.id), grant]);
         setView("shared"); setFilter("");
         setMessage(alreadyShared ? "This permission is already shared with this person." : `${grant.permission.label} shared with ${grant.username ? `@${grant.username}` : "the recipient"}.`);
@@ -252,7 +197,7 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
         </div>
       </div>
       {message ? <FormSuccess className="mb-5">{message}</FormSuccess> : null}
-      {loading ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-neutral-500"><Spinner />Loading permissions…</p> : error ? <div className="space-y-3"><FormError>{error}</FormError><Button size="sm" variant="secondary" onClick={refresh}>Try again</Button></div> : <>
+      {loading ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-neutral-500"><Spinner />Loading permissions…</p> : error ? <div className="space-y-3"><FormError>{error}</FormError>{recoveryRequired ? <a className={buttonVariants({ size: "sm", variant: "secondary" })} href={`/auth/session-recovery?auid=${encodeURIComponent(auid)}`}>Sign in again</a> : <Button size="sm" variant="secondary" onClick={refresh}>Try again</Button>}</div> : <>
         {(view === "shared" ? shared.length : permissions.length) > 6 ? <div className="mb-5"><Input id="find-permission" label={view === "shared" || receivedPermissions.length > 0 ? "Find a person or permission" : "Find a permission"} placeholder={view === "shared" || receivedPermissions.length > 0 ? "Search usernames or permissions…" : "Search permissions…"} value={filter} onChange={(event) => setFilter(event.target.value)} disabled={sharing !== null || mutating} /></div> : null}
         {view === "shared" ? <>
           {!shared.length ? <div className="py-8 text-center"><UsersRound aria-hidden className="mx-auto mb-3 h-6 w-6 text-neutral-400" /><p className="text-sm font-medium text-neutral-900">You haven’t shared any permissions</p><p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">Give someone specific access to your account. You can remove it here whenever you need to.</p></div> : <div className="space-y-5">
@@ -282,11 +227,11 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
                   <ul className="divide-y divide-black/[0.05]">
                     {visibleDirect.map((permission) => (
                       <UserPermissionRow
-                        key={permission.key}
+                        key={permissionIdentity(permission.key, permission.context)}
                         permission={permission}
-                        canShare={shareOptions.some((option) => option.key === permission.key)}
+                        canShare={shareOptions.some((option) => permissionIdentity(option.key, option.context) === permissionIdentity(permission.key, permission.context))}
                         disabled={sharing !== null || mutating}
-                        onShare={() => openShare(permission.key)}
+                        onShare={() => openShare(permissionIdentity(permission.key, permission.context))}
                       />
                     ))}
                   </ul>
@@ -308,11 +253,11 @@ export function PermissionsSection({ onEditingChange }: { onEditingChange?: (edi
                         <ul className="divide-y divide-black/[0.05] p-4">
                           {group.permissions.map((permission) => (
                             <UserPermissionRow
-                              key={`${id}-${permission.key}`}
+                              key={`${id}-${permissionIdentity(permission.key, permission.context)}`}
                               permission={permission}
-                              canShare={shareOptions.some((option) => option.key === permission.key)}
+                              canShare={shareOptions.some((option) => permissionIdentity(option.key, option.context) === permissionIdentity(permission.key, permission.context))}
                               disabled={sharing !== null || mutating}
-                              onShare={() => openShare(permission.key)}
+                              onShare={() => openShare(permissionIdentity(permission.key, permission.context))}
                             />
                           ))}
                         </ul>

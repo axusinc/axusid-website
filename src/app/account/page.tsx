@@ -107,7 +107,7 @@ export default async function AccountPage() {
   const fullName = defaultVariation?.displayName?.trim() || "";
   const username = user?.usernames?.defaultUsername ?? null;
 
-  const [clients, grants, samlConfig, initialPasskeys, initialExternalIdentities, passwordStatus] = detailsResult.value;
+  const [clients, grants, samlConfig, passkeyResult, initialExternalIdentities, passwordStatus] = detailsResult.value;
   const issuer = getIssuer();
 
   // An app is another AXUS ID account, so its name is looked up like any other profile; an app
@@ -152,7 +152,8 @@ export default async function AccountPage() {
       connectedApps={connectedApps}
       issuer={issuer}
       samlConfig={samlConfig}
-      initialPasskeys={initialPasskeys}
+      initialPasskeys={passkeyResult.passkeys}
+      passkeyLoadError={passkeyResult.error}
       initialExternalIdentities={initialExternalIdentities}
       initialHasPassword={passwordStatus.isPasswordSet}
     />

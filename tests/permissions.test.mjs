@@ -22,6 +22,7 @@ function loadTs(file, mocks = {}) {
   return loadedModule.exports;
 }
 const presentation = loadTs('src/lib/permission-presentation.ts');
+const permissionContext = loadTs('src/lib/permission-context.ts');
 const graphqlErrors = loadTs('src/lib/graphql-errors.ts', {
   'server-only': {},
   'graphql-request': { ClientError },
@@ -29,13 +30,19 @@ const graphqlErrors = loadTs('src/lib/graphql-errors.ts', {
 const grantId = '11111111-1111-4111-8111-111111111111';
 const grant = {
   id: grantId, granteeAuid: '2', permission: 'identity.1.variation.write',
-  effect: 'ALLOW', activationState: 'ACTIVE', isShadow: false,
+  permissionContext: '4', effect: 'ALLOW', activationState: 'ACTIVE', isShadow: false,
 };
 
 function setup(overrides = {}, session = { auid: '1', tokenId: 'private-token' }) {
   const calls = [];
   const implementations = {
-    MyGrants: async () => ({ grants: [{ permission: 'identity.1.*' }] }),
+    MyGrants: async () => ({ grants: [{ permission: 'identity.1.variation.write', permissionContext: '4', origin: { type: 'DIRECT' } }] }),
+    PermissionDeclarations: async () => ({ permissionDeclarations: ['variation.write', 'username.write', 'grants.read', 'grants.delegate'].map((suffix) => ({ id: suffix, context: '4', name: suffix, template: `identity.{auid}.${suffix}` })) }),
+    DescribePermission: async ({ contextAuid, permission }) => {
+      if (permission.endsWith('.*') || permission === '*') throw new ClientError({ errors: [{ message: 'undeclared', extensions: { code: 'UNDECLARED_PERMISSION' } }] }, { query: 'query' });
+      const display = presentation.permissionPresentation(permission);
+      return { describePermission: { key: permission, context: contextAuid, title: contextAuid === '4' ? display.label : `App ${contextAuid}: ${permission}`, description: display.description, params: [] } };
+    },
     MyDelegatedGrants: async () => ({ delegatedGrants: [] }),
     EffectivePermission: async ({ permission }) => ({ checkPermission: { allowed: permission !== 'identity.1.username.write' } }),
     Usernames: async () => ({ usernames: { defaultUsername: 'alex' } }),
@@ -52,6 +59,8 @@ function setup(overrides = {}, session = { auid: '1', tokenId: 'private-token' }
     '@/lib/auth-graphql': { getAuthSdkForSession: (current) => { assert.equal(current, session); return sdk; } },
     '@/lib/session-access': { getValidSession: async () => session },
     '@/lib/permission-presentation': presentation,
+    '@/lib/permission-context': permissionContext,
+    '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
     '@/lib/graphql-errors': graphqlErrors,
   });
   return { action: permissionAction, calls };
@@ -81,7 +90,7 @@ test('sharing accepts usernames and always delegates from the active account', a
   const result = await action({ kind: 'share', username: ' @alex ', permission: grant.permission, granterAuid: 'untrusted' });
   assert.equal(result.sharedGrant.id, grantId);
   assert.deepEqual(calls.find((call) => call.name === 'OwnerByUsername').args, { username: 'alex' });
-  assert.deepEqual(calls.find((call) => call.name === 'SharePermission').args, { granterAuid: '1', granteeAuid: '2', permission: grant.permission });
+  assert.deepEqual(calls.find((call) => call.name === 'SharePermission').args, { granterAuid: '1', granteeAuid: '2', permission: grant.permission, permissionContext: '4' });
 });
 
 test('repeat sharing returns the existing grant without creating duplicates', async () => {
@@ -135,11 +144,20 @@ test('authorization failures are readable and sessions are required', async () =
   const error = new ClientError({ errors: [{ message: 'internal details', extensions: { code: 'NOT_AUTHORIZED' } }] }, { query: 'query' });
   const { action } = setup({ SharePermission: async () => { throw error; } });
   const result = await action({ kind: 'share', username: 'alex', permission: grant.permission });
-  assert.match(result.error, /can’t share/);
+  assert.match(result.error, /permission to perform/);
   assert.ok(!result.error.includes('internal details'));
   const signedOut = setup({}, null);
   assert.match((await signedOut.action({ kind: 'list' })).error, /Sign in/);
   assert.equal(signedOut.calls.length, 0);
+});
+
+test('denied permission listing offers session recovery without exposing engine details', async () => {
+  const denied = new ClientError({ errors: [{ message: 'internal details', extensions: { code: 'NOT_AUTHORIZED' } }] }, { query: 'query' });
+  const { action } = setup({ MyGrants: async () => { throw denied; } });
+  const result = await action({ kind: 'list' });
+  assert.equal(result.recoveryRequired, true);
+  assert.match(result.error, /Sign in again/);
+  assert.ok(!result.error.includes('internal details'));
 });
 
 test('rate limit failures return friendly error message and do not expose internals', async () => {
@@ -177,7 +195,7 @@ test('received permissions identify granters and resolve usernames', async () =>
   assert.deepEqual(received.receivedFrom, { id: '2', username: 'sam' });
 });
 
-test('received permissions fall back to permission target when origin is omitted', async () => {
+test('permission resource targets are not inferred to be delegators when origin is omitted', async () => {
   const { action } = setup({
     MyGrants: async () => ({
       grants: [
@@ -190,6 +208,70 @@ test('received permissions fall back to permission target when origin is omitted
   });
   const result = await action({ kind: 'list' });
   assert.equal(result.permissions.length, 1);
-  assert.deepEqual(result.permissions[0].receivedFrom, { id: '2', username: 'sam' });
+  assert.equal(result.permissions[0].receivedFrom, null);
 });
 
+
+
+test('identical keys in different contexts stay separate in checks, labels and sharing', async () => {
+  const key = 'section.news.posts.create';
+  const { action, calls } = setup({
+    MyGrants: async () => ({ grants: ['10', '20'].map((permissionContext) => ({ permission: key, permissionContext, origin: { type: 'DIRECT' } })) }),
+  });
+  const result = await action({ kind: 'list' });
+  assert.equal(result.permissions.length, 2);
+  assert.deepEqual(result.permissions.map((p) => p.context), ['10', '20']);
+  assert.notEqual(result.permissions[0].label, result.permissions[1].label);
+  assert.ok(calls.some((c) => c.name === 'EffectivePermission' && c.args.permission === key && c.args.permissionContext === '10'));
+  assert.ok(calls.some((c) => c.name === 'EffectivePermission' && c.args.permission === key && c.args.permissionContext === '20'));
+});
+
+test('duplicate detection includes context and normalizes null system grants', async () => {
+  const { action, calls } = setup({ MyDelegatedGrants: async () => ({ delegatedGrants: [{ ...grant, permissionContext: '20' }] }) });
+  await action({ kind: 'share', username: 'alex', permission: grant.permission, permissionContext: '10' });
+  assert.equal(calls.find((c) => c.name === 'SharePermission').args.permissionContext, '10');
+  const existing = setup({ MyDelegatedGrants: async () => ({ delegatedGrants: [{ ...grant, permissionContext: null }] }) });
+  assert.equal((await existing.action({ kind: 'share', username: 'alex', permission: grant.permission, permissionContext: '04' })).alreadyShared, true);
+});
+
+test('preview refuses undeclared and invalid values instead of treating metadata as access', async () => {
+  const fail = new ClientError({ errors: [{ message: 'private', extensions: { code: 'INVALID_PERMISSION_BINDINGS' } }] }, { query: 'query' });
+  const { action, calls } = setup({ DescribePermission: async () => { throw fail; } });
+  const result = await action({ kind: 'preview', permission: 'section.*.posts.create', permissionContext: '10' });
+  assert.match(result.error, /values/);
+  assert.ok(!calls.some((c) => c.name === 'EffectivePermission'));
+});
+
+test('dynamic search degradation never bypasses delegation validation', async () => {
+  const fail = new ClientError({ errors: [{ message: 'private', extensions: { code: 'PERMISSION_VALIDATOR_UNAVAILABLE' } }] }, { query: 'mutation' });
+  const { action, calls } = setup({
+    SearchPermissionValues: async () => ({ searchPermissionValues: { name: 'subject', dynamic: true, degraded: true, values: [] } }),
+    SharePermission: async () => { throw fail; },
+  });
+  const search = await action({ kind: 'search', permissionContext: '10', declarationId: grantId, param: 'subject', query: 'alex' });
+  assert.equal(search.options.degraded, true);
+  assert.equal(calls.find((c) => c.name === 'SearchPermissionValues').args.limit, 20);
+  assert.match((await action({ kind: 'share', username: 'alex', permission: 'identity.2.videos.edit', permissionContext: '10' })).error, /No permission was granted/);
+});
+
+test('bare token wildcard cannot be delegated as a stored permission', async () => {
+  const { action, calls } = setup();
+  assert.match((await action({ kind: 'share', username: 'alex', permission: '*' })).error, /declared permission/);
+  assert.equal(calls.length, 0);
+});
+
+test('permission tree associates declaration IDs with parameter metadata and rejects truncation', async () => {
+  const declaration = { id: grantId, name: 'posts', context: '10', template: 'section.{section}.posts.create' };
+  const tree = { keyPrefix: 'section', title: 'Sections', declarations: [], params: [], children: [{ keyPrefix: declaration.template, declarations: [grantId], params: [{ name: 'section', values: [{ value: 'news' }], dynamic: false, degraded: false }], children: [] }] };
+  const { action } = setup({ PermissionDeclarations: async () => ({ permissionDeclarations: [declaration] }), PermissionTree: async () => ({ permissionTree: [tree] }) });
+  const result = await action({ kind: 'catalog', permissionContext: '10' });
+  assert.equal(result.declarations[0].group, 'Sections');
+  assert.equal(result.declarations[0].params[0].values[0].value, 'news');
+  tree.children[0].children.push({ keyPrefix: 'unsupported' });
+  assert.ok((await action({ kind: 'catalog', permissionContext: '10' })).error);
+});
+
+test('large numeric bindings are never rounded by the frontend', () => {
+  assert.equal(permissionContext.bindPermission('record.{id}.read', { id: '9223372036854775807' }), 'record.9223372036854775807.read');
+  assert.equal(permissionContext.bindPermission('record.{id}.read', { id: '1.25' }), null);
+});

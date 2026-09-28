@@ -19,7 +19,11 @@ type Query {
     # Identity grants delegated by this identity; requires identity.<auid>.grants.read.
     # Includes grants that may not currently confer access. Excludes token and role recipients.
     delegatedGrants(auid: ID!): [PermissionGrant!]!
-    checkPermission(auid: ID!, permission: String!): PermissionCheck!
+    checkPermission(auid: ID!, permission: String!, permissionContext: ID): PermissionCheck!
+    permissionDeclarations(contextAuid: ID!): [PermissionDeclaration!]!
+    describePermission(contextAuid: ID!, permission: String!): DescribedPermission!
+    permissionTree(contextAuid: ID!): [PermissionTreeNode!]!
+    searchPermissionValues(contextAuid: ID!, declarationId: ID!, param: String!, query: String!, limit: Int): ParamOption!
 }
 
 
@@ -66,9 +70,13 @@ type Mutation {
     loginWithPasskey(challengeId: ID!, responseJson: String!): AuthenticatedToken!
     # Requires identity.<granterAuid>.grants.delegate on the caller token and
     # requires the granter identity to hold the requested permission.
-    delegatePermission(granterAuid: ID!, granteeAuid: ID!, permission: String!): PermissionGrant!
+    delegatePermission(granterAuid: ID!, granteeAuid: ID!, permission: String!, permissionContext: ID): PermissionGrant!
     # Requires the original granter's grants.delegate permission.
     revokeGrant(grantId: ID!): Boolean!
+    # Every app declares only under its own AUID. Requires grants.delegate for the owner.
+    publishPermissionDeclaration(ownerAuid: ID!, declaration: PermissionDeclarationInput!): PermissionDeclaration!
+    # App-side invalidation push: clears cached validator verdicts. Requires grants.delegate for the owner.
+    notifyValidationChanged(declarationId: ID!): Boolean!
 }
 
 type PermissionCheck {
@@ -80,10 +88,94 @@ type PermissionGrant {
     id: ID!
     granteeAuid: ID!
     permission: String!
+    permissionContext: ID
     effect: PermissionGrantEffect!
     origin: PermissionGrantOrigin!
     activationState: PermissionGrantActivationState!
     isShadow: Boolean!
+}
+
+type PermissionDeclaration {
+    id: ID!
+    context: ID!
+    name: String!
+    version: Int!
+    template: String!
+    validatorUrl: String
+    title: String
+    description: String
+    icon: String
+}
+
+input ParamDefInput {
+    name: String!
+    type: String = "STRING"
+    allowWildcard: Boolean = false
+    allowedValues: [String!]
+    regex: String
+    minLength: Int
+    maxLength: Int
+    minNumber: Float
+    maxNumber: Float
+    label: String
+    description: String
+    icon: String
+    hint: String
+}
+
+input PermissionDeclarationInput {
+    name: String!
+    template: String!
+    params: [ParamDefInput!] = []
+    validatorUrl: String
+    combinationInvariantJs: String
+    title: String
+    description: String
+    icon: String
+}
+
+type DescribedParam {
+    name: String!
+    value: String
+    label: String
+    description: String
+    icon: String
+    hint: String
+    valueLabel: String
+    valueIcon: String
+}
+
+type DescribedPermission {
+    key: String!
+    context: ID!
+    declarationId: ID!
+    title: String!
+    description: String
+    icon: String
+    params: [DescribedParam!]!
+}
+
+type ValueOption {
+    value: String!
+    label: String
+    icon: String
+    description: String
+}
+
+type ParamOption {
+    name: String!
+    label: String
+    values: [ValueOption!]!
+    dynamic: Boolean!
+    degraded: Boolean!
+}
+
+type PermissionTreeNode {
+    keyPrefix: String!
+    title: String
+    declarations: [ID!]!
+    params: [ParamOption!]!
+    children: [PermissionTreeNode!]!
 }
 
 type PermissionGrantOrigin {
@@ -269,6 +361,7 @@ type AuthenticatedToken {
 
 input ExternalAuthenticationInput {
     providerId: String!
+    # A real provider refresh token. Access tokens and ID tokens are not accepted.
     refreshToken: String!
     clientId: String!
 }

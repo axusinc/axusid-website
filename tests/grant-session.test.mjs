@@ -47,6 +47,7 @@ test("ending a session retires only its app grants plus grants from before paren
     "@/lib/db/schema": { oauthGrants: columns },
     "@/lib/oauth/audit": { recordOAuthEvent: async () => {} },
     "@/lib/oauth/adapter": { revokeWithBackend: async (token) => revoked.push(token) },
+    "@/lib/oauth/permission-scopes": { describeConsentPermissions: async () => [] },
     "@/lib/oauth/scopes": { permissionImplies: () => false },
     "@/lib/oauth/pkce": { sha256Base64Url: async (token) => `hash:${token}` },
   });

@@ -273,7 +273,7 @@ export default async function QuickstartPage({
         <p>
           The <code>sub</code> claim is the user’s AUID. Name and username can
           be absent. The example requests only <code>openid profile</code>; add
-          other scopes only when your app needs them.
+          other scopes only when your app needs them. Custom permission keys must match a system-context declaration; see the <Link href="/developers/permissions#oauth" className="docs-link">permission guide</Link>.
         </p>
       </section>
 

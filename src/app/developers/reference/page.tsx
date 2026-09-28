@@ -197,10 +197,11 @@ export default async function ReferencePage() {
           ]}
         />
         <P>
-          Scopes are the four OIDC scopes plus AXUS permission keys (
-          <M>identity.&lt;auid&gt;.&lt;resource&gt;.&lt;action&gt;</M>,
-          wildcards allowed). The user approves each one on the consent screen;
-          your app only ever receives what was approved.
+          Scopes are the four OIDC scopes plus declared AXUS permission keys in
+          system context. Parameter wildcards require declaration support; bare <M>*</M>
+          requests all permissions the caller holds in that context. Legacy prefix
+          wildcards are rejected. The user reviews engine-provided descriptions on
+          the consent screen. See <Link href="/developers/permissions#oauth" className="docs-link">permission scopes and contexts</Link>.
         </P>
       </section>
 

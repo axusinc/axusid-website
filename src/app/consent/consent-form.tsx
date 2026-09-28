@@ -9,7 +9,6 @@ import { AuthShell } from "@/components/auth-shell";
 import { ProfileAvatar } from "@/components/ui/profile-avatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { IdentityLabel } from "@/components/ui/identity-label";
-import { formatPermissionLabel } from "@/lib/oauth/scopes";
 import { eyebrow, roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 import type { AccountItemInfo } from "@/lib/user-profile";
@@ -22,7 +21,7 @@ type ConsentFormProps = {
   /** Standard OIDC scopes requested (openid, profile, email, offline_access). */
   oidcScopes?: string[];
   /** Custom AXUS permissions requested. */
-  permissions: string[];
+  permissions: { key: string; label: string; description: string }[];
   redirectUri: string;
   accounts?: AccountItemInfo[];
   currentAuid?: string;
@@ -144,11 +143,11 @@ export function ConsentForm({
               </li>
             ))}
             {permissions.map((permission) => (
-              <li key={permission} className="flex items-center gap-3 px-3.5 py-3 text-sm text-neutral-800">
+              <li key={permission.key} className="flex items-center gap-3 px-3.5 py-3 text-sm text-neutral-800">
                 <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-brand" />
-                <span className="min-w-0 flex-1">{formatPermissionLabel(permission)}</span>
+                <span className="min-w-0 flex-1">{permission.label}{permission.description ? <span className="mt-1 block text-xs text-neutral-500">{permission.description}</span> : null}</span>
                 <code className="hidden shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-500 sm:inline">
-                  {permission}
+                  {permission.key}
                 </code>
               </li>
             ))}

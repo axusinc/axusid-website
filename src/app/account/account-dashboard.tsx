@@ -65,6 +65,7 @@ type AccountDashboardProps = {
   issuer: string;
   samlConfig?: SamlConfig;
   initialPasskeys?: PasskeyCredential[];
+  passkeyLoadError?: string;
   initialExternalIdentities?: ExternalIdentity[];
   initialHasPassword: boolean;
 };
@@ -132,6 +133,7 @@ export function AccountDashboard({
   issuer,
   samlConfig,
   initialPasskeys = [],
+  passkeyLoadError,
   initialExternalIdentities = [],
   initialHasPassword,
 }: AccountDashboardProps) {
@@ -271,13 +273,14 @@ export function AccountDashboard({
               <AccountForms
                 auid={auid}
                 initialPasskeys={initialPasskeys}
+                passkeyLoadError={passkeyLoadError}
                 initialExternalIdentities={initialExternalIdentities}
                 initialHasPassword={initialHasPassword}
                 onEditingChange={handleEditingChange}
                 cancelRef={securityCancelRef}
               />
             ) : active === "permissions" ? (
-              <PermissionsSection key={auid} onEditingChange={handleEditingChange} />
+              <PermissionsSection key={auid} auid={auid} onEditingChange={handleEditingChange} />
             ) : active === "connected-apps" ? (
               <ConnectedAppsSection apps={connectedApps} />
             ) : active === "nested-accounts" ? (

@@ -265,7 +265,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(registerUrl);
     }
   } catch (error) {
-    console.error("[GitHub OAuth callback failed]", error);
+    console.error("[GitHub OAuth callback failed]", {
+      errorType: error instanceof Error ? error.name : typeof error,
+      domainCode: getPrimaryDomainError(error)?.code,
+    });
     if (oauthState.intent === "link" || oauthState?.linkAuid) {
       const domainError = getPrimaryDomainError(error);
       return accountRedirect(

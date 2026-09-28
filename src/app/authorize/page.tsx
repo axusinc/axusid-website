@@ -19,6 +19,7 @@ import {
   AUTH_CODE_TTL_MS,
   saveAuthorizationCode,
 } from "@/lib/oauth/auth-code-store";
+import { isPermissionValidationError, permissionErrorMessage } from "@/lib/graphql-errors";
 import { generateOpaqueCode } from "@/lib/oauth/pkce";
 import {
   authorizeQuerySchema,
@@ -239,12 +240,12 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
       scopes,
       axusPermissions: partitionScopes(scopes).axusPermissions,
     });
-  } catch {
+  } catch (error) {
     return oauthRedirectError(
       query.redirect_uri,
-      "server_error",
+      isPermissionValidationError(error) ? "invalid_scope" : "server_error",
       query.state,
-      "Could not issue a token for this authorization",
+      permissionErrorMessage(error, "Could not issue a token for this authorization"),
     );
   }
 

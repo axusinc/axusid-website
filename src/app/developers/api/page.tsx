@@ -91,7 +91,9 @@ export default async function ApiPage() {
         <Link href="/developers/reference" className="docs-link">
           OAuth reference
         </Link>
-        . Filter, expand, copy the signature.
+        . Filter, expand, copy the signature. Permission contexts and declarations
+        are explained in the <Link href="/developers/permissions" className="docs-link">permission guide</Link>;
+        use the <Link href="/developers/become-an-app" className="docs-link">app publishing guide</Link> for validators.
       </p>
 
       <section id="endpoint" className="docs-section">

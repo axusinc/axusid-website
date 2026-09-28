@@ -7,6 +7,7 @@ import { oauthGrants, type OAuthGrantRow } from "@/lib/db/schema";
 import { recordOAuthEvent } from "@/lib/oauth/audit";
 import { issueAuthorizationToken, revokeWithBackend } from "@/lib/oauth/adapter";
 import { permissionImplies } from "@/lib/oauth/scopes";
+import { describeConsentPermissions } from "@/lib/oauth/permission-scopes";
 import { sha256Base64Url } from "@/lib/oauth/pkce";
 
 export type OAuthGrant = {
@@ -96,6 +97,8 @@ export async function grantAuthorization(params: {
   scopes: string[];
   axusPermissions: string[];
 }): Promise<OAuthGrant> {
+  // Re-parse against current declarations even when reusing an existing app token.
+  await describeConsentPermissions(params.sessionTokenId, params.axusPermissions);
   const db = getDb();
   const existing = await findActiveGrant(params.userAuid, params.clientAuid);
   const parentSessionTokenHash = await sha256Base64Url(params.sessionTokenId);
@@ -114,9 +117,8 @@ export async function grantAuthorization(params: {
     userAuid: params.userAuid,
     permissions: params.axusPermissions,
   });
-  const scopes = existing
-    ? [...new Set([...existing.scopes, ...params.scopes])]
-    : params.scopes;
+  // Stored consent must describe the replacement token, which only receives these scopes.
+  const scopes = [...new Set(params.scopes)];
 
   if (existing) {
     await db

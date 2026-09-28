@@ -14,6 +14,8 @@ import {
 } from "@/lib/oauth/clients";
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
 import { resolveUserDisplayInfo, fetchAccountsDisplayInfo } from "@/lib/user-profile";
+import { describeConsentPermissions } from "@/lib/oauth/permission-scopes";
+import { permissionErrorMessage } from "@/lib/graphql-errors";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 
 export const metadata: Metadata = { title: "Review access" };
@@ -139,12 +141,17 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
     }
   }
 
+  let describedPermissions;
+  try { describedPermissions = await describeConsentPermissions(session.tokenId, permissions); }
+  catch (error) {
+    return <StatusPage tone="error" title="These permissions aren’t available" description={permissionErrorMessage(error, "Couldn’t load the requested permissions. Please try again.")} actions={<a href={`/consent?redirect_uri=${encodeURIComponent(redirectUri)}`} className={buttonVariants()}>Try again</a>} />;
+  }
   return (
     <ConsentForm
       applicationUser={applicationUser}
       redirectHost={redirectHost}
       oidcScopes={oidcScopes}
-      permissions={permissions}
+      permissions={describedPermissions}
       redirectUri={redirectUri}
       accounts={accountInfos}
       currentAuid={session.auid}

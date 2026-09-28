@@ -3,6 +3,7 @@ query MyGrants($auid: ID!) {
     id
     granteeAuid
     permission
+    permissionContext
     effect
     origin {
       type
@@ -18,25 +19,77 @@ query MyDelegatedGrants($auid: ID!) {
     id
     granteeAuid
     permission
+    permissionContext
     effect
     activationState
     isShadow
   }
 }
 
-query EffectivePermission($auid: ID!, $permission: String!) {
-  checkPermission(auid: $auid, permission: $permission) { allowed }
+query EffectivePermission($auid: ID!, $permission: String!, $permissionContext: ID) {
+  checkPermission(auid: $auid, permission: $permission, permissionContext: $permissionContext) { allowed }
 }
 
-mutation SharePermission($granterAuid: ID!, $granteeAuid: ID!, $permission: String!) {
-  delegatePermission(granterAuid: $granterAuid, granteeAuid: $granteeAuid, permission: $permission) {
+mutation SharePermission($granterAuid: ID!, $granteeAuid: ID!, $permission: String!, $permissionContext: ID) {
+  delegatePermission(granterAuid: $granterAuid, granteeAuid: $granteeAuid, permission: $permission, permissionContext: $permissionContext) {
     id
     granteeAuid
     permission
+    permissionContext
     effect
     activationState
     isShadow
   }
+}
+
+fragment DeclarationSummary on PermissionDeclaration {
+  id context name version template validatorUrl title description icon
+}
+
+fragment ParameterOptions on ParamOption {
+  name label dynamic degraded
+  values { value label icon description }
+}
+
+query PermissionDeclarations($contextAuid: ID!) {
+  permissionDeclarations(contextAuid: $contextAuid) { ...DeclarationSummary }
+}
+
+query DescribePermission($contextAuid: ID!, $permission: String!) {
+  describePermission(contextAuid: $contextAuid, permission: $permission) {
+    key context declarationId title description icon
+    params { name value label description icon hint valueLabel valueIcon }
+  }
+}
+
+# The engine currently returns groups with declaration children. Select four levels
+# and include child prefixes at the boundary so deeper results are detected.
+query PermissionTree($contextAuid: ID!) {
+  permissionTree(contextAuid: $contextAuid) {
+    keyPrefix title declarations params { ...ParameterOptions }
+    children {
+      keyPrefix title declarations params { ...ParameterOptions }
+      children {
+        keyPrefix title declarations params { ...ParameterOptions }
+        children {
+          keyPrefix title declarations params { ...ParameterOptions }
+          children { keyPrefix }
+        }
+      }
+    }
+  }
+}
+
+query SearchPermissionValues($contextAuid: ID!, $declarationId: ID!, $param: String!, $query: String!, $limit: Int) {
+  searchPermissionValues(contextAuid: $contextAuid, declarationId: $declarationId, param: $param, query: $query, limit: $limit) { ...ParameterOptions }
+}
+
+mutation PublishPermissionDeclaration($ownerAuid: ID!, $declaration: PermissionDeclarationInput!) {
+  publishPermissionDeclaration(ownerAuid: $ownerAuid, declaration: $declaration) { ...DeclarationSummary }
+}
+
+mutation NotifyValidationChanged($declarationId: ID!) {
+  notifyValidationChanged(declarationId: $declarationId)
 }
 
 mutation RemoveSharedPermission($grantId: ID!) {

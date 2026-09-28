@@ -1,179 +1,192 @@
 "use server";
 
-import { ClientError } from "graphql-request";
 import { z } from "zod";
 import { getAuthSdkForSession } from "@/lib/auth-graphql";
-import { isRateLimitError, RATE_LIMIT_MESSAGE } from "@/lib/graphql-errors";
+import { getPrimaryDomainError, isRateLimitError, permissionErrorMessage } from "@/lib/graphql-errors";
 import { getValidSession } from "@/lib/session-access";
-import { permissionPresentation, specificPermissionChoices } from "@/lib/permission-presentation";
-import type { MyDelegatedGrantsQuery } from "@/graphql/sdk";
-import type { PermissionRequest, PermissionResult, SharedPermission, UserPermission } from "@/lib/permission-types";
+import { getSystemPermissionContext } from "@/lib/permission-config";
+import { bindPermission, normalizePermissionContext, permissionIdentity } from "@/lib/permission-context";
+import { permissionPresentation } from "@/lib/permission-presentation";
+import type { MyDelegatedGrantsQuery, ParameterOptionsFragment } from "@/graphql/sdk";
+import type { PermissionRequest, PermissionResult, SharedPermission, UserPermission, PickerDeclaration } from "@/lib/permission-types";
 
+const auidSchema = z.string().max(1024).regex(/^[0-9]+(?:,[0-9]+)*$/).transform((value) => normalizePermissionContext(value, value));
+const usernameSchema = z.string().trim().transform((value) => value.replace(/^@/, "")).pipe(z.string().min(1).max(256));
+const keySchema = z.string().min(1).max(4096);
 const requestSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("list") }),
-  z.object({
-    kind: z.literal("share"),
-    username: z.string().trim().transform((value) => value.replace(/^@/, "")).pipe(z.string().min(1).max(256)),
-    // Nested AUIDs contain commas; they are never entered or displayed by the user.
-    permission: z.string().min(1).max(1024).regex(/^[a-zA-Z0-9_*,]+(?:\.[a-zA-Z0-9_*,]+)*$/),
-  }),
+  z.object({ kind: z.literal("share"), username: usernameSchema, permission: keySchema, permissionContext: auidSchema.nullish() }),
   z.object({ kind: z.literal("revoke"), grantId: z.uuid() }),
+  z.object({ kind: z.literal("catalog"), permissionContext: auidSchema }),
+  z.object({ kind: z.literal("resolve-context"), username: usernameSchema }),
+  z.object({ kind: z.literal("preview"), permission: keySchema, permissionContext: auidSchema }),
+  z.object({ kind: z.literal("search"), permissionContext: auidSchema, declarationId: z.uuid(), param: z.string().min(1).max(256), query: z.string().max(256) }),
 ]);
 
 type Grant = MyDelegatedGrantsQuery["delegatedGrants"][number];
+type TreeNode = { keyPrefix: string; title?: string | null; declarations?: string[]; params?: ParameterOptionsFragment[]; children?: TreeNode[] };
 
 export async function permissionAction(input: PermissionRequest): Promise<PermissionResult> {
   const parsed = requestSchema.safeParse(input);
-  if (!parsed.success) return { error: "Check the username and permission, then try again." };
+  if (!parsed.success) return { error: "Check the username and permission values, then try again." };
   const session = await getValidSession();
   if (!session) return { error: "Your session has ended. Sign in again to view your permissions." };
   const sdk = getAuthSdkForSession(session);
   const args = parsed.data;
+  const systemContext = getSystemPermissionContext();
+  const contextFor = (context?: string | null) => normalizePermissionContext(context, systemContext);
   const usernames = new Map<string, Promise<string | null>>();
   const checks = new Map<string, Promise<UserPermission>>();
 
   function usernameFor(auid: string) {
-    if (!usernames.has(auid)) {
-      usernames.set(auid, sdk.Usernames({ auid })
-        .then(({ usernames }) => usernames?.defaultUsername ?? null)
-        .catch(() => null));
-    }
+    if (!usernames.has(auid)) usernames.set(auid, sdk.Usernames({ auid }).then(({ usernames }) => usernames?.defaultUsername ?? null).catch(() => null));
     return usernames.get(auid)!;
   }
-
-  function describe(key: string): Promise<UserPermission> {
-    if (!checks.has(key)) {
-      checks.set(key, (async () => {
-        const { target, label, description } = permissionPresentation(key);
-        const username = target && target !== "*" && target !== session!.auid ? await usernameFor(target) : null;
-        const scope = target === "*" ? "All covered accounts" : target === session!.auid ? "Your account" : username ? `@${username}` : target ? "Another account" : "Account access";
-        let available: boolean | null = null;
-        try {
-          const { checkPermission } = await sdk.EffectivePermission({ auid: session!.auid, permission: key });
-          available = checkPermission.allowed;
-        } catch (error) {
-          if (error instanceof ClientError && error.response.errors?.some((item) => item.extensions?.code === "TOKEN_INVALID")) throw error;
-          if (isRateLimitError(error)) throw error;
-        }
-        return { key, label, scope, description, available };
-      })());
-    }
-    return checks.get(key)!;
+  async function contextView(context: string) {
+    const username = context === systemContext ? null : await usernameFor(context);
+    return { id: context, label: context === systemContext ? "AXUS ID" : username ? `@${username}` : context === session!.auid ? "Your app" : "App name unavailable" };
   }
-
+  function describe(key: string, permissionContext?: string | null, strict = false): Promise<UserPermission> {
+    const context = contextFor(permissionContext);
+    const identity = permissionIdentity(key, context);
+    if (!checks.has(identity)) checks.set(identity, (async () => {
+      const app = await contextView(context);
+      let base: UserPermission = { key, context, label: key, description: "Permission details are unavailable.", scope: app.label, available: null };
+      try {
+        const { describePermission } = await sdk.DescribePermission({ contextAuid: context, permission: key });
+        base = { ...base, label: describePermission.title, description: describePermission.description ?? "", icon: describePermission.icon, params: describePermission.params };
+      } catch (error) {
+        if (strict) throw error;
+        const code = getPrimaryDomainError(error)?.code;
+        if (code === "TOKEN_INVALID" || code === "TOKEN_REQUIRED" || isRateLimitError(error)) throw error;
+        if (code === "UNDECLARED_PERMISSION" || code === "INVALID_PERMISSION_BINDINGS" || code === "PERMISSION_INVARIANT_VIOLATED") {
+          // Engine account-root authority is exposed as identity.<auid>.* for display,
+          // but is not a declared permission that can be checked or delegated.
+          const root = context === systemContext && key === `identity.${session!.auid}.*`;
+          return { ...base, label: root ? "Account authority" : key, description: root ? "Built-in authority for your account. Choose a declared permission to share specific access." : "This permission is no longer declared or its values are invalid.", available: root ? null : false };
+        }
+      }
+      try {
+        const { checkPermission } = await sdk.EffectivePermission({ auid: session!.auid, permission: key, permissionContext: context });
+        base.available = checkPermission.allowed;
+      } catch (error) {
+        const code = getPrimaryDomainError(error)?.code;
+        if (code === "TOKEN_INVALID" || code === "TOKEN_REQUIRED" || isRateLimitError(error)) throw error;
+        if (code === "UNDECLARED_PERMISSION" || code === "INVALID_PERMISSION_BINDINGS" || code === "PERMISSION_INVARIANT_VIOLATED") base.available = false;
+      }
+      return base;
+    })());
+    return checks.get(identity)!;
+  }
   async function sharedView(grant: Grant): Promise<SharedPermission> {
-    const permission = await describe(grant.permission);
-    return {
-      id: grant.id,
-      recipientId: grant.granteeAuid,
-      username: await usernameFor(grant.granteeAuid),
-      permission,
-      state: grant.effect === "DENY" || grant.isShadow ? "restricted"
-        : grant.activationState === "REQUIRES_APPROVAL" ? "pending"
-        : grant.activationState === "INACTIVE" || permission.available === false ? "paused"
-        : permission.available === null ? "unverified" : "shared",
-    };
+    const permission = await describe(grant.permission, grant.permissionContext);
+    return { id: grant.id, recipientId: grant.granteeAuid, username: await usernameFor(grant.granteeAuid), permission,
+      state: grant.effect === "DENY" || grant.isShadow ? "restricted" : grant.activationState === "REQUIRES_APPROVAL" ? "pending"
+        : grant.activationState === "INACTIVE" || permission.available === false ? "paused" : permission.available === null ? "unverified" : "shared" };
   }
 
   try {
-    if (args.kind === "revoke") {
-      // Scope this account UI to the signed-in granter even if its token manages other accounts.
-      const { delegatedGrants } = await sdk.MyDelegatedGrants({ auid: session.auid });
-      if (!delegatedGrants.some((grant) => grant.id === args.grantId)) {
-        return { error: "This permission is no longer shared by your account. Refresh the list." };
+    if (args.kind === "resolve-context") {
+      const { ownerByUsername } = await sdk.OwnerByUsername({ username: args.username });
+      return ownerByUsername ? { context: await contextView(ownerByUsername) } : { error: "We couldn’t find that app’s username." };
+    }
+    if (args.kind === "catalog") {
+      const [summaries, tree] = await Promise.all([
+        sdk.PermissionDeclarations({ contextAuid: args.permissionContext }), sdk.PermissionTree({ contextAuid: args.permissionContext }),
+      ]);
+      const locations = new Map<string, { group: string; params: ParameterOptionsFragment[] }>();
+      function visit(node: TreeNode, group: string) {
+        if (!node.declarations) throw new Error("Permission tree exceeds supported depth");
+        for (const id of node.declarations) locations.set(id, { group, params: node.params ?? [] });
+        for (const child of node.children ?? []) visit(child, group);
       }
+      for (const node of tree.permissionTree) visit(node, node.title ?? node.keyPrefix);
+      const declarations: PickerDeclaration[] = summaries.permissionDeclarations.map((declaration) => ({
+        ...declaration, ...(locations.get(declaration.id) ?? { group: "Permissions", params: [] }),
+      }));
+      return { declarations };
+    }
+    if (args.kind === "search") {
+      const { searchPermissionValues } = await sdk.SearchPermissionValues({ contextAuid: args.permissionContext, declarationId: args.declarationId, param: args.param, query: args.query, limit: 20 });
+      return { options: searchPermissionValues };
+    }
+    if (args.kind === "preview") {
+      // Unlike list enrichment, preview must reject undeclared keys and invalid bindings.
+      return { preview: await describe(args.permission, args.permissionContext, true) };
+    }
+    if (args.kind === "revoke") {
+      const { delegatedGrants } = await sdk.MyDelegatedGrants({ auid: session.auid });
+      if (!delegatedGrants.some((grant) => grant.id === args.grantId)) return { error: "This permission is no longer shared by your account. Refresh the list." };
       const { revokeGrant } = await sdk.RemoveSharedPermission({ grantId: args.grantId });
       return revokeGrant ? { revoked: true } : { error: "Couldn’t remove this permission. Please try again." };
     }
     if (args.kind === "share") {
+      if (args.permission === "*") return { error: "Choose a declared permission to share. All-access token scopes cannot be shared as grants." };
+      const context = contextFor(args.permissionContext);
       const { ownerByUsername: recipient } = await sdk.OwnerByUsername({ username: args.username });
       if (!recipient) return { error: "We couldn’t find that username. Check the spelling and try again." };
       if (recipient === session.auid) return { error: "You already have this access. Enter someone else’s username." };
       const { delegatedGrants } = await sdk.MyDelegatedGrants({ auid: session.auid });
-      const existing = delegatedGrants.find((grant) => grant.granteeAuid === recipient && grant.permission === args.permission && grant.effect === "ALLOW" && !grant.isShadow && grant.activationState === "ACTIVE");
+      const existing = delegatedGrants.find((grant) => grant.granteeAuid === recipient && grant.permission === args.permission && contextFor(grant.permissionContext) === context && grant.effect === "ALLOW" && !grant.isShadow && grant.activationState === "ACTIVE");
       if (existing) return { sharedGrant: await sharedView(existing), alreadyShared: true };
-      const { delegatePermission } = await sdk.SharePermission({ granterAuid: session.auid, granteeAuid: recipient, permission: args.permission });
-      // The mutation succeeded. Enrichment failures must not make users retry a completed share.
+      const { delegatePermission } = await sdk.SharePermission({ granterAuid: session.auid, granteeAuid: recipient, permission: args.permission, permissionContext: context });
       let view: SharedPermission;
       try { view = await sharedView(delegatePermission); }
       catch {
-        const { label, description, target } = permissionPresentation(args.permission);
-        view = { id: delegatePermission.id, recipientId: recipient, username: args.username,
-          permission: { key: args.permission, label, description, scope: target === session.auid ? "Your account" : "Account access", available: null }, state: "unverified" };
+        const app = await contextView(context);
+        view = { id: delegatePermission.id, recipientId: recipient, username: args.username, permission: { key: args.permission, context, label: args.permission, description: "", scope: app.label, available: null }, state: "unverified" };
       }
       return { sharedGrant: view };
     }
 
-    const [incoming, outgoing] = await Promise.all([
-      sdk.MyGrants({ auid: session.auid }),
-      sdk.MyDelegatedGrants({ auid: session.auid }),
+    const [incoming, outgoing, system] = await Promise.all([
+      sdk.MyGrants({ auid: session.auid }), sdk.MyDelegatedGrants({ auid: session.auid }), sdk.PermissionDeclarations({ contextAuid: systemContext }),
     ]);
-    const assignedKeys = new Set(incoming.grants.map((grant) => grant.permission));
-    const choices = new Set(specificPermissionChoices(session.auid, [...assignedKeys]));
-    const keys = [...new Set([...assignedKeys, ...choices, ...outgoing.delegatedGrants.map((grant) => grant.permission)])];
-    for (let start = 0; start < keys.length; start += 6) {
-      await Promise.all(keys.slice(start, start + 6).map(describe));
+    const choices = new Map<string, { key: string; context: string }>();
+    for (const grant of incoming.grants) {
+      if (grant.permission !== "*") choices.set(permissionIdentity(grant.permission, contextFor(grant.permissionContext)), { key: grant.permission, context: contextFor(grant.permissionContext) });
+    }
+    const targets = new Set([session.auid]);
+    for (const grant of incoming.grants) {
+      if (contextFor(grant.permissionContext) === systemContext) {
+        const target = permissionPresentation(grant.permission).target;
+        if (target && /^[0-9]+(?:,[0-9]+)*$/.test(target)) targets.add(target);
+      }
+    }
+    // Expand only actual engine declarations, including all system capabilities.
+    for (const declaration of system.permissionDeclarations) for (const target of targets) {
+      const key = bindPermission(declaration.template, { auid: target, context: target });
+      if (key) choices.set(permissionIdentity(key, systemContext), { key, context: systemContext });
+    }
+    const shareOptions: UserPermission[] = [];
+    const candidates = [...choices.values()];
+    for (let start = 0; start < candidates.length; start += 6) {
+      const batch = await Promise.all(candidates.slice(start, start + 6).map(({ key, context }) => describe(key, context)));
+      shareOptions.push(...batch.filter((permission) => permission.available === true && permission.key !== "*"));
     }
     const permissions: UserPermission[] = [];
     const seen = new Set<string>();
     for (const grant of incoming.grants) {
-      const { target } = permissionPresentation(grant.permission);
-      const granterId = (grant.origin?.delegatorAuid && grant.origin.delegatorAuid !== session.auid)
-        ? grant.origin.delegatorAuid
-        : (grant.origin?.type === "DELEGATED" && grant.origin?.delegatorAuid)
-          ? grant.origin.delegatorAuid
-          : (target && target !== "*" && target !== session.auid)
-            ? target
-            : null;
-      const dedupKey = `${grant.permission}:${granterId ?? ""}`;
-      if (seen.has(dedupKey)) continue;
-      seen.add(dedupKey);
-
-      const base = await describe(grant.permission);
-      const receivedFrom = granterId ? {
-        id: granterId,
-        username: await usernameFor(granterId),
-      } : null;
-
-      permissions.push({
-        ...base,
-        receivedFrom,
-      });
-    }
-    const shareOptions: UserPermission[] = [];
-    for (const key of choices) {
-      const base = await describe(key);
-      if (base.available === true) {
-        shareOptions.push(base);
-      }
+      const context = contextFor(grant.permissionContext);
+      const granterId = grant.origin?.delegatorAuid ?? null;
+      const identity = JSON.stringify([context, grant.permission, granterId]);
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      const base = await describe(grant.permission, context);
+      permissions.push({ ...base, receivedFrom: granterId && granterId !== session.auid ? { id: granterId, username: await usernameFor(granterId) } : null });
     }
     const shared: SharedPermission[] = [];
-    for (let start = 0; start < outgoing.delegatedGrants.length; start += 6) {
-      shared.push(...await Promise.all(outgoing.delegatedGrants.slice(start, start + 6).map(sharedView)));
-    }
-    permissions.sort((a, b) => Number(b.available) - Number(a.available) || a.label.localeCompare(b.label));
-    return {
-      permissions,
-      shareOptions,
-      shared: shared.sort((a, b) => (a.username ?? "").localeCompare(b.username ?? "") || a.permission.label.localeCompare(b.permission.label)),
-    };
+    for (let start = 0; start < outgoing.delegatedGrants.length; start += 6) shared.push(...await Promise.all(outgoing.delegatedGrants.slice(start, start + 6).map(sharedView)));
+    const contexts = [...new Set([systemContext, session.auid, ...incoming.grants.map((grant) => contextFor(grant.permissionContext)), ...outgoing.delegatedGrants.map((grant) => contextFor(grant.permissionContext))])];
+    return { systemContext, accountAuid: session.auid, contexts: await Promise.all(contexts.map(contextView)), permissions: permissions.sort((a, b) => Number(b.available) - Number(a.available) || a.label.localeCompare(b.label)), shareOptions,
+      shared: shared.sort((a, b) => (a.username ?? "").localeCompare(b.username ?? "") || a.permission.label.localeCompare(b.permission.label)) };
   } catch (error) {
-    if (isRateLimitError(error)) {
-      return { error: RATE_LIMIT_MESSAGE };
+    if (args.kind === "list" && getPrimaryDomainError(error)?.code === "NOT_AUTHORIZED") {
+      return {
+        error: "This sign-in can’t read your account permissions. Sign in again to refresh access. If the problem continues, contact support.",
+        recoveryRequired: true,
+      };
     }
-    const code = error instanceof ClientError ? error.response.errors?.[0]?.extensions?.code : undefined;
-    const messages: Record<string, string> = {
-      TOKEN_REQUIRED: "Sign in again to view your permissions.",
-      TOKEN_INVALID: "Your session has ended. Sign in again.",
-      NOT_AUTHORIZED: args.kind === "share" ? "You can’t share this permission right now. Your access may have changed, or sharing may be restricted."
-        : args.kind === "revoke" ? "You don’t have permission to remove this access."
-        : "Your permissions aren’t available with this sign-in. Try signing in again.",
-      USERNAME_NOT_FOUND: "We couldn’t find that username. Check the spelling and try again.",
-      INVALID_USERNAME: "Enter a valid username.",
-      GRANT_NOT_FOUND: "This permission has already been removed. Refresh the list.",
-      GRANT_NOT_REVOCABLE: "This permission can’t be removed here.",
-      RATE_LIMITED: RATE_LIMIT_MESSAGE,
-    };
-    return { error: messages[String(code)] ?? "Couldn’t complete the request. Please try again." };
+    return { error: permissionErrorMessage(error) };
   }
 }

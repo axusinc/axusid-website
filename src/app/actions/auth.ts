@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import {
+  isPermissionValidationError,
+  permissionErrorMessage,
   DOMAIN_ERROR_CODES,
   formatGraphqlError,
   getPrimaryDomainError,
@@ -19,6 +21,7 @@ import {
   normalizeScopes,
   partitionScopes,
   validateScopes,
+  validateRedirectUri,
 } from "@/lib/oauth/clients";
 import { grantAuthorization } from "@/lib/oauth/grants";
 
@@ -379,6 +382,7 @@ export async function consentAction(formData: FormData) {
   } else if (!client) {
     redirect("/");
   }
+  if (client && !validateRedirectUri(client, url.searchParams.get("redirect_uri") ?? "")) redirect("/");
 
   const session = await getValidSession();
 
@@ -396,13 +400,20 @@ export async function consentAction(formData: FormData) {
       redirect("/");
     }
 
-    await grantAuthorization({
-      userAuid: session.auid,
-      clientAuid: client.auid,
-      sessionTokenId: session.tokenId,
-      scopes,
-      axusPermissions: partitionScopes(scopes).axusPermissions,
-    });
+    try {
+      await grantAuthorization({
+        userAuid: session.auid, clientAuid: client.auid,
+        sessionTokenId: session.tokenId, scopes,
+        axusPermissions: partitionScopes(scopes).axusPermissions,
+      });
+    } catch (error) {
+      const response = new URL(url.searchParams.get("redirect_uri")!);
+      response.searchParams.set("error", isPermissionValidationError(error) ? "invalid_scope" : "server_error");
+      response.searchParams.set("error_description", permissionErrorMessage(error));
+      const state = url.searchParams.get("state");
+      if (state) response.searchParams.set("state", state);
+      redirect(response.toString());
+    }
   } else {
     const updatedSession: IdPSession = {
       ...session,

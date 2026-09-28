@@ -11,13 +11,9 @@ const labels: Record<string, { label: string; description: string }> = {
   "parents.agree": { label: "Approve parent relationships", description: "Approve requests to link parent accounts." },
   "ratelimit.drain": { label: "Use request allowance", description: "Use this account’s request allowance." },
   create: { label: "Create nested accounts", description: "Create accounts under this account." },
-  "*": { label: "Manage account", description: "All permissions for this account, including changing settings and sharing access." },
 };
 
 export function permissionPresentation(key: string) {
-  if (key === "*" || key === "identity.*") {
-    return { label: "All permissions", description: "All access covered by this permission.", target: "*" };
-  }
   const parts = key.split(".");
   const target = parts[0] === "identity" ? parts[1] : undefined;
   const resource = target ? parts.slice(2).join(".") : key;
@@ -30,17 +26,4 @@ export function permissionPresentation(key: string) {
     description: "Additional access assigned to your account.",
     target,
   };
-}
-
-export function specificPermissionChoices(auid: string, assigned: string[]): string[] {
-  const targets = new Set([auid]);
-  for (const key of assigned) {
-    const target = permissionPresentation(key).target;
-    if (target && target !== "*") targets.add(target);
-  }
-  return [...new Set([
-    ...assigned.filter((key) => !key.includes("*")),
-    ...[...targets].flatMap((target) => ["variation.write", "username.write", "grants.read", "grants.delegate"]
-      .map((suffix) => `identity.${target}.${suffix}`)),
-  ])];
 }

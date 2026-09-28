@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Fingerprint, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { FormError, FormSuccess } from "@/components/ui/form-message";
@@ -25,9 +25,10 @@ import { cn, formatDate } from "@/lib/utils";
 
 type PasskeySectionProps = {
   initialPasskeys?: PasskeyCredential[];
+  passkeyLoadError?: string;
 };
 
-export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
+export function PasskeySection({ initialPasskeys = [], passkeyLoadError }: PasskeySectionProps) {
   const [passkeys, setPasskeys] = useState<PasskeyCredential[]>(initialPasskeys);
   const [isAdding, setIsAdding] = useState(false);
   const [passkeyName, setPasskeyName] = useState("");
@@ -169,7 +170,9 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
         title="Passkeys"
         description="Sign in with Face ID, Touch ID, Windows Hello or a security key. Faster than a password and resistant to phishing."
         badge={
-          passkeys.length > 0 ? (
+          passkeyLoadError ? (
+            <Badge tone="warning">Unavailable</Badge>
+          ) : passkeys.length > 0 ? (
             <Badge tone="success" dot>
               {passkeys.length} active
             </Badge>
@@ -178,7 +181,7 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
           )
         }
         action={
-          isAdding ? null : (
+          isAdding || passkeyLoadError ? null : (
             <Button
               type="button"
               variant={passkeys.length > 0 ? "secondary" : "primary"}
@@ -192,6 +195,14 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
         }
       />
 
+      {passkeyLoadError ? (
+        <div className="mt-5 space-y-3">
+          <FormError>{passkeyLoadError}</FormError>
+          <a href="/account?section=security" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            Try again
+          </a>
+        </div>
+      ) : null}
       {error ? <FormError className="mt-5">{error}</FormError> : null}
       {success ? <FormSuccess className="mt-5">{success}</FormSuccess> : null}
 
@@ -319,7 +330,7 @@ export function PasskeySection({ initialPasskeys = [] }: PasskeySectionProps) {
             </li>
           ))}
         </ul>
-      ) : !isAdding ? (
+      ) : !isAdding && !passkeyLoadError ? (
         <p className="mt-5 rounded-xl border border-dashed border-black/[0.1] px-4 py-3.5 text-sm text-neutral-500">
           You haven’t added a passkey yet.
         </p>

@@ -29,6 +29,7 @@ import { formatDate } from "@/lib/utils";
 type AccountFormsProps = {
   auid: string;
   initialPasskeys?: PasskeyCredential[];
+  passkeyLoadError?: string;
   initialExternalIdentities?: ExternalIdentity[];
   initialHasPassword: boolean;
   onEditingChange?: (editing: boolean) => void;
@@ -338,6 +339,7 @@ function handleFormKeyDown(
 export function AccountForms({
   auid,
   initialPasskeys = [],
+  passkeyLoadError,
   initialExternalIdentities = [],
   initialHasPassword,
   onEditingChange,
@@ -379,7 +381,7 @@ export function AccountForms({
 
   return (
     <div className="space-y-5">
-      <PasskeySection initialPasskeys={initialPasskeys} />
+      <PasskeySection initialPasskeys={initialPasskeys} passkeyLoadError={passkeyLoadError} />
 
       <Card>
         <CardHeader

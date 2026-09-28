@@ -7,7 +7,8 @@ export const OIDC_SCOPES = [
 
 export type OidcScope = (typeof OIDC_SCOPES)[number];
 
-const PERMISSION_SEGMENT = /^[a-zA-Z0-9_*]+$/;
+// OAuth scope tokens follow RFC 6749; declaration validity belongs to the engine.
+const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
 
 export function isOidcScope(scope: string): scope is OidcScope {
   return (OIDC_SCOPES as readonly string[]).includes(scope);
@@ -32,35 +33,13 @@ export function partitionScopes(scopes: string[]): {
 }
 
 export function isValidPermissionKey(key: string): boolean {
-  if (!key || key.startsWith(".") || key.endsWith(".")) {
-    return false;
-  }
-
-  const segments = key.split(".");
-  if (segments.length === 0 || segments.some((segment) => !segment)) {
-    return false;
-  }
-
-  return segments.every((segment) => PERMISSION_SEGMENT.test(segment));
+  if (!key || key.length > 4096 || !SCOPE_TOKEN.test(key) || /[{}]/.test(key)) return false;
+  return key.split(".").every(Boolean);
 }
 
+/** Consent coverage is exact until the engine exposes declaration-aware implication. */
 export function permissionImplies(granted: string, requested: string): boolean {
-  const grantedParts = granted.split(".");
-  const requestedParts = requested.split(".");
-
-  for (let i = 0; i < grantedParts.length; i++) {
-    if (grantedParts[i] === "*") {
-      return true;
-    }
-    if (i >= requestedParts.length) {
-      return false;
-    }
-    if (grantedParts[i] !== requestedParts[i]) {
-      return false;
-    }
-  }
-
-  return grantedParts.length === requestedParts.length;
+  return granted === requested;
 }
 
 export function validatePermissionKeys(keys: string[]): string[] {
@@ -79,24 +58,7 @@ export function getConsentPermissions(axusPermissions: string[]): string[] {
 }
 
 export function formatPermissionLabel(key: string): string {
-  const segments = key.split(".");
-  if (segments.length === 0) {
-    return key;
-  }
-
-  const action = segments[segments.length - 1];
-  const resource = segments.slice(0, -1).join(" ");
-
-  if (action === "*") {
-    return `Full access to ${resource || key}`;
-  }
-
-  const actionLabel = action.replace(/_/g, " ");
-  if (resource) {
-    return `${actionLabel.charAt(0).toUpperCase()}${actionLabel.slice(1)} ${resource}`;
-  }
-
-  return key;
+  return key === "*" ? "All AXUS ID permissions you hold" : key;
 }
 
 export function combineScopes(

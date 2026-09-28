@@ -8,6 +8,17 @@ export const metadata: Metadata = {
 };
 const issues = [
   {
+    id: "permissions", title: "A permission cannot be checked or shared",
+    symptom: "The engine reports UNDECLARED_PERMISSION, INVALID_PERMISSION_BINDINGS, or an invariant/dynamic validation failure.",
+    steps: [
+      "Use the owner app’s permissionContext, or system context for AXUS ID capabilities. Identical keys in different contexts represent different permissions.",
+      "Discover the declaration and provide valid typed bindings. Prefix wildcards such as identity.1.* cannot be delegated; parameter wildcards require allowWildcard.",
+      "PERMISSION_VALIDATOR_UNAVAILABLE means the grant was rejected. Retry when the app’s validator is available. Degraded search only changes how values are entered.",
+      "After app validation data changes, the owner should call notifyValidationChanged to clear cached verdicts. Existing NOT_AUTHORIZED and TOKEN_* errors keep their meanings.",
+    ],
+    link: "/developers/permissions#errors", cta: "Read permission error codes",
+  },
+  {
     id: "redirect",
     title: "The redirect URI is rejected",
     symptom:

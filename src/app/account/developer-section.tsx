@@ -1,5 +1,6 @@
 "use client";
 
+import { PermissionDeclarationsSection } from "./permission-declarations-section";
 import { Code2 } from "lucide-react";
 import { useActionState } from "react";
 import { SubsectionTitle } from "@/app/account/dashboard-ui";
@@ -111,6 +112,8 @@ export function DeveloperSection({
           </div>
         </div>
       </Card>
+
+      <PermissionDeclarationsSection />
 
       <SamlForm auid={auid} issuer={issuer} config={samlConfig} />
     </div>

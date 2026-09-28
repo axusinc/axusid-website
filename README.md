@@ -59,6 +59,7 @@ AXUS ID runs at `http://localhost:3000`.
 | Variable | Description |
 |---|---|
 | `AUTH_GRAPHQL_ENDPOINT` | GraphQL endpoint (default: `http://localhost:8081/graphql`) |
+| `AXUS_SYSTEM_CONTEXT_AUID` | Must match the engine’s `AXUS_ID_CONTEXT`; defaults to production context `4` |
 | `OAUTH_ISSUER` | Public issuer URL (default: `http://localhost:3000`) |
 | `SESSION_SECRET` | Secret for signing IdP session cookies and encrypting stored credentials |
 | `DATABASE_URL` | PostgreSQL connection string |
@@ -124,7 +125,7 @@ Protected GraphQL operations require an `Authorization: Bearer <native token>` h
 | Registration | `createUser(username, password)` |
 | Password change | `changePassword(auid, newPassword)` with Bearer auth |
 
-OIDC scopes (`openid`, `profile`, `email`, `offline_access`) are **not** AXUS hierarchical permissions. They control consent, JWT claims, and refresh token issuance. Backend `permissions` on login are omitted for standard OIDC scopes.
+OIDC scopes (`openid`, `profile`, `email`, `offline_access`) are **not** AXUS declared permissions. They control consent, JWT claims, and refresh token issuance. Backend `permissions` on login are omitted for standard OIDC scopes.
 
 The `email` scope returns a synthetic email (`[auid]@amail.com`) for app compatibility.
 
@@ -197,21 +198,39 @@ npm run lint        # ESLint
 
 ## Permission management
 
-The account Permissions section uses the engine as the source of truth, including delegations
-created outside this website. Deploy the engine version exposing `delegatedGrants(auid: ID!)`
-before deploying this UI. The query requires `identity.<auid>.grants.read` and returns identity
-recipients only; token and role grants are excluded. Sharing and removal require the granter’s
-`identity.<auid>.grants.delegate` permission.
+Deploy the declaration-enabled engine before this website. `schema_prod.graphql` is synchronized
+with the engine SDL and drives both `npm run codegen` and `/developers/api`.
+Set `AXUS_SYSTEM_CONTEXT_AUID` to the engine's `AXUS_ID_CONTEXT` (production: `4`).
 
-Usernames are resolved on the server. The granter is always the active signed-in account, and
-revocation is restricted to that account’s outgoing grants. The UI offers specific permissions
-that the engine confirms the account holds, even when its original grant is a wildcard.
-A “Shared” label describes the delegation, not a guarantee of the recipient’s effective access.
+Account → Permissions discovers actual declarations, supports app lookup by username, offers
+static and dynamic parameter choices, and previews descriptions and effective access before
+sharing. Dynamic search degradation permits raw input; grants still fail closed on validation
+failure. Context and key together identify a permission everywhere. System capabilities keep
+their existing names. Incoming/outgoing lists remain engine-backed; granters and declaration
+owners come from the active session, and removal/cache invalidation verify ownership.
 
-Run focused frontend contract and authorization tests with:
+Account → Developer → Permission declarations lists declarations, publishes complete JSON
+inputs with a review step, and clears cached validation. Same-name publishing updates in place
+and increments the version. Keep complete source definitions: the engine summary API does not
+return parameter constraints or invariant source. The picker leaves bindings as strings and
+uses server validation because the read API does not expose types or wildcard eligibility.
+
+Developer guides: `/developers/permissions` and `/developers/become-an-app`. They cover the
+validator validate/search protocol, cache invalidation, all declaration errors and migration.
+Legacy `identity.<auid>.*` and bare `*` cannot be delegated as stored grants. Bare `*` remains
+valid in native token scopes. OAuth consent uses exact scope matching and engine descriptions;
+custom OAuth permission keys currently use system context, since the engine's token-issuance
+API has no context argument.
+
+The engine V32 migration deletes legacy HierarchicalPermission grants. Coordinate authority
+reprovisioning and fresh app authorization as part of the engine rollout. Publishing a
+permission declaration does not create an initial grant for its owner. The website never
+recreates removed grants automatically.
+
+Run focused contract and authorization tests with:
 
 ```bash
-node --test tests/permissions.test.mjs
+node --test tests/permissions.test.mjs tests/permission-declarations.test.mjs tests/permission-scopes.test.mjs
 ```
 
 ## GitHub sign-in

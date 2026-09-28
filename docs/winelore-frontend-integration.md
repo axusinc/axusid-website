@@ -619,6 +619,6 @@ For a quick smoke test without registering a client, use seeded `axusid-dev` if 
 
 - GraphQL operations available to authenticated clients are defined in AXUS ID's auth schema (`login`, `refreshCredentials`, `variations`, `usernames`, etc.).
 - The `email` OIDC scope returns a synthetic email (`[auid]@amail.com`) for application compatibility.
-- OIDC scopes (`openid`, `profile`, …) are **not** AXUS hierarchical permissions — they control consent and JWT claims only.
+- OIDC scopes (`openid`, `profile`, …) are **not** AXUS declared permissions — they control consent and JWT claims only.
 
-For Winelore-specific backend permissions (if added later), contact the AXUS platform team — custom scopes beyond the supported set require coordination on both AXUS ID client configuration and auth backend permission models.
+For Winelore-specific permissions, publish declarations under the app owner AUID and pass that context explicitly to checks and delegations. Current native token issuance uses system context and does not support app-context OAuth scopes. See `/developers/permissions` and `/developers/become-an-app` for declaration, validator and provisioning requirements.

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAuthSdk } from "@/lib/auth-graphql";
+import { isTokenInvalidError, permissionErrorMessage } from "@/lib/graphql-errors";
 
 export type PasskeyCredential = {
   id: string;
@@ -12,6 +13,10 @@ export type PasskeyCredential = {
   createdAt: string;
   lastUsedAt?: string | null;
 };
+
+export type PasskeyListResult =
+  | { passkeys: PasskeyCredential[]; error?: never }
+  | { passkeys?: never; error: string };
 
 export type PasskeyEnrollmentResponse = {
   challengeId: string;
@@ -83,11 +88,11 @@ export async function loginWithPasskey(
 export async function getUserPasskeys(
   auid: string,
   tokenId: string,
-): Promise<PasskeyCredential[]> {
+): Promise<PasskeyListResult> {
   const sdk = getAuthSdk(tokenId);
   try {
     const data = await sdk.Passkeys({ auid });
-    return (data.passkeys ?? []).map((p) => ({
+    return { passkeys: (data.passkeys ?? []).map((p) => ({
       id: p.credentialId,
       credentialId: p.credentialId,
       name: p.name ?? null,
@@ -96,10 +101,10 @@ export async function getUserPasskeys(
       backedUp: p.backedUp,
       createdAt: p.createdAt,
       lastUsedAt: p.lastUsedAt ?? null,
-    }));
+    })) };
   } catch (error) {
-    console.error("[getUserPasskeys error]:", error);
-    return [];
+    if (isTokenInvalidError(error)) throw error;
+    return { error: permissionErrorMessage(error, "We couldn’t load your passkeys. Please try again.") };
   }
 }
 

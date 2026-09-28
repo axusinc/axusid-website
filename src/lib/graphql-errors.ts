@@ -38,6 +38,17 @@ export type DomainErrorCode =
   | "GRANT_NOT_FOUND"
   | "INVALID_GRANT_ACTIVATION_STATE"
   | "GRANT_APPROVAL_DENIED"
+  | "UNDECLARED_PERMISSION"
+  | "INVALID_PERMISSION_BINDINGS"
+  | "PERMISSION_INVARIANT_VIOLATED"
+  | "PERMISSION_DYNAMIC_REJECTED"
+  | "PERMISSION_VALIDATOR_UNAVAILABLE"
+  | "INVALID_DECLARATION_TEMPLATE"
+  | "DECLARATION_DUPLICATE"
+  | "INVALID_PARAM_DEF"
+  | "DECLARATION_NOT_OWNER"
+  | "UNKNOWN_DECLARATION"
+  | "DECLARATION_NOT_FOUND"
   // Rate limiting
   | "RATE_LIMITED"
   // Internal (rarely client-facing)
@@ -71,6 +82,17 @@ export const DOMAIN_ERROR_CODES = {
   GRANT_NOT_FOUND: "GRANT_NOT_FOUND",
   INVALID_GRANT_ACTIVATION_STATE: "INVALID_GRANT_ACTIVATION_STATE",
   GRANT_APPROVAL_DENIED: "GRANT_APPROVAL_DENIED",
+  UNDECLARED_PERMISSION: "UNDECLARED_PERMISSION",
+  INVALID_PERMISSION_BINDINGS: "INVALID_PERMISSION_BINDINGS",
+  PERMISSION_INVARIANT_VIOLATED: "PERMISSION_INVARIANT_VIOLATED",
+  PERMISSION_DYNAMIC_REJECTED: "PERMISSION_DYNAMIC_REJECTED",
+  PERMISSION_VALIDATOR_UNAVAILABLE: "PERMISSION_VALIDATOR_UNAVAILABLE",
+  INVALID_DECLARATION_TEMPLATE: "INVALID_DECLARATION_TEMPLATE",
+  DECLARATION_DUPLICATE: "DECLARATION_DUPLICATE",
+  INVALID_PARAM_DEF: "INVALID_PARAM_DEF",
+  DECLARATION_NOT_OWNER: "DECLARATION_NOT_OWNER",
+  UNKNOWN_DECLARATION: "UNKNOWN_DECLARATION",
+  DECLARATION_NOT_FOUND: "DECLARATION_NOT_FOUND",
   RATE_LIMITED: "RATE_LIMITED",
   INVALID_TOKEN_ID: "INVALID_TOKEN_ID",
 } as const satisfies Record<DomainErrorCode, DomainErrorCode>;
@@ -129,11 +151,9 @@ export function parseGraphqlDomainErrors(error: unknown): ParsedDomainError[] {
     const groupCode = extensions?.groupCode;
 
     const isGroupValid = isDomainErrorGroupCode(groupCode);
-    const isRateLimit = code === DOMAIN_ERROR_CODES.RATE_LIMITED || code === "RATE_LIMITED";
 
     if (
       !isDomainErrorCode(code) ||
-      (!isGroupValid && !isRateLimit) ||
       typeof graphqlError.message !== "string"
     ) {
       return [];
@@ -229,6 +249,9 @@ function formatByContext(
   if (domainError.code === DOMAIN_ERROR_CODES.RATE_LIMITED) {
     return RATE_LIMIT_MESSAGE;
   }
+
+  const permissionMessage = PERMISSION_ERROR_MESSAGES[domainError.code];
+  if (permissionMessage) return permissionMessage;
 
   switch (context) {
     case "login":
@@ -388,3 +411,31 @@ export function isAuthError(error: unknown): boolean {
   return false;
 }
 
+
+export const PERMISSION_ERROR_MESSAGES: Partial<Record<DomainErrorCode, string>> = {
+  UNDECLARED_PERMISSION: "This permission is no longer declared by the app. Refresh and choose another permission.",
+  INVALID_PERMISSION_BINDINGS: "Check the permission values. One or more values aren’t allowed by this declaration.",
+  PERMISSION_INVARIANT_VIOLATED: "This combination of permission values isn’t allowed by the app.",
+  PERMISSION_DYNAMIC_REJECTED: "The app rejected these permission values. Choose different values and try again.",
+  PERMISSION_VALIDATOR_UNAVAILABLE: "The app’s validator is temporarily unavailable. No permission was granted. Try again later.",
+  INVALID_DECLARATION_TEMPLATE: "Check the template. Each parameter needs a definition; empty, * and ? literals aren’t allowed.",
+  DECLARATION_DUPLICATE: "A declaration with this name already exists. Refresh the declaration list.",
+  INVALID_PARAM_DEF: "Check the parameter definitions, types and constraints.",
+  DECLARATION_NOT_OWNER: "You can only publish declarations for your own app.",
+  UNKNOWN_DECLARATION: "This declaration is no longer available. Refresh the list.",
+  DECLARATION_NOT_FOUND: "This declaration is no longer available. Refresh the list.",
+};
+
+export function permissionErrorMessage(error: unknown, fallback = "Couldn’t complete the permission request. Please try again."): string {
+  if (isRateLimitError(error)) return RATE_LIMIT_MESSAGE;
+  const code = getPrimaryDomainError(error)?.code;
+  if (code && PERMISSION_ERROR_MESSAGES[code]) return PERMISSION_ERROR_MESSAGES[code]!;
+  if (code === "TOKEN_REQUIRED" || code === "TOKEN_INVALID") return "Your session has ended. Sign in again.";
+  if (code === "NOT_AUTHORIZED") return "You don’t have permission to perform this action. Your access may have changed.";
+  return fallback;
+}
+
+export function isPermissionValidationError(error: unknown): boolean {
+  const code = getPrimaryDomainError(error)?.code;
+  return Boolean(code && code !== "PERMISSION_VALIDATOR_UNAVAILABLE" && PERMISSION_ERROR_MESSAGES[code]);
+}

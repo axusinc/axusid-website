@@ -1,9 +1,20 @@
 import "server-only";
 
 import { getAuthSdk } from "@/lib/auth-graphql";
+import type { ExternalAuthenticationInput } from "@/graphql/sdk";
 import type { IdPSession } from "@/lib/session";
 
-export type OAuthProof = { providerId: string; clientId: string; refreshToken: string };
+export type OAuthProof = ExternalAuthenticationInput;
+
+function externalAuthenticationInput(authentication: OAuthProof): ExternalAuthenticationInput {
+  // A caller may also hold a provider access token for profile lookup. Only send
+  // the fields accepted by the engine; TypeScript types do not remove extra keys.
+  return {
+    providerId: authentication.providerId,
+    clientId: authentication.clientId,
+    refreshToken: authentication.refreshToken,
+  };
+}
 
 export async function exchangeOAuthCode(params: {
   tokenUri: string;
@@ -48,11 +59,15 @@ export async function exchangeOAuthCode(params: {
 
 export async function loginWithOAuthIdentity(authentication: OAuthProof, permissions: string[]) {
   const result = await getAuthSdk().LoginWithExternalIdentity({
-    authentication, permissions: permissions.length > 0 ? permissions : undefined,
+    authentication: externalAuthenticationInput(authentication),
+    permissions: permissions.length > 0 ? permissions : undefined,
   });
   return { auid: result.loginWithExternalIdentity.auid, tokenId: result.loginWithExternalIdentity.id };
 }
 
 export async function linkOAuthIdentity(session: IdPSession, authentication: OAuthProof): Promise<void> {
-  await getAuthSdk(session.tokenId).LinkExternalIdentity({ auid: session.auid, authentication });
+  await getAuthSdk(session.tokenId).LinkExternalIdentity({
+    auid: session.auid,
+    authentication: externalAuthenticationInput(authentication),
+  });
 }

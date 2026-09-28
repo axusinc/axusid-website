@@ -43,6 +43,31 @@ export const docsIndex = [
     description: "Cookies, account linking, production checklist",
   },
   {
+    href: "/developers/permissions", title: "Declared permissions", group: "Build & explore",
+    description: "App contexts, templates, typed bindings, wildcards, discovery and delegation",
+  },
+  ...[
+    ["contexts", "Permission contexts", "Owner app AUID and system defaults"],
+    ["declarations", "Templates and bindings", "Typed parameters, constraints and metadata"],
+    ["wildcards", "Parameter wildcards", "Allowed wildcards and token scopes"],
+    ["picker", "Delegation picker", "Tree, search, describe, check and delegate"],
+    ["oauth", "OAuth permission scopes", "System context, consent and native tokens"],
+    ["api", "Permission API", "GraphQL queries and mutations"],
+    ["errors", "Permission errors", "Validation failures and app validator unavailability"],
+    ["migration", "Permission migration", "Replace free-form grants and deploy the engine"],
+  ].map(([anchor, title, description]) => ({ href: `/developers/permissions#${anchor}`, title, description, group: "On this page" })),
+  {
+    href: "/developers/become-an-app", title: "Become an app", group: "Build & explore",
+    description: "Publish declarations, combination invariants, dynamic validators and cache invalidation",
+  },
+  ...[
+    ["publish", "Publish declarations", "Owner authorization, republishing and versions"],
+    ["parameters", "Parameter definitions", "Types, constraints and display metadata"],
+    ["validator", "Dynamic validation", "POST validate protocol, timeout, retry and cached verdicts"],
+    ["search", "Dynamic value search", "POST search protocol and degraded raw input"],
+    ["invalidate", "Invalidate verdicts", "notifyValidationChanged after app data changes"],
+  ].map(([anchor, title, description]) => ({ href: `/developers/become-an-app#${anchor}`, title, description, group: "On this page" })),
+  {
     href: "/developers/reference",
     title: "API reference",
     group: "Build & explore",
