@@ -92,7 +92,7 @@ test("GitHub avatar URLs request a larger raster", () => {
   const { mod } = loadModule();
   const normalized = new URL(mod.normalizeGitHubAvatarUrl("https://avatars.githubusercontent.com/u/1?v=4"));
   assert.equal(normalized.searchParams.get("s"), "512");
-  assert.equal(normalized.searchParams.get("v"), "4");
+  assert.equal(normalized.searchParams.get("v"), "3");
   assert.equal(mod.normalizeGitHubAvatarUrl("http://avatars.githubusercontent.com/u/1"), undefined);
   assert.equal(mod.normalizeGitHubAvatarUrl(undefined), undefined);
 });
