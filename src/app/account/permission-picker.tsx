@@ -52,10 +52,11 @@ function ParameterInput({ option, context, declarationId, value, onChange, accou
   const current = search?.query === value ? search : null;
   const options = current?.options ?? option;
   const id = `permission-param-${option.name}`;
-  if (accountParameter) return <AccountPicker id={id} label={(option.label ?? "Account").replace(/\bAUID\b/gi, "account")} contexts={accounts} value={value} disabled={false} onChoose={(account) => onChange(account.id)} />;
+  const accountLabel = !option.label || option.label === option.name ? "For account" : option.label.replace(/\bAUID\b/gi, "account");
+  if (accountParameter) return <AccountPicker id={id} label={accountLabel} contexts={accounts} value={value} disabled={false} onChoose={(account) => onChange(account.id)} />;
   if (!option.dynamic && option.values.length && !manual) return (
     <Field id={id} label={option.label ?? option.name}>
-      <select id={id} className={`${controlClassName} h-11 px-3`} value={value} onChange={(event) => onChange(event.target.value)} required>
+      <select id={id} className={`${controlClassName} h-11 px-3 sm:h-10`} value={value} onChange={(event) => onChange(event.target.value)} required>
         <option value="">Choose a value</option>
         {option.values.map((item) => <option key={item.value} value={item.value}>{item.label ?? item.value}</option>)}
       </select>
@@ -64,8 +65,8 @@ function ParameterInput({ option, context, declarationId, value, onChange, accou
     </Field>
   );
   return <div>
-    <Input id={id} label={options.label ?? option.name} value={value} onChange={(event) => onChange(event.target.value)} list={option.dynamic ? `${id}-values` : undefined} required autoComplete="off" maxLength={1024}
-      hint={options.degraded || current?.error ? "Validated by app. Enter a value while suggestions are unavailable." : option.dynamic ? "Search for a value or enter one. Validated by app." : "Enter a value. AXUS ID checks the declaration before sharing."} />
+    <Input id={id} label={options.label ?? option.name} className="sm:h-10" value={value} onChange={(event) => onChange(event.target.value)} list={option.dynamic ? `${id}-values` : undefined} required autoComplete="off" maxLength={1024}
+      hint={options.degraded || current?.error ? "Suggestions unavailable. You can still enter a value." : option.dynamic ? "Search or enter a value." : undefined} />
     {option.dynamic ? <datalist id={`${id}-values`}>{options.values.map((item) => <option key={item.value} value={item.value}>{item.label ?? item.value}</option>)}</datalist> : null}
     {option.dynamic && !current ? <p role="status" className="mt-1 text-xs text-neutral-500">Finding values…</p> : null}
     {manual && !option.dynamic && option.values.length ? <Button size="sm" variant="ghost" onClick={() => { setManual(false); onChange(""); }}>Choose a suggested value</Button> : null}
@@ -116,20 +117,19 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
     } catch { setError("Couldn’t share this permission. Please try again."); }
     finally { submitting.current = false; setPending(false); onPendingChange(false); }
   }}>
-    <h3 ref={heading} tabIndex={-1} className="text-sm font-semibold outline-none">{review ? "Review access" : "Choose access"}</h3>
-    {!review ? <>
+    {review ? <h3 ref={heading} tabIndex={-1} className="text-sm font-semibold outline-none">Review access</h3> : null}
+    {!review ? <div className="grid items-start gap-3 sm:grid-cols-2">
       {options.map((option) => <ParameterInput key={option.name} option={option} context={declaration.context} declarationId={declaration.id} value={bindings[option.name] ?? ""} accounts={accounts} onChange={(value) => { setBindings((previous) => ({ ...previous, [option.name]: value })); setError(""); }} />)}
-      <Input id="share-username" label="Who do you want to share with?" placeholder="@username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} required maxLength={256} />
-    </> : <div className="flex items-center gap-3"><UsernameAvatar username={username} size="sm" /><span className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</span></div>}
+      <Input id="share-username" label="Share with" className="sm:h-10" placeholder="@username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} required maxLength={256} />
+    </div> : <div className="flex items-center gap-3"><UsernameAvatar username={username} size="sm" /><span className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</span></div>}
     {key && !current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Checking access…</p> : null}
     {current?.error ? <FormError>{current.error}</FormError> : null}
     {current?.error || permission?.available === null ? <Button size="sm" variant="secondary" onClick={() => { setPreview(null); setPreviewAttempt((value) => value + 1); }}>Retry preview</Button> : null}
-    {permission ? <div className="rounded-xl border border-black/[0.06] bg-white p-4">
-      <p className="text-xs text-neutral-500">{contextLabel}</p>
-      <p className="mt-1 flex items-center gap-2 text-sm font-medium"><PermissionIcon name={permission.icon} />{permission.label}</p>
+    {permission ? <div className="rounded-lg bg-neutral-50 px-3 py-2.5">
+      {review ? <p className="mb-1 text-xs text-neutral-500">{contextLabel}</p> : null}
+      <p className="flex items-center gap-2 text-sm font-medium"><PermissionIcon name={permission.icon} />{permission.label}</p>
       <p className="mt-1 text-sm text-neutral-600">{permission.description}</p>
-      {permission.params?.length ? <dl className="mt-3 space-y-2 text-xs">{permission.params.map((param) => <div key={param.name}><dt className="text-neutral-500">{param.label ?? param.name}</dt><dd className="break-all"><span className="flex items-center gap-2"><PermissionIcon name={param.valueIcon ?? param.icon} />{param.valueLabel ?? param.value}</span>{param.description ? <span className="block text-neutral-500">{param.description}</span> : null}{param.hint ? <span className="block text-neutral-500">{param.hint}</span> : null}</dd></div>)}</dl> : null}
-      <code className="mt-3 block break-all text-xs text-neutral-500">{permission.key}</code>
+      {review && permission.params?.length ? <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">{permission.params.map((param) => <div key={param.name}><dt className="text-neutral-500">{param.label ?? param.name}</dt><dd className="break-all"><span className="flex items-center gap-2"><PermissionIcon name={param.valueIcon ?? param.icon} />{param.valueLabel ?? param.value}</span>{param.description ? <span className="block text-neutral-500">{param.description}</span> : null}{param.hint ? <span className="block text-neutral-500">{param.hint}</span> : null}</dd></div>)}</dl> : null}
       {permission.available !== true ? <p className="mt-2 text-sm text-amber-800">{permission.available === false ? "You don’t currently hold this access." : "Your access couldn’t be verified."}</p> : null}
     </div> : null}
     {permission?.context === systemContext && permission.key.endsWith(".grants.delegate") ? <p className="text-xs text-amber-800">This lets the recipient share permissions on your behalf. Only give it to someone you trust.</p> : null}
@@ -189,7 +189,7 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
     input.current?.blur();
   };
 
-  return <div className="space-y-1.5">
+  return <div className="min-w-0 space-y-1.5">
     <label htmlFor={id} className="block text-sm font-medium text-neutral-800">{label}</label>
     <div className="relative" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setQuery(""); } }}>
       <div className="relative">
@@ -215,7 +215,7 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
-          className={`${controlClassName} h-11 pr-10 ${!open && selected ? "pl-12" : "pl-3"}`}
+          className={`${controlClassName} h-11 pr-10 sm:h-10 ${!open && selected ? "pl-12" : "pl-3"}`}
         />
         <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
       </div>
@@ -258,18 +258,20 @@ export function PermissionPicker({ contexts: knownContexts, initial, systemConte
   const initialDeclaration = initial?.context === context ? declarations.find((item) => bindingsFor(item.template, initial.key)) : undefined;
   const selected = declarations.find((item) => item.id === selection) ?? initialDeclaration ?? declarations[0];
   const groups = [...new Set(declarations.map((item) => item.group))];
-  return <div className="mb-6 space-y-4 border-b border-black/[0.07] pb-6">
-    <AccountPicker contexts={contexts} value={context} disabled={busy} onChoose={(found) => {
-      setContexts((items) => items.some((item) => item.id === found.id) ? items.map((item) => item.id === found.id ? found : item) : [...items, found]);
-      setContext(found.id);
-      setSelection("");
-    }} />
-    {!current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Loading declarations…</p> : current.error ? <><FormError>{current.error}</FormError><Button size="sm" variant="secondary" onClick={() => { setCatalog(null); setRetry((value) => value + 1); }}>Try again</Button></> : !declarations.length ? <p className="text-sm text-neutral-500">This app hasn’t published any permission declarations.</p> : <>
-      <Field id="permission-declaration" label="Permission">
-        <select id="permission-declaration" disabled={busy} value={selected?.id ?? ""} onChange={(event) => setSelection(event.target.value)} className={`${controlClassName} h-11 px-3`}>
+  return <div className="mb-5 space-y-3 border-b border-black/[0.07] pb-5 [&_label]:text-xs [&_label]:text-neutral-500">
+    <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+      <AccountPicker contexts={contexts} value={context} disabled={busy} onChoose={(found) => {
+        setContexts((items) => items.some((item) => item.id === found.id) ? items.map((item) => item.id === found.id ? found : item) : [...items, found]);
+        setContext(found.id);
+        setSelection("");
+      }} />
+      {declarations.length ? <Field id="permission-declaration" label="Permission" className="min-w-0">
+        <select id="permission-declaration" disabled={busy} value={selected?.id ?? ""} onChange={(event) => setSelection(event.target.value)} className={`${controlClassName} h-11 px-3 sm:h-10`}>
           {groups.map((group) => <optgroup key={group} label={group}>{declarations.filter((item) => item.group === group).map((item) => <option key={item.id} value={item.id}>{item.title ?? item.name}</option>)}</optgroup>)}
         </select>
-      </Field>
+      </Field> : null}
+    </div>
+    {!current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Loading declarations…</p> : current.error ? <><FormError>{current.error}</FormError><Button size="sm" variant="secondary" onClick={() => { setCatalog(null); setRetry((value) => value + 1); }}>Try again</Button></> : !declarations.length ? <p className="text-sm text-neutral-500">This app hasn’t published any permission declarations.</p> : <>
       {selected ? <BindingForm key={`${context}:${selected.id}`} declaration={selected} contextLabel={contexts.find((item) => item.id === context)?.label ?? "Account"} initial={initial?.context === context ? initial : undefined} systemContext={systemContext} accountAuid={accountAuid} accounts={contexts} onClose={onClose} onShared={onShared} onPendingChange={setBusy} /> : null}
     </>}
     {!selected ? <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button> : null}
