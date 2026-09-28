@@ -4,7 +4,7 @@ import { CodeBlock } from "@/components/ui/code-block";
 import { declarationExample } from "@/lib/permission-declaration-input";
 import { permissionPublishExample, permissionInvalidateExample } from "@/lib/permission-doc-examples";
 
-export const metadata: Metadata = { title: "Become an AXUS ID app", description: "Publish permission declarations, implement dynamic validation and value search, and invalidate cached verdicts." };
+export const metadata: Metadata = { title: "Become an AXUS ID app", description: "Publish permission declarations, personalize permission descriptions, validate values and invalidate cached verdicts." };
 const dynamicDeclaration = {
   name: "identity.videos.edit", template: "identity.{subject}.videos.edit",
   params: [{ name: "subject", type: "AUID", allowWildcard: false, label: "Video owner", description: "The account whose videos may be edited.", hint: "Search for an account in this app." }],
@@ -31,7 +31,7 @@ export default function BecomeAnAppPage() {
         ["STRING", "Text in one dot-separated segment"], ["INTEGER", "Signed 32-bit integer text"], ["LONG", "Signed 64-bit integer text; keep it as a string"], ["DOUBLE", "Numeric text; exponent notation avoids a dot within a segment"], ["BOOLEAN", "Exactly true or false"], ["AUID", "An AUID, including comma-separated nested IDs"],
       ].map(([type, detail]) => <tr key={type} className="border-t border-neutral-200"><td className="p-3"><code>{type}</code></td><td className="p-3 text-neutral-600">{detail}</td></tr>)}</tbody></table></div>
       <p><code>ParamDefInput</code> supports <code>name</code>, <code>type</code> (default STRING), <code>allowWildcard</code> (default false), <code>allowedValues: [String!]</code>, <code>regex</code>, <code>minLength</code>/<code>maxLength</code>, <code>minNumber</code>/<code>maxNumber</code>, and <code>label</code>, <code>description</code>, <code>icon</code>, <code>hint</code>. Numeric constraints use GraphQL Float. Allowed values remain strings for every type.</p>
-      <p>The declaration supports <code>title</code>, <code>description</code>, <code>icon</code>, <code>validatorUrl</code> and <code>combinationInvariantJs</code>. Metadata can interpolate bindings using <code>&#123;param&#125;</code>. Value labels, icons and descriptions can be supplied by dynamic search; the current publishing input does not expose static per-value metadata maps. The website renders recognized icon names such as <code>key</code>, <code>shield</code>, <code>layers</code> and <code>file-plus</code>, with a default icon for others.</p>
+      <p>The declaration supports <code>title</code>, <code>description</code>, <code>icon</code>, <code>validatorUrl</code> and <code>combinationInvariantJs</code>. Titles and descriptions can interpolate bindings using <code>&#123;param&#125;</code>. The app can also personalize permission and parameter text through the <Link href="#describe" className="docs-link">describe protocol</Link>. The current publishing input does not expose static per-value metadata maps. The website renders recognized icon names such as <code>key</code>, <code>shield</code>, <code>layers</code> and <code>file-plus</code>, with a default icon for others.</p>
       <p>For a range declaration with INTEGER parameters named <code>from</code> and <code>to</code>, a combination invariant can be <code>{'function(bindings) { return Number(bindings.from) <= Number(bindings.to); }'}</code>. AXUS ID evaluates it; frontend previews never execute the source. Avoid converting LONG values to JavaScript Number in your own invariants.</p>
     </section>
     <section id="validator" className="docs-section">
@@ -47,6 +47,13 @@ export default function BecomeAnAppPage() {
       <CodeBlock label="Search: POST to the same validatorUrl" code={JSON.stringify({ action: "search", declarationId: "DECLARATION_UUID", param: "subject", query: "alex", limit: 20 }, null, 2)} />
       <CodeBlock label="Search response" code={JSON.stringify({ values: [{ value: "100000000", label: "Alex", icon: "users", description: "Community video owner" }] }, null, 2)} />
       <p>Filter by the query and respect the limit. Search failure yields <code>degraded: true</code> to the picker instead of a search error. People can enter a raw value with the hint “Validated by app”; the subsequent grant still requires successful validation. Search suggestions and display labels are not authorization decisions.</p>
+    </section>
+    <section id="describe" className="docs-section">
+      <h2>Personalize permission text for each binding.</h2>
+      <p>When someone previews a concrete permission with <code>describePermission</code>, AXUS ID sends its bindings to the same <code>validatorUrl</code>. Return only the fields you want to personalize. For example, your app can resolve an AUID to <code>@likespro</code> for the permission title and the parameter label.</p>
+      <CodeBlock label="Describe: POST to validatorUrl" code={JSON.stringify({ action: "describe", declarationId: "DECLARATION_UUID", bindings: { subject: "100000000" } }, null, 2)} />
+      <CodeBlock label="Describe response" code={JSON.stringify({ title: "Edit videos owned by @likespro", description: "Edit @likespro’s videos in our app.", params: { subject: { label: "Video owner @likespro", description: "The account whose videos may be edited." } } }, null, 2)} />
+      <p><code>title</code>, <code>description</code>, and each parameter’s <code>label</code> and <code>description</code> are optional. Missing fields use the declaration text, with <code>&#123;param&#125;</code> replaced by the binding. If the endpoint fails or times out, the preview uses that declaration text. This affects display only; grant validation still uses the separate <code>validate</code> action.</p>
     </section>
     <section id="invalidate" className="docs-section">
       <h2>Notify AXUS ID when validation data changes.</h2>

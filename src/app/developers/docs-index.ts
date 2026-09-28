@@ -65,6 +65,7 @@ export const docsIndex = [
     ["parameters", "Parameter definitions", "Types, constraints and display metadata"],
     ["validator", "Dynamic validation", "POST validate protocol, timeout, retry and cached verdicts"],
     ["search", "Dynamic value search", "POST search protocol and degraded raw input"],
+    ["describe", "Personalized permission text", "POST describe protocol for titles and parameter labels"],
     ["invalidate", "Invalidate verdicts", "notifyValidationChanged after app data changes"],
   ].map(([anchor, title, description]) => ({ href: `/developers/become-an-app#${anchor}`, title, description, group: "On this page" })),
   {

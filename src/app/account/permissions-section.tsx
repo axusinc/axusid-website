@@ -18,6 +18,7 @@ import { FormError, FormSuccess } from "@/components/ui/form-message";
 import { Spinner } from "@/components/ui/spinner";
 import { focusRing } from "@/lib/design";
 import { cn } from "@/lib/utils";
+import type { AccountItemInfo } from "@/lib/user-profile";
 
 const sharedStates: Record<SharedPermission["state"], string> = {
   shared: "Shared", paused: "Paused", pending: "Awaiting approval", restricted: "Restricted", unverified: "Status unavailable",
@@ -104,7 +105,7 @@ function UserPermissionRow({ permission, canShare, disabled, onShare }: { permis
   );
 }
 
-export function PermissionsSection({ auid, onEditingChange }: { auid: string; onEditingChange?: (editing: boolean) => void }) {
+export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: string; accounts: AccountItemInfo[]; onEditingChange?: (editing: boolean) => void }) {
   const [contexts, setContexts] = useState<PermissionContext[]>([]);
   const [systemContext, setSystemContext] = useState("");
   const [accountAuid, setAccountAuid] = useState("");
@@ -174,6 +175,21 @@ export function PermissionsSection({ auid, onEditingChange }: { auid: string; on
     group.push(grant); recipients.set(grant.recipientId, group);
   }
 
+  const signedInAccounts: PermissionContext[] = [...accounts].sort((a, b) => Number(b.isActive) - Number(a.isActive)).map((account) => ({
+    id: account.auid,
+    username: account.username,
+    label: account.username ? `@${account.username}` : "Username unavailable",
+    avatarUrl: account.avatarUrl,
+  }));
+  const accountSuggestions = new Map(signedInAccounts.map((account) => [account.id, account]));
+  for (const grant of shared) if (grant.username && !accountSuggestions.has(grant.recipientId)) {
+    accountSuggestions.set(grant.recipientId, { id: grant.recipientId, username: grant.username, label: `@${grant.username}`, avatarUrl: null });
+  }
+  for (const permission of receivedPermissions) {
+    const sender = permission.receivedFrom;
+    if (sender?.username && !accountSuggestions.has(sender.id)) accountSuggestions.set(sender.id, { id: sender.id, username: sender.username, label: `@${sender.username}`, avatarUrl: null });
+  }
+
   return (
     <Card>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -183,7 +199,7 @@ export function PermissionsSection({ auid, onEditingChange }: { auid: string; on
           <Button size="sm" variant="ghost" aria-label="Refresh permissions" disabled={loading || sharing !== null || mutating} onClick={refresh}><RefreshCw aria-hidden className="h-3.5 w-3.5" /></Button>
         </div>
       </div>
-      {sharing !== null ? <PermissionPicker key={sharing} contexts={contexts} systemContext={systemContext} accountAuid={accountAuid} initial={shareOptions.find((option) => permissionIdentity(option.key, option.context) === sharing)} onClose={closeShare} onShared={(grant, alreadyShared) => {
+      {sharing !== null ? <PermissionPicker key={sharing} contexts={contexts} signedInAccounts={signedInAccounts} recipientSuggestions={[...accountSuggestions.values()]} systemContext={systemContext} accountAuid={accountAuid} initial={shareOptions.find((option) => permissionIdentity(option.key, option.context) === sharing)} onClose={closeShare} onShared={(grant, alreadyShared) => {
         setShared((items) => [...items.filter((item) => item.id !== grant.id), grant]);
         setView("shared"); setFilter("");
         setMessage(alreadyShared ? "This permission is already shared with this person." : `${grant.permission.label} shared with ${grant.username ? `@${grant.username}` : "the recipient"}.`);

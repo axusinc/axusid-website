@@ -33,6 +33,7 @@ export type PermissionRequest =
   | { kind: "resolve-account"; accountId: string }
   | { kind: "preview"; permission: string; permissionContext: string }
   | { kind: "search"; permissionContext: string; declarationId: string; param: string; query: string }
+  | { kind: "search-accounts"; permissionContext: string; declarationId: string; param: string; query: string }
   | { kind: "revoke"; grantId: string };
 
 export type PermissionResult = {
@@ -45,6 +46,7 @@ export type PermissionResult = {
   declarations?: PickerDeclaration[];
   preview?: UserPermission;
   options?: ParameterOptionsFragment;
+  accountSuggestions?: PermissionContext[];
   permissions?: UserPermission[];
   shareOptions?: UserPermission[];
   shared?: SharedPermission[];

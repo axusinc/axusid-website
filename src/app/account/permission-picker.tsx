@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { permissionAction } from "@/app/actions/permissions";
 import { bindPermission, permissionIdentity } from "@/lib/permission-context";
@@ -28,13 +28,20 @@ function bindingsFor(template: string, key?: string): Record<string, string> | n
   return bindings;
 }
 
+function AccountAvatar({ account }: { account: PermissionContext }) {
+  if (account.avatarUrl) return <ProfileAvatar imageUrl={account.avatarUrl} username={account.username} alt="" seed={account.id} size="sm" />;
+  if (account.username) return <UsernameAvatar username={account.username} size="sm" />;
+  return <ProfileAvatar alt="" seed={account.id} size="sm" />;
+}
+
 function isAccountParameter(option: ParameterOptionsFragment) {
   if (option.values.some((item) => !/^[0-9]+(?:,[0-9]+)*$/.test(item.value))) return false;
   return /(?:^auid$|auid$|^account$|^account_id$|^context$|^subject$)/i.test(option.name) || /\bAUID\b/i.test(option.label ?? "");
 }
 
-function ParameterInput({ option, context, declarationId, value, onChange, accounts }: {
+function ParameterInput({ option, context, declarationId, value, onChange, accounts, presentation }: {
   option: ParameterOptionsFragment; context: string; declarationId: string; value: string; onChange: (value: string) => void; accounts: PermissionContext[];
+  presentation?: NonNullable<UserPermission["params"]>[number];
 }) {
   const accountParameter = isAccountParameter(option);
   const [manual, setManual] = useState(Boolean(value && !option.values.some((item) => item.value === value)));
@@ -52,33 +59,37 @@ function ParameterInput({ option, context, declarationId, value, onChange, accou
   const current = search?.query === value ? search : null;
   const options = current?.options ?? option;
   const id = `permission-param-${option.name}`;
-  const accountLabel = !option.label || option.label === option.name ? "For account" : option.label.replace(/\bAUID\b/gi, "account");
-  if (accountParameter) return <AccountPicker id={id} label={accountLabel} contexts={accounts} value={value} disabled={false} onChoose={(account) => onChange(account.id)} />;
+  const label = presentation?.label ?? option.label ?? option.name;
+  const accountLabel = label === option.name ? "For account" : label.replace(/\bAUID\b/gi, "account");
+  if (accountParameter) return <div><AccountPicker id={id} label={accountLabel} contexts={accounts} value={value} disabled={false} suggestionSource={{ context, declarationId, param: option.name }} onChoose={(account) => onChange(account.id)} />{presentation?.description ? <p className="mt-1 text-sm text-neutral-500">{presentation.description}</p> : null}</div>;
   if (!option.dynamic && option.values.length && !manual) return (
-    <Field id={id} label={option.label ?? option.name}>
+    <Field id={id} label={label}>
       <select id={id} className={`${controlClassName} h-11 px-3 sm:h-10`} value={value} onChange={(event) => onChange(event.target.value)} required>
         <option value="">Choose a value</option>
         {option.values.map((item) => <option key={item.value} value={item.value}>{item.label ?? item.value}</option>)}
       </select>
+      {presentation?.description ? <p className="text-sm text-neutral-500">{presentation.description}</p> : null}
       {option.values.find((item) => item.value === value)?.description ? <p className="text-xs text-neutral-500">{option.values.find((item) => item.value === value)?.description}</p> : null}
       <Button size="sm" variant="ghost" onClick={() => setManual(true)}>Enter a value instead</Button>
     </Field>
   );
   return <div>
-    <Input id={id} label={options.label ?? option.name} className="sm:h-10" value={value} onChange={(event) => onChange(event.target.value)} list={option.dynamic ? `${id}-values` : undefined} required autoComplete="off" maxLength={1024}
+    <Input id={id} label={presentation?.label ?? options.label ?? option.name} className="sm:h-10" value={value} onChange={(event) => onChange(event.target.value)} list={option.dynamic ? `${id}-values` : undefined} required autoComplete="off" maxLength={1024}
       hint={options.degraded || current?.error ? "Suggestions unavailable. You can still enter a value." : option.dynamic ? "Search or enter a value." : undefined} />
+    {presentation?.description ? <p className="mt-1 text-sm text-neutral-500">{presentation.description}</p> : null}
     {option.dynamic ? <datalist id={`${id}-values`}>{options.values.map((item) => <option key={item.value} value={item.value}>{item.label ?? item.value}</option>)}</datalist> : null}
     {option.dynamic && !current ? <p role="status" className="mt-1 text-xs text-neutral-500">Finding values…</p> : null}
     {manual && !option.dynamic && option.values.length ? <Button size="sm" variant="ghost" onClick={() => { setManual(false); onChange(""); }}>Choose a suggested value</Button> : null}
   </div>;
 }
 
-function BindingForm({ declaration, contextLabel, initial, accountAuid, systemContext, accounts, onClose, onShared, onPendingChange }: {
-  declaration: PickerDeclaration; contextLabel: string; initial?: UserPermission; accountAuid: string; systemContext: string; accounts: PermissionContext[];
+function BindingForm({ declaration, contextLabel, initial, accountAuid, systemContext, signedInAccounts, recipientSuggestions, onClose, onShared, onPendingChange }: {
+  declaration: PickerDeclaration; contextLabel: string; initial?: UserPermission; accountAuid: string; systemContext: string; signedInAccounts: PermissionContext[]; recipientSuggestions: PermissionContext[];
   onClose: () => void; onShared: (grant: SharedPermission, alreadyShared: boolean) => void; onPendingChange: (pending: boolean) => void;
 }) {
   const [bindings, setBindings] = useState<Record<string, string>>(() => bindingsFor(declaration.template, initial?.key) ?? (declaration.context === systemContext ? { auid: accountAuid, context: accountAuid } : {}));
-  const [username, setUsername] = useState("");
+  const [recipient, setRecipient] = useState<PermissionContext | null>(null);
+  const username = recipient?.username ?? "";
   const [review, setReview] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -107,7 +118,7 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   return <form className="space-y-4" onSubmit={async (event) => {
     event.preventDefault();
     if (submitting.current || !permission || permission.available !== true) return;
-    if (!username.trim().replace(/^@/, "")) { setError("Enter a recipient’s username."); return; }
+    if (!username.trim().replace(/^@/, "")) { setError("Choose an account to share with."); return; }
     if (!review) { setReview(true); setError(""); requestAnimationFrame(() => heading.current?.focus()); return; }
     submitting.current = true; setPending(true); onPendingChange(true); setError("");
     try {
@@ -119,9 +130,9 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   }}>
     {review ? <h3 ref={heading} tabIndex={-1} className="text-sm font-semibold outline-none">Review access</h3> : null}
     {!review ? <div className="grid items-start gap-3 sm:grid-cols-2">
-      {options.map((option) => <ParameterInput key={option.name} option={option} context={declaration.context} declarationId={declaration.id} value={bindings[option.name] ?? ""} accounts={accounts} onChange={(value) => { setBindings((previous) => ({ ...previous, [option.name]: value })); setError(""); }} />)}
-      <Input id="share-username" label="Share with" className="sm:h-10" placeholder="@username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} required maxLength={256} />
-    </div> : <div className="flex items-center gap-3"><UsernameAvatar username={username} size="sm" /><span className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</span></div>}
+      {options.map((option) => <ParameterInput key={option.name} option={option} context={declaration.context} declarationId={declaration.id} value={bindings[option.name] ?? ""} accounts={signedInAccounts} presentation={permission?.params?.find((param) => param.name === option.name)} onChange={(value) => { setBindings((previous) => ({ ...previous, [option.name]: value })); setError(""); }} />)}
+      <AccountPicker id="share-recipient" label="Share with" contexts={recipient ? [...recipientSuggestions.filter((account) => account.id !== recipient.id), recipient] : recipientSuggestions} value={recipient?.id ?? ""} disabled={pending} onChoose={(account) => { setRecipient(account); setError(""); }} />
+    </div> : <div className="flex items-center gap-3">{recipient?.avatarUrl ? <ProfileAvatar imageUrl={recipient.avatarUrl} username={username} alt="" size="sm" /> : <UsernameAvatar username={username} size="sm" />}<span className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</span></div>}
     {key && !current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Checking access…</p> : null}
     {current?.error ? <FormError>{current.error}</FormError> : null}
     {current?.error || permission?.available === null ? <Button size="sm" variant="secondary" onClick={() => { setPreview(null); setPreviewAttempt((value) => value + 1); }}>Retry preview</Button> : null}
@@ -143,23 +154,41 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   </form>;
 }
 
-function AccountPicker({ contexts, value, disabled, onChoose, label = "Account", id = "permission-context" }: {
+function AccountPicker({ contexts, value, disabled, onChoose, label = "Account", id = "permission-context", suggestionSource }: {
   contexts: PermissionContext[]; value: string; disabled: boolean; onChoose: (account: PermissionContext) => void; label?: string; id?: string;
+  suggestionSource?: { context: string; declarationId: string; param: string };
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   const [lookup, setLookup] = useState<{ query: string; account?: PermissionContext; error?: string } | null>(null);
+  const [suggestions, setSuggestions] = useState<{ query: string; accounts: PermissionContext[]; error?: string } | null>(null);
   const [resolved, setResolved] = useState<PermissionContext | null>(null);
-  const input = useRef<HTMLInputElement>(null);
+  const search = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
   const selected = contexts.find((item) => item.id === value) ?? (resolved?.id === value ? resolved : undefined);
   const normalized = query.trim().replace(/^@/, "").toLowerCase();
   const available = selected && !contexts.some((item) => item.id === selected.id) ? [...contexts, selected] : contexts;
   const matches = available.filter((item) => !normalized || item.username?.toLowerCase().includes(normalized));
   const exactKnown = available.some((item) => item.username?.toLowerCase() === normalized);
   const found = lookup?.query === normalized ? lookup : null;
-  const options = found?.account && !matches.some((item) => item.id === found.account?.id) ? [...matches, found.account] : matches;
+  const suggested = suggestions?.query === normalized ? suggestions : null;
+  const suggestionContext = suggestionSource?.context;
+  const suggestionDeclarationId = suggestionSource?.declarationId;
+  const suggestionParam = suggestionSource?.param;
+  const options = [...matches];
+  for (const account of suggested?.accounts ?? []) if (!options.some((item) => item.id === account.id)) options.push(account);
+  if (found?.account && !options.some((item) => item.id === found.account?.id)) options.push(found.account);
   const active = options[Math.min(highlight, options.length - 1)];
+
+  useLayoutEffect(() => {
+    if (open) search.current?.focus();
+    else if (returnFocus.current) {
+      returnFocus.current = false;
+      trigger.current?.focus();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!value || contexts.some((item) => item.id === value)) return;
@@ -181,63 +210,93 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
     return () => { cancelled = true; clearTimeout(timeout); };
   }, [open, normalized, exactKnown]);
 
+  useEffect(() => {
+    if (!open || !normalized || !suggestionContext || !suggestionDeclarationId || !suggestionParam) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      permissionAction({ kind: "search-accounts", permissionContext: suggestionContext, declarationId: suggestionDeclarationId, param: suggestionParam, query: normalized })
+        .then((result) => { if (!cancelled) setSuggestions({ query: normalized, accounts: result.accountSuggestions ?? [], error: result.error }); })
+        .catch(() => { if (!cancelled) setSuggestions({ query: normalized, accounts: [], error: "Account suggestions are unavailable." }); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [open, normalized, suggestionContext, suggestionDeclarationId, suggestionParam]);
+
   const choose = (account: PermissionContext) => {
     onChoose(account);
+    returnFocus.current = true;
     setOpen(false);
     setQuery("");
     setHighlight(0);
-    input.current?.blur();
+  };
+
+  const openSearch = () => {
+    setQuery("");
+    setHighlight(0);
+    setOpen(true);
   };
 
   return <div className="min-w-0 space-y-1.5">
-    <label htmlFor={id} className="block text-sm font-medium text-neutral-800">{label}</label>
-    <div className="relative" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setQuery(""); } }}>
+    <span id={`${id}-label`} className="block text-sm font-medium text-neutral-800">{label}</span>
+    <div className="relative">
       <div className="relative">
-        {!open && selected ? <ProfileAvatar imageUrl={selected.avatarUrl} username={selected.username} alt={selected.username ? `@${selected.username}` : selected.label} seed={selected.id} size="sm" className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2" /> : null}
-        <input
-          ref={input}
+        {open ? <div className="relative">
+          <div
+          ref={search}
           id={id}
           role="combobox"
+          contentEditable="plaintext-only"
+          suppressContentEditableWarning
+          aria-labelledby={`${id}-label`}
           aria-autocomplete="list"
-          aria-expanded={open}
+          aria-expanded="true"
           aria-controls={`${id}-options`}
-          aria-activedescendant={open && active ? `${id}-option-${active.id}` : undefined}
-          disabled={disabled}
-          value={open ? query : selected?.username ? `@${selected.username}` : selected?.label ?? (value ? "Loading account…" : "")}
-          onFocus={() => { setOpen(true); setQuery(""); setHighlight(0); }}
-          onChange={(event) => { setQuery(event.target.value); setHighlight(0); }}
+          aria-activedescendant={active ? `${id}-option-${active.id}` : undefined}
+          onBlur={(event) => { if (!event.currentTarget.parentElement?.parentElement?.contains(event.relatedTarget as Node | null)) { setOpen(false); setQuery(""); } }}
+          onInput={(event) => { setQuery(event.currentTarget.textContent ?? ""); setHighlight(0); }}
           onKeyDown={(event) => {
-            if (event.key === "Escape") { setOpen(false); setQuery(""); input.current?.blur(); }
+            if (event.key === "Escape") { event.preventDefault(); returnFocus.current = true; setOpen(false); setQuery(""); }
             if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); if (options.length) setHighlight((index) => (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length); }
-            if (event.key === "Enter" && active) { event.preventDefault(); choose(active); }
+            if (event.key === "Enter") { event.preventDefault(); if (active) choose(active); }
           }}
-          placeholder="Search @username"
-          autoComplete="off"
-          autoCapitalize="none"
           spellCheck={false}
-          className={`${controlClassName} h-11 pr-10 sm:h-10 ${!open && selected ? "pl-12" : "pl-3"}`}
-        />
-        <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          className={`${controlClassName} block h-11 overflow-hidden whitespace-nowrap px-3 py-3 sm:h-10 sm:py-2.5`}
+          />
+          {!query ? <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-400">Search @username</span> : null}
+        </div> : <button
+          ref={trigger}
+          type="button"
+          id={id}
+          aria-labelledby={`${id}-label ${id}-value`}
+          aria-haspopup="listbox"
+          aria-expanded="false"
+          disabled={disabled}
+          onClick={openSearch}
+          className={`${controlClassName} h-11 items-center gap-3 px-2 text-left sm:h-10`}
+        >
+          {selected ? <AccountAvatar account={selected} /> : null}
+          <span id={`${id}-value`} className={`min-w-0 flex-1 truncate ${selected ? "text-neutral-950" : "text-neutral-400"}`}>{selected?.username ? `@${selected.username}` : selected?.label ?? (value ? "Loading account…" : "Choose account")}</span>
+          <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-neutral-400" />
+        </button>}
       </div>
       {open ? <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.1)]">
         <ul id={`${id}-options`} role="listbox" aria-label="Accounts" className="max-h-56 overflow-y-auto p-1">
           {options.map((item, index) => <li key={item.id} id={`${id}-option-${item.id}`} role="option" aria-selected={item.id === value}>
             <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)} className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm hover:bg-neutral-50 ${index === highlight ? "bg-neutral-100" : ""}`}>
-              <ProfileAvatar imageUrl={item.avatarUrl} username={item.username} alt={item.username ? `@${item.username}` : item.label} seed={item.id} size="sm" />
+              <AccountAvatar account={item} />
               <span className="min-w-0 flex-1 truncate font-medium">{item.username ? `@${item.username}` : item.label}</span>
               {item.id === value ? <Check aria-hidden className="h-4 w-4 text-neutral-500" /> : null}
             </button>
           </li>)}
         </ul>
-        {normalized && !exactKnown && !found ? <p role="status" className="px-3 pb-2 text-xs text-neutral-500">Looking up @{normalized}…</p> : null}
-        {normalized && found?.error && !options.length ? <p className="px-3 pb-2 text-xs text-neutral-500">{found.error}</p> : null}
+        {normalized && ((!exactKnown && !found) || (suggestionSource && !suggested)) ? <p role="status" className="px-3 pb-2 text-xs text-neutral-500">Looking for accounts…</p> : null}
+        {normalized && !options.length && found && (!suggestionSource || suggested) ? <p className="px-3 pb-2 text-xs text-neutral-500">{suggested?.error ?? found.error ?? "No matching accounts"}</p> : null}
       </div> : null}
     </div>
   </div>;
 }
 
-export function PermissionPicker({ contexts: knownContexts, initial, systemContext, accountAuid, onClose, onShared }: {
-  contexts: PermissionContext[]; initial?: UserPermission; systemContext: string; accountAuid: string;
+export function PermissionPicker({ contexts: knownContexts, signedInAccounts, recipientSuggestions, initial, systemContext, accountAuid, onClose, onShared }: {
+  contexts: PermissionContext[]; signedInAccounts: PermissionContext[]; recipientSuggestions: PermissionContext[]; initial?: UserPermission; systemContext: string; accountAuid: string;
   onClose: () => void; onShared: (grant: SharedPermission, alreadyShared: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -272,7 +331,7 @@ export function PermissionPicker({ contexts: knownContexts, initial, systemConte
       </Field> : null}
     </div>
     {!current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Loading declarations…</p> : current.error ? <><FormError>{current.error}</FormError><Button size="sm" variant="secondary" onClick={() => { setCatalog(null); setRetry((value) => value + 1); }}>Try again</Button></> : !declarations.length ? <p className="text-sm text-neutral-500">This app hasn’t published any permission declarations.</p> : <>
-      {selected ? <BindingForm key={`${context}:${selected.id}`} declaration={selected} contextLabel={contexts.find((item) => item.id === context)?.label ?? "Account"} initial={initial?.context === context ? initial : undefined} systemContext={systemContext} accountAuid={accountAuid} accounts={contexts} onClose={onClose} onShared={onShared} onPendingChange={setBusy} /> : null}
+      {selected ? <BindingForm key={`${context}:${selected.id}`} declaration={selected} contextLabel={contexts.find((item) => item.id === context)?.label ?? "Account"} initial={initial?.context === context ? initial : undefined} systemContext={systemContext} accountAuid={accountAuid} signedInAccounts={signedInAccounts} recipientSuggestions={recipientSuggestions} onClose={onClose} onShared={onShared} onPendingChange={setBusy} /> : null}
     </>}
     {!selected ? <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button> : null}
   </div>;

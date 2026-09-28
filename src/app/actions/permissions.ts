@@ -23,6 +23,7 @@ const requestSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("resolve-account"), accountId: auidSchema }),
   z.object({ kind: z.literal("preview"), permission: keySchema, permissionContext: auidSchema }),
   z.object({ kind: z.literal("search"), permissionContext: auidSchema, declarationId: z.uuid(), param: z.string().min(1).max(256), query: z.string().max(256) }),
+  z.object({ kind: z.literal("search-accounts"), permissionContext: auidSchema, declarationId: z.uuid(), param: z.string().min(1).max(256), query: z.string().max(256) }),
 ]);
 
 type Grant = MyDelegatedGrantsQuery["delegatedGrants"][number];
@@ -51,7 +52,7 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
         usernameFor(context),
         sdk.DefaultVariation({ auid: context }).then((result) => result.defaultVariation).catch(() => null),
       ]);
-      const username = context === systemContext ? "axusid" : resolvedUsername;
+      const username = resolvedUsername;
       const avatar = variation ? await sdk.Avatar({ variationId: variation.variationId }).then((result) => result.avatar).catch(() => null) : null;
       return { id: context, username, label: username ? `@${username}` : "Username unavailable", avatarUrl: avatar?.objectKey && variation ? avatarImageUrl(variation.variationId, avatar.updatedAt) : null };
     })());
@@ -125,6 +126,11 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
     if (args.kind === "search") {
       const { searchPermissionValues } = await sdk.SearchPermissionValues({ contextAuid: args.permissionContext, declarationId: args.declarationId, param: args.param, query: args.query, limit: 20 });
       return { options: searchPermissionValues };
+    }
+    if (args.kind === "search-accounts") {
+      const { searchPermissionValues } = await sdk.SearchPermissionValues({ contextAuid: args.permissionContext, declarationId: args.declarationId, param: args.param, query: args.query, limit: 20 });
+      const ids = [...new Set(searchPermissionValues.values.map((item) => item.value).filter((value) => /^[0-9]+(?:,[0-9]+)*$/.test(value)))];
+      return { accountSuggestions: await Promise.all(ids.map(contextView)) };
     }
     if (args.kind === "preview") {
       // Unlike list enrichment, preview must reject undeclared keys and invalid bindings.

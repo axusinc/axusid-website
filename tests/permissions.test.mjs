@@ -46,6 +46,7 @@ function setup(overrides = {}, session = { auid: '1', tokenId: 'private-token' }
     MyDelegatedGrants: async () => ({ delegatedGrants: [] }),
     EffectivePermission: async ({ permission }) => ({ checkPermission: { allowed: permission !== 'identity.1.username.write' } }),
     Usernames: async () => ({ usernames: { defaultUsername: 'alex' } }),
+    DefaultVariation: async () => ({ defaultVariation: null }),
     OwnerByUsername: async () => ({ ownerByUsername: '2' }),
     SharePermission: async () => ({ delegatePermission: grant }),
     RemoveSharedPermission: async () => ({ revokeGrant: true }),
@@ -62,6 +63,7 @@ function setup(overrides = {}, session = { auid: '1', tokenId: 'private-token' }
     '@/lib/permission-context': permissionContext,
     '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
     '@/lib/graphql-errors': graphqlErrors,
+    '@/lib/avatar-server': { avatarImageUrl: () => '' },
   });
   return { action: permissionAction, calls };
 }

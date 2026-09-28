@@ -216,7 +216,7 @@ return parameter constraints or invariant source. The picker leaves bindings as 
 uses server validation because the read API does not expose types or wildcard eligibility.
 
 Developer guides: `/developers/permissions` and `/developers/become-an-app`. They cover the
-validator validate/search protocol, cache invalidation, all declaration errors and migration.
+validator validate/search/describe protocol, cache invalidation, all declaration errors and migration.
 Legacy `identity.<auid>.*` and bare `*` cannot be delegated as stored grants. Bare `*` remains
 valid in native token scopes. OAuth consent uses exact scope matching and engine descriptions;
 custom OAuth permission keys currently use system context, since the engine's token-issuance

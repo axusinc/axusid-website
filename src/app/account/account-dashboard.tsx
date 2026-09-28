@@ -280,7 +280,7 @@ export function AccountDashboard({
                 cancelRef={securityCancelRef}
               />
             ) : active === "permissions" ? (
-              <PermissionsSection key={auid} auid={auid} onEditingChange={handleEditingChange} />
+              <PermissionsSection key={auid} auid={auid} accounts={accounts} onEditingChange={handleEditingChange} />
             ) : active === "connected-apps" ? (
               <ConnectedAppsSection apps={connectedApps} />
             ) : active === "nested-accounts" ? (
