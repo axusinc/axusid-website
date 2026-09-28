@@ -1,6 +1,6 @@
 import type { DeclarationSummaryFragment, ParameterOptionsFragment, DescribePermissionQuery } from "@/graphql/sdk";
 
-export type PermissionContext = { id: string; label: string };
+export type PermissionContext = { id: string; label: string; username: string | null; avatarUrl: string | null };
 export type PickerDeclaration = DeclarationSummaryFragment & { group: string; params: ParameterOptionsFragment[] };
 export type UserPermission = {
   key: string;
@@ -30,6 +30,7 @@ export type PermissionRequest =
   | { kind: "share"; username: string; permission: string; permissionContext?: string | null }
   | { kind: "catalog"; permissionContext: string }
   | { kind: "resolve-context"; username: string }
+  | { kind: "resolve-account"; accountId: string }
   | { kind: "preview"; permission: string; permissionContext: string }
   | { kind: "search"; permissionContext: string; declarationId: string; param: string; query: string }
   | { kind: "revoke"; grantId: string };

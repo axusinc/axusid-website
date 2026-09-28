@@ -7,6 +7,7 @@ import { getValidSession } from "@/lib/session-access";
 import { getSystemPermissionContext } from "@/lib/permission-config";
 import { bindPermission, normalizePermissionContext, permissionIdentity } from "@/lib/permission-context";
 import { permissionPresentation } from "@/lib/permission-presentation";
+import { avatarImageUrl } from "@/lib/avatar-server";
 import type { MyDelegatedGrantsQuery, ParameterOptionsFragment } from "@/graphql/sdk";
 import type { PermissionRequest, PermissionResult, SharedPermission, UserPermission, PickerDeclaration } from "@/lib/permission-types";
 
@@ -19,6 +20,7 @@ const requestSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("revoke"), grantId: z.uuid() }),
   z.object({ kind: z.literal("catalog"), permissionContext: auidSchema }),
   z.object({ kind: z.literal("resolve-context"), username: usernameSchema }),
+  z.object({ kind: z.literal("resolve-account"), accountId: auidSchema }),
   z.object({ kind: z.literal("preview"), permission: keySchema, permissionContext: auidSchema }),
   z.object({ kind: z.literal("search"), permissionContext: auidSchema, declarationId: z.uuid(), param: z.string().min(1).max(256), query: z.string().max(256) }),
 ]);
@@ -36,15 +38,24 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
   const systemContext = getSystemPermissionContext();
   const contextFor = (context?: string | null) => normalizePermissionContext(context, systemContext);
   const usernames = new Map<string, Promise<string | null>>();
+  const contextViews = new Map<string, Promise<{ id: string; username: string | null; label: string; avatarUrl: string | null }>>();
   const checks = new Map<string, Promise<UserPermission>>();
 
   function usernameFor(auid: string) {
     if (!usernames.has(auid)) usernames.set(auid, sdk.Usernames({ auid }).then(({ usernames }) => usernames?.defaultUsername ?? null).catch(() => null));
     return usernames.get(auid)!;
   }
-  async function contextView(context: string) {
-    const username = context === systemContext ? null : await usernameFor(context);
-    return { id: context, label: context === systemContext ? "AXUS ID" : username ? `@${username}` : context === session!.auid ? "Your app" : "App name unavailable" };
+  function contextView(context: string) {
+    if (!contextViews.has(context)) contextViews.set(context, (async () => {
+      const [resolvedUsername, variation] = await Promise.all([
+        usernameFor(context),
+        sdk.DefaultVariation({ auid: context }).then((result) => result.defaultVariation).catch(() => null),
+      ]);
+      const username = context === systemContext ? "axusid" : resolvedUsername;
+      const avatar = variation ? await sdk.Avatar({ variationId: variation.variationId }).then((result) => result.avatar).catch(() => null) : null;
+      return { id: context, username, label: username ? `@${username}` : "Username unavailable", avatarUrl: avatar?.objectKey && variation ? avatarImageUrl(variation.variationId, avatar.updatedAt) : null };
+    })());
+    return contextViews.get(context)!;
   }
   function describe(key: string, permissionContext?: string | null, strict = false): Promise<UserPermission> {
     const context = contextFor(permissionContext);
@@ -88,7 +99,12 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
   try {
     if (args.kind === "resolve-context") {
       const { ownerByUsername } = await sdk.OwnerByUsername({ username: args.username });
-      return ownerByUsername ? { context: await contextView(ownerByUsername) } : { error: "We couldn’t find that app’s username." };
+      if (!ownerByUsername) return { error: "We couldn’t find that username." };
+      const context = await contextView(ownerByUsername);
+      return { context: context.username ? context : { ...context, username: args.username, label: `@${args.username}` } };
+    }
+    if (args.kind === "resolve-account") {
+      return { context: await contextView(args.accountId) };
     }
     if (args.kind === "catalog") {
       const [summaries, tree] = await Promise.all([

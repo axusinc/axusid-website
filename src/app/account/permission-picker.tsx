@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { permissionAction } from "@/app/actions/permissions";
 import { bindPermission, permissionIdentity } from "@/lib/permission-context";
 import type { ParameterOptionsFragment } from "@/graphql/sdk";
@@ -12,6 +12,7 @@ import { Field, Input, controlClassName } from "@/components/ui/input";
 import { FormError } from "@/components/ui/form-message";
 import { Spinner } from "@/components/ui/spinner";
 import { UsernameAvatar } from "@/components/username-avatar";
+import { ProfileAvatar } from "@/components/ui/profile-avatar";
 
 function bindingsFor(template: string, key?: string): Record<string, string> | null {
   if (!key) return null;
@@ -27,13 +28,19 @@ function bindingsFor(template: string, key?: string): Record<string, string> | n
   return bindings;
 }
 
-function ParameterInput({ option, context, declarationId, value, onChange }: {
-  option: ParameterOptionsFragment; context: string; declarationId: string; value: string; onChange: (value: string) => void;
+function isAccountParameter(option: ParameterOptionsFragment) {
+  if (option.values.some((item) => !/^[0-9]+(?:,[0-9]+)*$/.test(item.value))) return false;
+  return /(?:^auid$|auid$|^account$|^account_id$|^context$|^subject$)/i.test(option.name) || /\bAUID\b/i.test(option.label ?? "");
+}
+
+function ParameterInput({ option, context, declarationId, value, onChange, accounts }: {
+  option: ParameterOptionsFragment; context: string; declarationId: string; value: string; onChange: (value: string) => void; accounts: PermissionContext[];
 }) {
+  const accountParameter = isAccountParameter(option);
   const [manual, setManual] = useState(Boolean(value && !option.values.some((item) => item.value === value)));
   const [search, setSearch] = useState<{ query: string; options?: ParameterOptionsFragment; error?: string } | null>(null);
   useEffect(() => {
-    if (!option.dynamic) return;
+    if (!option.dynamic || accountParameter) return;
     let cancelled = false;
     const timeout = setTimeout(() => {
       permissionAction({ kind: "search", permissionContext: context, declarationId, param: option.name, query: value.slice(0, 256) })
@@ -41,10 +48,11 @@ function ParameterInput({ option, context, declarationId, value, onChange }: {
         .catch(() => { if (!cancelled) setSearch({ query: value, error: "Value suggestions are unavailable. Enter a value; the app will validate it." }); });
     }, 300);
     return () => { cancelled = true; clearTimeout(timeout); };
-  }, [context, declarationId, option.dynamic, option.name, value]);
+  }, [accountParameter, context, declarationId, option.dynamic, option.name, value]);
   const current = search?.query === value ? search : null;
   const options = current?.options ?? option;
   const id = `permission-param-${option.name}`;
+  if (accountParameter) return <AccountPicker id={id} label={(option.label ?? "Account").replace(/\bAUID\b/gi, "account")} contexts={accounts} value={value} disabled={false} onChoose={(account) => onChange(account.id)} />;
   if (!option.dynamic && option.values.length && !manual) return (
     <Field id={id} label={option.label ?? option.name}>
       <select id={id} className={`${controlClassName} h-11 px-3`} value={value} onChange={(event) => onChange(event.target.value)} required>
@@ -64,8 +72,8 @@ function ParameterInput({ option, context, declarationId, value, onChange }: {
   </div>;
 }
 
-function BindingForm({ declaration, contextLabel, initial, accountAuid, systemContext, onClose, onShared, onPendingChange }: {
-  declaration: PickerDeclaration; contextLabel: string; initial?: UserPermission; accountAuid: string; systemContext: string;
+function BindingForm({ declaration, contextLabel, initial, accountAuid, systemContext, accounts, onClose, onShared, onPendingChange }: {
+  declaration: PickerDeclaration; contextLabel: string; initial?: UserPermission; accountAuid: string; systemContext: string; accounts: PermissionContext[];
   onClose: () => void; onShared: (grant: SharedPermission, alreadyShared: boolean) => void; onPendingChange: (pending: boolean) => void;
 }) {
   const [bindings, setBindings] = useState<Record<string, string>>(() => bindingsFor(declaration.template, initial?.key) ?? (declaration.context === systemContext ? { auid: accountAuid, context: accountAuid } : {}));
@@ -110,7 +118,7 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   }}>
     <h3 ref={heading} tabIndex={-1} className="text-sm font-semibold outline-none">{review ? "Review access" : "Choose access"}</h3>
     {!review ? <>
-      {options.map((option) => <ParameterInput key={option.name} option={option} context={declaration.context} declarationId={declaration.id} value={bindings[option.name] ?? ""} onChange={(value) => { setBindings((previous) => ({ ...previous, [option.name]: value })); setError(""); }} />)}
+      {options.map((option) => <ParameterInput key={option.name} option={option} context={declaration.context} declarationId={declaration.id} value={bindings[option.name] ?? ""} accounts={accounts} onChange={(value) => { setBindings((previous) => ({ ...previous, [option.name]: value })); setError(""); }} />)}
       <Input id="share-username" label="Who do you want to share with?" placeholder="@username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} required maxLength={256} />
     </> : <div className="flex items-center gap-3"><UsernameAvatar username={username} size="sm" /><span className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</span></div>}
     {key && !current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Checking access…</p> : null}
@@ -135,6 +143,99 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   </form>;
 }
 
+function AccountPicker({ contexts, value, disabled, onChoose, label = "Account", id = "permission-context" }: {
+  contexts: PermissionContext[]; value: string; disabled: boolean; onChoose: (account: PermissionContext) => void; label?: string; id?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const [lookup, setLookup] = useState<{ query: string; account?: PermissionContext; error?: string } | null>(null);
+  const [resolved, setResolved] = useState<PermissionContext | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const selected = contexts.find((item) => item.id === value) ?? (resolved?.id === value ? resolved : undefined);
+  const normalized = query.trim().replace(/^@/, "").toLowerCase();
+  const available = selected && !contexts.some((item) => item.id === selected.id) ? [...contexts, selected] : contexts;
+  const matches = available.filter((item) => !normalized || item.username?.toLowerCase().includes(normalized));
+  const exactKnown = available.some((item) => item.username?.toLowerCase() === normalized);
+  const found = lookup?.query === normalized ? lookup : null;
+  const options = found?.account && !matches.some((item) => item.id === found.account?.id) ? [...matches, found.account] : matches;
+  const active = options[Math.min(highlight, options.length - 1)];
+
+  useEffect(() => {
+    if (!value || contexts.some((item) => item.id === value)) return;
+    let cancelled = false;
+    permissionAction({ kind: "resolve-account", accountId: value })
+      .then((result) => { if (!cancelled && result.context) setResolved(result.context); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [contexts, value]);
+
+  useEffect(() => {
+    if (!open || !normalized || exactKnown) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      permissionAction({ kind: "resolve-context", username: normalized })
+        .then((result) => { if (!cancelled) setLookup({ query: normalized, account: result.context, error: result.error }); })
+        .catch(() => { if (!cancelled) setLookup({ query: normalized, error: "Account lookup is unavailable. Try again." }); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [open, normalized, exactKnown]);
+
+  const choose = (account: PermissionContext) => {
+    onChoose(account);
+    setOpen(false);
+    setQuery("");
+    setHighlight(0);
+    input.current?.blur();
+  };
+
+  return <div className="space-y-1.5">
+    <label htmlFor={id} className="block text-sm font-medium text-neutral-800">{label}</label>
+    <div className="relative" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setQuery(""); } }}>
+      <div className="relative">
+        {!open && selected ? <ProfileAvatar imageUrl={selected.avatarUrl} username={selected.username} alt={selected.username ? `@${selected.username}` : selected.label} seed={selected.id} size="sm" className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2" /> : null}
+        <input
+          ref={input}
+          id={id}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={`${id}-options`}
+          aria-activedescendant={open && active ? `${id}-option-${active.id}` : undefined}
+          disabled={disabled}
+          value={open ? query : selected?.username ? `@${selected.username}` : selected?.label ?? (value ? "Loading account…" : "")}
+          onFocus={() => { setOpen(true); setQuery(""); setHighlight(0); }}
+          onChange={(event) => { setQuery(event.target.value); setHighlight(0); }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") { setOpen(false); setQuery(""); input.current?.blur(); }
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); if (options.length) setHighlight((index) => (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length); }
+            if (event.key === "Enter" && active) { event.preventDefault(); choose(active); }
+          }}
+          placeholder="Search @username"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          className={`${controlClassName} h-11 pr-10 ${!open && selected ? "pl-12" : "pl-3"}`}
+        />
+        <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+      </div>
+      {open ? <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.1)]">
+        <ul id={`${id}-options`} role="listbox" aria-label="Accounts" className="max-h-56 overflow-y-auto p-1">
+          {options.map((item, index) => <li key={item.id} id={`${id}-option-${item.id}`} role="option" aria-selected={item.id === value}>
+            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)} className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm hover:bg-neutral-50 ${index === highlight ? "bg-neutral-100" : ""}`}>
+              <ProfileAvatar imageUrl={item.avatarUrl} username={item.username} alt={item.username ? `@${item.username}` : item.label} seed={item.id} size="sm" />
+              <span className="min-w-0 flex-1 truncate font-medium">{item.username ? `@${item.username}` : item.label}</span>
+              {item.id === value ? <Check aria-hidden className="h-4 w-4 text-neutral-500" /> : null}
+            </button>
+          </li>)}
+        </ul>
+        {normalized && !exactKnown && !found ? <p role="status" className="px-3 pb-2 text-xs text-neutral-500">Looking up @{normalized}…</p> : null}
+        {normalized && found?.error && !options.length ? <p className="px-3 pb-2 text-xs text-neutral-500">{found.error}</p> : null}
+      </div> : null}
+    </div>
+  </div>;
+}
+
 export function PermissionPicker({ contexts: knownContexts, initial, systemContext, accountAuid, onClose, onShared }: {
   contexts: PermissionContext[]; initial?: UserPermission; systemContext: string; accountAuid: string;
   onClose: () => void; onShared: (grant: SharedPermission, alreadyShared: boolean) => void;
@@ -144,9 +245,6 @@ export function PermissionPicker({ contexts: knownContexts, initial, systemConte
   const [context, setContext] = useState(initial?.context ?? systemContext);
   const [selection, setSelection] = useState("");
   const [catalog, setCatalog] = useState<{ context: string; declarations: PickerDeclaration[]; error?: string } | null>(null);
-  const [appUsername, setAppUsername] = useState("");
-  const [lookupError, setLookupError] = useState("");
-  const [finding, setFinding] = useState(false);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let cancelled = false;
@@ -160,33 +258,19 @@ export function PermissionPicker({ contexts: knownContexts, initial, systemConte
   const initialDeclaration = initial?.context === context ? declarations.find((item) => bindingsFor(item.template, initial.key)) : undefined;
   const selected = declarations.find((item) => item.id === selection) ?? initialDeclaration ?? declarations[0];
   const groups = [...new Set(declarations.map((item) => item.group))];
-  return <div className="mb-6 space-y-4 rounded-xl border border-black/[0.07] bg-neutral-50 p-4 sm:p-5">
-    <Field id="permission-context" label="App">
-      <select id="permission-context" disabled={busy || finding} className={`${controlClassName} h-11 px-3`} value={context} onChange={(event) => { setContext(event.target.value); setSelection(""); }}>
-        {contexts.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-      </select>
-    </Field>
-    <div className="flex flex-wrap items-end gap-2">
-      <Input id="permission-app-lookup" disabled={busy} label="Find another app" placeholder="@app_username" value={appUsername} onChange={(event) => setAppUsername(event.target.value)} containerClassName="min-w-0 flex-1" autoComplete="off" />
-      <Button size="sm" variant="secondary" loading={finding} disabled={busy || !appUsername.trim()} onClick={async () => {
-        if (finding) return;
-        setFinding(true); setLookupError("");
-        try {
-          const result = await permissionAction({ kind: "resolve-context", username: appUsername });
-          if (result.context) { const found = result.context; setContexts((items) => items.some((item) => item.id === found.id) ? items : [...items, found]); setContext(found.id); setSelection(""); setAppUsername(""); }
-          if (result.error) setLookupError(result.error);
-        } catch { setLookupError("Couldn’t find this app. Please try again."); }
-        finally { setFinding(false); }
-      }}>Find app</Button>
-    </div>
-    {lookupError ? <FormError>{lookupError}</FormError> : null}
+  return <div className="mb-6 space-y-4 border-b border-black/[0.07] pb-6">
+    <AccountPicker contexts={contexts} value={context} disabled={busy} onChoose={(found) => {
+      setContexts((items) => items.some((item) => item.id === found.id) ? items.map((item) => item.id === found.id ? found : item) : [...items, found]);
+      setContext(found.id);
+      setSelection("");
+    }} />
     {!current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Loading declarations…</p> : current.error ? <><FormError>{current.error}</FormError><Button size="sm" variant="secondary" onClick={() => { setCatalog(null); setRetry((value) => value + 1); }}>Try again</Button></> : !declarations.length ? <p className="text-sm text-neutral-500">This app hasn’t published any permission declarations.</p> : <>
       <Field id="permission-declaration" label="Permission">
-        <select id="permission-declaration" disabled={busy || finding} value={selected?.id ?? ""} onChange={(event) => setSelection(event.target.value)} className={`${controlClassName} h-11 px-3`}>
+        <select id="permission-declaration" disabled={busy} value={selected?.id ?? ""} onChange={(event) => setSelection(event.target.value)} className={`${controlClassName} h-11 px-3`}>
           {groups.map((group) => <optgroup key={group} label={group}>{declarations.filter((item) => item.group === group).map((item) => <option key={item.id} value={item.id}>{item.title ?? item.name}</option>)}</optgroup>)}
         </select>
       </Field>
-      {selected ? <BindingForm key={`${context}:${selected.id}`} declaration={selected} contextLabel={contexts.find((item) => item.id === context)?.label ?? "App"} initial={initial?.context === context ? initial : undefined} systemContext={systemContext} accountAuid={accountAuid} onClose={onClose} onShared={onShared} onPendingChange={setBusy} /> : null}
+      {selected ? <BindingForm key={`${context}:${selected.id}`} declaration={selected} contextLabel={contexts.find((item) => item.id === context)?.label ?? "Account"} initial={initial?.context === context ? initial : undefined} systemContext={systemContext} accountAuid={accountAuid} accounts={contexts} onClose={onClose} onShared={onShared} onPendingChange={setBusy} /> : null}
     </>}
     {!selected ? <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button> : null}
   </div>;
