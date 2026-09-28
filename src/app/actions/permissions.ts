@@ -23,6 +23,7 @@ const requestSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("resolve-account"), accountId: auidSchema }),
   z.object({ kind: z.literal("preview"), permission: keySchema, permissionContext: auidSchema }),
   z.object({ kind: z.literal("search"), permissionContext: auidSchema, declarationId: z.uuid(), param: z.string().min(1).max(256), query: z.string().max(256) }),
+  z.object({ kind: z.literal("search-usernames"), query: z.string().trim().min(2).max(23) }),
   z.object({ kind: z.literal("search-accounts"), permissionContext: auidSchema, declarationId: z.uuid(), param: z.string().min(1).max(256), query: z.string().max(256) }),
 ]);
 
@@ -127,6 +128,15 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
       const { searchPermissionValues } = await sdk.SearchPermissionValues({ contextAuid: args.permissionContext, declarationId: args.declarationId, param: args.param, query: args.query, limit: 20 });
       return { options: searchPermissionValues };
     }
+    if (args.kind === "search-usernames") {
+      const regex = args.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const { searchUsernames } = await sdk.SearchUsernames({ regex, limit: 10 });
+      const accounts = new Map<string, { id: string; username: string; label: string; avatarUrl: null }>();
+      for (const match of searchUsernames) if (!accounts.has(match.auid)) {
+        accounts.set(match.auid, { id: match.auid, username: match.username, label: `@${match.username}`, avatarUrl: null });
+      }
+      return { accountSuggestions: [...accounts.values()] };
+    }
     if (args.kind === "search-accounts") {
       const { searchPermissionValues } = await sdk.SearchPermissionValues({ contextAuid: args.permissionContext, declarationId: args.declarationId, param: args.param, query: args.query, limit: 20 });
       const ids = [...new Set(searchPermissionValues.values.map((item) => item.value).filter((value) => /^[0-9]+(?:,[0-9]+)*$/.test(value)))];
@@ -161,8 +171,8 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
       return { sharedGrant: view };
     }
 
-    const [incoming, outgoing, system] = await Promise.all([
-      sdk.MyGrants({ auid: session.auid }), sdk.MyDelegatedGrants({ auid: session.auid }), sdk.PermissionDeclarations({ contextAuid: systemContext }),
+    const [incoming, outgoing, system, applications] = await Promise.all([
+      sdk.MyGrants({ auid: session.auid }), sdk.MyDelegatedGrants({ auid: session.auid }), sdk.PermissionDeclarations({ contextAuid: systemContext }), sdk.GrantedApplications({ auid: session.auid }),
     ]);
     const choices = new Map<string, { key: string; context: string }>();
     for (const grant of incoming.grants) {
@@ -199,7 +209,7 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
     }
     const shared: SharedPermission[] = [];
     for (let start = 0; start < outgoing.delegatedGrants.length; start += 6) shared.push(...await Promise.all(outgoing.delegatedGrants.slice(start, start + 6).map(sharedView)));
-    const contexts = [...new Set([systemContext, session.auid, ...incoming.grants.map((grant) => contextFor(grant.permissionContext)), ...outgoing.delegatedGrants.map((grant) => contextFor(grant.permissionContext))])];
+    const contexts = [...new Set([systemContext, ...applications.grantedApplications.map(contextFor), ...outgoing.delegatedGrants.map((grant) => contextFor(grant.permissionContext))])];
     return { systemContext, accountAuid: session.auid, contexts: await Promise.all(contexts.map(contextView)), permissions: permissions.sort((a, b) => Number(b.available) - Number(a.available) || a.label.localeCompare(b.label)), shareOptions,
       shared: shared.sort((a, b) => (a.username ?? "").localeCompare(b.username ?? "") || a.permission.label.localeCompare(b.permission.label)) };
   } catch (error) {

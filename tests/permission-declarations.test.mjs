@@ -31,13 +31,13 @@ function setup(overrides = {}, session = { auid: '1', tokenId: 'private' }) {
 
 test('complete declarations retain all six types and every supported constraint/metadata field', () => {
   for (const type of ['STRING', 'INTEGER', 'LONG', 'DOUBLE', 'BOOLEAN', 'AUID']) {
-    const value = { name: 'example', template: 'item.{value}.read', params: [{ name: 'value', type, allowWildcard: true, allowedValues: ['9223372036854775807'], regex: '.*', minLength: 1, maxLength: 100, minNumber: -1, maxNumber: 2, label: 'Value', description: 'A value', icon: 'key', hint: 'Enter one' }], validatorUrl: 'https://app.example.com/validate', combinationInvariantJs: 'function(bindings) { return true; }', title: 'Read {value}', description: 'Example', icon: 'key' };
+    const value = { name: 'example', template: 'item.{value}.read', params: [{ name: 'value', type, allowWildcard: true, allowedValues: ['9223372036854775807'], regex: '.*', minLength: 1, maxLength: 100, minNumber: -1, maxNumber: 2, label: 'Value', description: 'A value', icon: 'key', hint: 'Enter one' }], validatorUrl: 'https://app.example.com/validate', combinationInvariantJs: 'function(bindings) { return true; }', title: 'Read {value}', description: 'Example', icon: 'key', order: -1 };
     assert.deepEqual(input.parseDeclarationJson(JSON.stringify(value)).declaration, value);
   }
 });
 
 test('publisher rejects malformed JSON, unknown fields, unmatched definitions and invalid constraints', () => {
-  for (const json of ['{', JSON.stringify({ ...input.declarationExample, unexpected: true }), JSON.stringify({ ...input.declarationExample, params: [] }), JSON.stringify({ ...input.declarationExample, template: 'section.*.posts.create' }), JSON.stringify({ ...input.declarationExample, params: [{ name: 'section', type: 'BIGINT' }] }), JSON.stringify({ ...input.declarationExample, params: [{ name: 'section', minNumber: 5, maxNumber: 1 }] })]) {
+  for (const json of ['{', JSON.stringify({ ...input.declarationExample, unexpected: true }), JSON.stringify({ ...input.declarationExample, params: [] }), JSON.stringify({ ...input.declarationExample, template: 'section.*.posts.create' }), JSON.stringify({ ...input.declarationExample, params: [{ name: 'section', type: 'BIGINT' }] }), JSON.stringify({ ...input.declarationExample, params: [{ name: 'section', minNumber: 5, maxNumber: 1 }] }), JSON.stringify({ ...input.declarationExample, order: 1.5 }), JSON.stringify({ ...input.declarationExample, order: 2147483648 })]) {
     assert.ok(input.parseDeclarationJson(json).error);
   }
 });

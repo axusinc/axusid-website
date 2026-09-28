@@ -21,6 +21,7 @@ export const permissionDeclarationSchema = z.object({
   params: z.array(parameter).max(100).default([]),
   validatorUrl: z.url().refine((value) => /^https?:\/\//.test(value), "Use an HTTP(S) validator URL").nullish(),
   combinationInvariantJs: optionalText, title: optionalText, description: optionalText, icon: optionalText,
+  order: z.number().int().min(-2147483648).max(2147483647).nullish(),
 }).strict().superRefine((declaration, ctx) => {
   const names = declaration.params.map((param) => param.name);
   if (new Set(names).size !== names.length) ctx.addIssue({ code: "custom", message: "Parameter names must be unique" });
@@ -44,5 +45,5 @@ export function parseDeclarationJson(json: string): { declaration: SchemaPermiss
 export const declarationExample = {
   name: "section.posts.create", template: "section.{section}.posts.create",
   params: [{ name: "section", type: "STRING", allowWildcard: true, allowedValues: ["news", "community"], label: "Section", hint: "Choose the section where posts may be created." }],
-  title: "Create posts in {section}", description: "Create posts in the {section} section.", icon: "file-plus",
+  title: "Create posts in {section}", description: "Create posts in the {section} section.", icon: "file-plus", order: 10,
 };

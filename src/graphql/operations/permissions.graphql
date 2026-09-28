@@ -14,6 +14,10 @@ query MyGrants($auid: ID!) {
   }
 }
 
+query GrantedApplications($auid: ID!) {
+  grantedApplications(auid: $auid)
+}
+
 query MyDelegatedGrants($auid: ID!) {
   delegatedGrants(auid: $auid) {
     id
@@ -43,7 +47,7 @@ mutation SharePermission($granterAuid: ID!, $granteeAuid: ID!, $permission: Stri
 }
 
 fragment DeclarationSummary on PermissionDeclaration {
-  id context name version template validatorUrl title description icon
+  id context name version template validatorUrl title description icon order
 }
 
 fragment ParameterOptions on ParamOption {

@@ -1,4 +1,6 @@
 export const permissionApiSignatures = `# Queries
+grantedApplications(auid: ID!): [ID!]!
+searchUsernames(regex: String!, limit: Int = 20): [UsernameMatch!]!
 checkPermission(auid: ID!, permission: String!, permissionContext: ID): PermissionCheck!
 permissionDeclarations(contextAuid: ID!): [PermissionDeclaration!]!
 describePermission(contextAuid: ID!, permission: String!): DescribedPermission!
@@ -12,7 +14,7 @@ notifyValidationChanged(declarationId: ID!): Boolean!`;
 
 export const permissionDiscoveryExample = `query DiscoverPermissions($app: ID!) {
   permissionDeclarations(contextAuid: $app) {
-    id context name version template title description icon validatorUrl
+    id context name version template title description icon validatorUrl order
   }
   permissionTree(contextAuid: $app) {
     keyPrefix title
@@ -42,7 +44,7 @@ export const permissionShareExample = `mutation SharePermission($from: ID!, $to:
 }`;
 export const permissionPublishExample = `mutation PublishPermission($owner: ID!, $declaration: PermissionDeclarationInput!) {
   publishPermissionDeclaration(ownerAuid: $owner, declaration: $declaration) {
-    id context name version template title description icon validatorUrl
+    id context name version template title description icon validatorUrl order
   }
 }`;
 export const permissionSearchExample = `query SearchValues($app: ID!, $declaration: ID!, $query: String!) {

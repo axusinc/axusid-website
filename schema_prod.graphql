@@ -2,6 +2,8 @@ type Query {
     user(auid: ID!): User
     usernames(auid: ID!): Usernames
     ownerByUsername(username: String!): ID
+    # PostgreSQL regex (1..128 characters) against individual aliases, ordered by username; limit is 1..100.
+    searchUsernames(regex: String!, limit: Int = 20): [UsernameMatch!]!
     variations(auid: ID!): [Variation!]!
     defaultVariation(auid: ID!): DefaultVariation
     name(variationId: ID!): Name
@@ -16,6 +18,8 @@ type Query {
     isPasswordSet(auid: ID!): Boolean!
     # Permission reads require identity.<auid>.grants.read on the caller token.
     grants(auid: ID!): [PermissionGrant!]!
+    # Distinct permission contexts of ALLOW identity grants; requires identity.<auid>.grants.read.
+    grantedApplications(auid: ID!): [ID!]!
     # Identity grants delegated by this identity; requires identity.<auid>.grants.read.
     # Includes grants that may not currently confer access. Excludes token and role recipients.
     delegatedGrants(auid: ID!): [PermissionGrant!]!
@@ -105,6 +109,7 @@ type PermissionDeclaration {
     title: String
     description: String
     icon: String
+    order: Int
 }
 
 input ParamDefInput {
@@ -132,6 +137,8 @@ input PermissionDeclarationInput {
     title: String
     description: String
     icon: String
+    # Lower values appear first; omitted orders follow ordered declarations by name.
+    order: Int
 }
 
 type DescribedParam {
@@ -251,6 +258,11 @@ type Usernames {
     auid: ID!
     usernames: [String!]!
     defaultUsername: String!
+}
+
+type UsernameMatch {
+    auid: ID!
+    username: String!
 }
 
 type Variation {

@@ -37,7 +37,7 @@ export function PermissionDeclarationsSection() {
     <p className="mt-4 text-sm text-neutral-500">Every AXUS ID account can be an app. <Link href="/developers/become-an-app" className="underline underline-offset-4">Read the publishing guide</Link>.</p>
     {!loaded ? <p role="status" className="mt-4 flex items-center gap-2 text-sm text-neutral-500"><Spinner />Loading declarations…</p> : <div className="mt-5 space-y-3">
       {declarations.length ? <ul className="divide-y divide-black/[0.05]">{declarations.map((item) => <li key={item.id} className="py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{item.name} <span className="text-xs font-normal text-neutral-500">Version {item.version}</span></span>
+        <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{item.name} <span className="text-xs font-normal text-neutral-500">Version {item.version}{item.order != null ? ` · Order ${item.order}` : ""}</span></span>
           <Button size="sm" variant="secondary" disabled={pending || review !== null} onClick={async () => {
             if (submitting.current) return;
             submitting.current = true; setPending(true); setError(""); setMessage("");
@@ -64,7 +64,7 @@ export function PermissionDeclarationsSection() {
       try {
         const result = await declarationAction({ kind: "publish", json: review.json });
         if (result.error) setError(result.error);
-        if (result.published) { const published = result.published; setDeclarations((items) => [...items.filter((item) => item.id !== published.id), published]); setMessage(`${published.name} published as version ${published.version}.`); setReview(null); }
+        if (result.published) { const published = result.published; setLoaded(false); setReload((value) => value + 1); setMessage(`${published.name} published as version ${published.version}.`); setReview(null); }
       } catch { setError("Couldn’t publish this declaration. Please try again."); }
       finally { submitting.current = false; setPending(false); }
     }}>

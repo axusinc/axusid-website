@@ -523,6 +523,7 @@ export type SchemaPermissionDeclaration = {
   icon?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+  order?: Maybe<Scalars['Int']['output']>;
   template: Scalars['String']['output'];
   title?: Maybe<Scalars['String']['output']>;
   validatorUrl?: Maybe<Scalars['String']['output']>;
@@ -534,6 +535,7 @@ export type SchemaPermissionDeclarationInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
+  order?: InputMaybe<Scalars['Int']['input']>;
   params?: InputMaybe<Array<SchemaParamDefInput>>;
   template: Scalars['String']['input'];
   title?: InputMaybe<Scalars['String']['input']>;
@@ -596,6 +598,7 @@ export type SchemaQuery = {
   description?: Maybe<SchemaDescription>;
   externalIdentities: Array<SchemaExternalIdentity>;
   externalIdentityAccessToken: SchemaExternalIdentityAccessTokenResponse;
+  grantedApplications: Array<Scalars['ID']['output']>;
   grants: Array<SchemaPermissionGrant>;
   identities: SchemaPaginatedIdentities;
   isPasswordSet: Scalars['Boolean']['output'];
@@ -606,6 +609,7 @@ export type SchemaQuery = {
   permissionDeclarations: Array<SchemaPermissionDeclaration>;
   permissionTree: Array<SchemaPermissionTreeNode>;
   searchPermissionValues: SchemaParamOption;
+  searchUsernames: Array<SchemaUsernameMatch>;
   status?: Maybe<SchemaStatus>;
   user?: Maybe<SchemaUser>;
   usernames?: Maybe<SchemaUsernames>;
@@ -654,6 +658,11 @@ export type SchemaQueryExternalIdentitiesArgs = {
 export type SchemaQueryExternalIdentityAccessTokenArgs = {
   auid: Scalars['ID']['input'];
   externalIdentityId: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryGrantedApplicationsArgs = {
+  auid: Scalars['ID']['input'];
 };
 
 
@@ -714,6 +723,12 @@ export type SchemaQuerySearchPermissionValuesArgs = {
 };
 
 
+export type SchemaQuerySearchUsernamesArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  regex: Scalars['String']['input'];
+};
+
+
 export type SchemaQueryStatusArgs = {
   variationId: Scalars['ID']['input'];
 };
@@ -759,6 +774,12 @@ export type SchemaUser = {
   defaultVariation?: Maybe<SchemaDefaultVariation>;
   identity: SchemaIdentity;
   usernames: SchemaUsernames;
+};
+
+export type SchemaUsernameMatch = {
+  __typename?: 'UsernameMatch';
+  auid: Scalars['ID']['output'];
+  username: Scalars['String']['output'];
 };
 
 export type SchemaUsernames = {
@@ -832,6 +853,7 @@ export type PermissionDeclarationInput = {
   description?: string | null | undefined;
   icon?: string | null | undefined;
   name: string;
+  order?: number | null | undefined;
   params?: Array<ParamDefInput> | null | undefined;
   template: string;
   title?: string | null | undefined;
@@ -1014,6 +1036,13 @@ export type MyGrantsQueryVariables = Exact<{
 
 export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
 
+export type GrantedApplicationsQueryVariables = Exact<{
+  auid: string | number;
+}>;
+
+
+export type GrantedApplicationsQuery = { grantedApplications: Array<string> };
+
 export type MyDelegatedGrantsQueryVariables = Exact<{
   auid: string | number;
 }>;
@@ -1040,7 +1069,7 @@ export type SharePermissionMutationVariables = Exact<{
 
 export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean } };
 
-export type DeclarationSummaryFragment = { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null };
+export type DeclarationSummaryFragment = { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null, order: number | null };
 
 export type ParameterOptionsFragment = { name: string, label: string | null, dynamic: boolean, degraded: boolean, values: Array<{ value: string, label: string | null, icon: string | null, description: string | null }> };
 
@@ -1049,7 +1078,7 @@ export type PermissionDeclarationsQueryVariables = Exact<{
 }>;
 
 
-export type PermissionDeclarationsQuery = { permissionDeclarations: Array<{ id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null }> };
+export type PermissionDeclarationsQuery = { permissionDeclarations: Array<{ id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null, order: number | null }> };
 
 export type DescribePermissionQueryVariables = Exact<{
   contextAuid: string | number;
@@ -1083,7 +1112,7 @@ export type PublishPermissionDeclarationMutationVariables = Exact<{
 }>;
 
 
-export type PublishPermissionDeclarationMutation = { publishPermissionDeclaration: { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null } };
+export type PublishPermissionDeclarationMutation = { publishPermissionDeclaration: { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null, order: number | null } };
 
 export type NotifyValidationChangedMutationVariables = Exact<{
   declarationId: string | number;
@@ -1105,6 +1134,14 @@ export type OwnerByUsernameQueryVariables = Exact<{
 
 
 export type OwnerByUsernameQuery = { ownerByUsername: string | null };
+
+export type SearchUsernamesQueryVariables = Exact<{
+  regex: string;
+  limit?: number | null | undefined;
+}>;
+
+
+export type SearchUsernamesQuery = { searchUsernames: Array<{ auid: string, username: string }> };
 
 export type UserQueryVariables = Exact<{
   auid: string | number;
@@ -1267,6 +1304,7 @@ export const DeclarationSummaryFragmentDoc = gql`
   title
   description
   icon
+  order
 }
     `;
 export const ParameterOptionsFragmentDoc = gql`
@@ -1475,6 +1513,11 @@ export const MyGrantsDocument = gql`
   }
 }
     `;
+export const GrantedApplicationsDocument = gql`
+    query GrantedApplications($auid: ID!) {
+  grantedApplications(auid: $auid)
+}
+    `;
 export const MyDelegatedGrantsDocument = gql`
     query MyDelegatedGrants($auid: ID!) {
   delegatedGrants(auid: $auid) {
@@ -1618,6 +1661,14 @@ export const RemoveSharedPermissionDocument = gql`
 export const OwnerByUsernameDocument = gql`
     query OwnerByUsername($username: String!) {
   ownerByUsername(username: $username)
+}
+    `;
+export const SearchUsernamesDocument = gql`
+    query SearchUsernames($regex: String!, $limit: Int) {
+  searchUsernames(regex: $regex, limit: $limit) {
+    auid
+    username
+  }
 }
     `;
 export const UserDocument = gql`
@@ -1894,6 +1945,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     MyGrants(variables: MyGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyGrantsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<MyGrantsQuery>({ document: MyGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyGrants', 'query', variables);
     },
+    GrantedApplications(variables: GrantedApplicationsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GrantedApplicationsQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<GrantedApplicationsQuery>({ document: GrantedApplicationsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GrantedApplications', 'query', variables);
+    },
     MyDelegatedGrants(variables: MyDelegatedGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyDelegatedGrantsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<MyDelegatedGrantsQuery>({ document: MyDelegatedGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyDelegatedGrants', 'query', variables);
     },
@@ -1926,6 +1980,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     OwnerByUsername(variables: OwnerByUsernameQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<OwnerByUsernameQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<OwnerByUsernameQuery>({ document: OwnerByUsernameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'OwnerByUsername', 'query', variables);
+    },
+    SearchUsernames(variables: SearchUsernamesQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SearchUsernamesQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<SearchUsernamesQuery>({ document: SearchUsernamesDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SearchUsernames', 'query', variables);
     },
     User(variables: UserQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<UserQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<UserQuery>({ document: UserDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'User', 'query', variables);

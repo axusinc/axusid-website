@@ -2,6 +2,13 @@ query OwnerByUsername($username: String!) {
   ownerByUsername(username: $username)
 }
 
+query SearchUsernames($regex: String!, $limit: Int) {
+  searchUsernames(regex: $regex, limit: $limit) {
+    auid
+    username
+  }
+}
+
 query User($auid: ID!) {
   user(auid: $auid) {
     identity {
@@ -210,5 +217,4 @@ query ExternalIdentityAccessToken($auid: ID!, $externalIdentityId: ID!) {
 mutation UnlinkExternalIdentity($auid: ID!, $externalIdentityId: ID!) {
   unlinkExternalIdentity(auid: $auid, externalIdentityId: $externalIdentityId)
 }
-
 

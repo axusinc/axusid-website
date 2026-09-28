@@ -154,8 +154,8 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   </form>;
 }
 
-function AccountPicker({ contexts, value, disabled, onChoose, label = "Account", id = "permission-context", suggestionSource }: {
-  contexts: PermissionContext[]; value: string; disabled: boolean; onChoose: (account: PermissionContext) => void; label?: string; id?: string;
+function AccountPicker({ contexts, value, disabled, onChoose, label, subject = "account", id = "permission-context", suggestionSource }: {
+  contexts: PermissionContext[]; value: string; disabled: boolean; onChoose: (account: PermissionContext) => void; label: string; subject?: "account" | "application"; id?: string;
   suggestionSource?: { context: string; declarationId: string; param: string };
 }) {
   const [open, setOpen] = useState(false);
@@ -163,6 +163,7 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
   const [highlight, setHighlight] = useState(0);
   const [lookup, setLookup] = useState<{ query: string; account?: PermissionContext; error?: string } | null>(null);
   const [suggestions, setSuggestions] = useState<{ query: string; accounts: PermissionContext[]; error?: string } | null>(null);
+  const [directory, setDirectory] = useState<{ query: string; accounts: PermissionContext[]; error?: string } | null>(null);
   const [resolved, setResolved] = useState<PermissionContext | null>(null);
   const search = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -174,11 +175,13 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
   const exactKnown = available.some((item) => item.username?.toLowerCase() === normalized);
   const found = lookup?.query === normalized ? lookup : null;
   const suggested = suggestions?.query === normalized ? suggestions : null;
+  const matchedNames = normalized.length > 23 ? { query: normalized, accounts: [] } : directory?.query === normalized ? directory : null;
   const suggestionContext = suggestionSource?.context;
   const suggestionDeclarationId = suggestionSource?.declarationId;
   const suggestionParam = suggestionSource?.param;
   const options = [...matches];
   for (const account of suggested?.accounts ?? []) if (!options.some((item) => item.id === account.id)) options.push(account);
+  for (const account of matchedNames?.accounts ?? []) if (!options.some((item) => item.id === account.id)) options.push(account);
   if (found?.account && !options.some((item) => item.id === found.account?.id)) options.push(found.account);
   const active = options[Math.min(highlight, options.length - 1)];
 
@@ -205,10 +208,21 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
     const timeout = setTimeout(() => {
       permissionAction({ kind: "resolve-context", username: normalized })
         .then((result) => { if (!cancelled) setLookup({ query: normalized, account: result.context, error: result.error }); })
-        .catch(() => { if (!cancelled) setLookup({ query: normalized, error: "Account lookup is unavailable. Try again." }); });
+        .catch(() => { if (!cancelled) setLookup({ query: normalized, error: `${subject === "application" ? "Application" : "Account"} lookup is unavailable. Try again.` }); });
     }, 300);
     return () => { cancelled = true; clearTimeout(timeout); };
-  }, [open, normalized, exactKnown]);
+  }, [open, normalized, exactKnown, subject]);
+
+  useEffect(() => {
+    if (!open || normalized.length < 2 || normalized.length > 23) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      permissionAction({ kind: "search-usernames", query: normalized })
+        .then((result) => { if (!cancelled) setDirectory({ query: normalized, accounts: result.accountSuggestions ?? [], error: result.error }); })
+        .catch(() => { if (!cancelled) setDirectory({ query: normalized, accounts: [], error: "Username suggestions are unavailable." }); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [open, normalized]);
 
   useEffect(() => {
     if (!open || !normalized || !suggestionContext || !suggestionDeclarationId || !suggestionParam) return;
@@ -274,12 +288,12 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
           className={`${controlClassName} h-11 items-center gap-3 px-2 text-left sm:h-10`}
         >
           {selected ? <AccountAvatar account={selected} /> : null}
-          <span id={`${id}-value`} className={`min-w-0 flex-1 truncate ${selected ? "text-neutral-950" : "text-neutral-400"}`}>{selected?.username ? `@${selected.username}` : selected?.label ?? (value ? "Loading account…" : "Choose account")}</span>
+          <span id={`${id}-value`} className={`min-w-0 flex-1 truncate ${selected ? "text-neutral-950" : "text-neutral-400"}`}>{selected?.username ? `@${selected.username}` : selected?.label ?? (value ? `Loading ${subject}…` : `Choose ${subject}`)}</span>
           <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-neutral-400" />
         </button>}
       </div>
       {open ? <div className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_12px_32px_rgba(0,0,0,0.1)]">
-        <ul id={`${id}-options`} role="listbox" aria-label="Accounts" className="max-h-56 overflow-y-auto p-1">
+        <ul id={`${id}-options`} role="listbox" aria-label={subject === "application" ? "Applications" : "Accounts"} className="max-h-56 overflow-y-auto p-1">
           {options.map((item, index) => <li key={item.id} id={`${id}-option-${item.id}`} role="option" aria-selected={item.id === value}>
             <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)} className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm hover:bg-neutral-50 ${index === highlight ? "bg-neutral-100" : ""}`}>
               <AccountAvatar account={item} />
@@ -288,8 +302,8 @@ function AccountPicker({ contexts, value, disabled, onChoose, label = "Account",
             </button>
           </li>)}
         </ul>
-        {normalized && ((!exactKnown && !found) || (suggestionSource && !suggested)) ? <p role="status" className="px-3 pb-2 text-xs text-neutral-500">Looking for accounts…</p> : null}
-        {normalized && !options.length && found && (!suggestionSource || suggested) ? <p className="px-3 pb-2 text-xs text-neutral-500">{suggested?.error ?? found.error ?? "No matching accounts"}</p> : null}
+        {normalized && ((!exactKnown && !found) || (normalized.length >= 2 && !matchedNames) || (suggestionSource && !suggested)) ? <p role="status" className="px-3 pb-2 text-xs text-neutral-500">Looking for {subject === "application" ? "applications" : "accounts"}…</p> : null}
+        {normalized && !options.length && found && (normalized.length < 2 || matchedNames) && (!suggestionSource || suggested) ? <p className="px-3 pb-2 text-xs text-neutral-500">{suggested?.error ?? matchedNames?.error ?? found.error ?? `No matching ${subject === "application" ? "applications" : "accounts"}`}</p> : null}
       </div> : null}
     </div>
   </div>;
@@ -316,22 +330,22 @@ export function PermissionPicker({ contexts: knownContexts, signedInAccounts, re
   const declarations = current?.declarations ?? [];
   const initialDeclaration = initial?.context === context ? declarations.find((item) => bindingsFor(item.template, initial.key)) : undefined;
   const selected = declarations.find((item) => item.id === selection) ?? initialDeclaration ?? declarations[0];
-  const groups = [...new Set(declarations.map((item) => item.group))];
+  const showGroups = new Set(declarations.map((item) => item.group)).size > 1;
   return <div className="mb-5 space-y-3 border-b border-black/[0.07] pb-5 [&_label]:text-xs [&_label]:text-neutral-500">
-    <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-      <AccountPicker contexts={contexts} value={context} disabled={busy} onChoose={(found) => {
+    <div className="grid items-start gap-3 sm:grid-cols-2">
+      <AccountPicker label="Application" subject="application" contexts={contexts} value={context} disabled={busy} onChoose={(found) => {
         setContexts((items) => items.some((item) => item.id === found.id) ? items.map((item) => item.id === found.id ? found : item) : [...items, found]);
         setContext(found.id);
         setSelection("");
       }} />
       {declarations.length ? <Field id="permission-declaration" label="Permission" className="min-w-0">
         <select id="permission-declaration" disabled={busy} value={selected?.id ?? ""} onChange={(event) => setSelection(event.target.value)} className={`${controlClassName} h-11 px-3 sm:h-10`}>
-          {groups.map((group) => <optgroup key={group} label={group}>{declarations.filter((item) => item.group === group).map((item) => <option key={item.id} value={item.id}>{item.title ?? item.name}</option>)}</optgroup>)}
+          {declarations.map((item) => <option key={item.id} value={item.id}>{showGroups ? `${item.group} · ` : ""}{item.title ?? item.name}</option>)}
         </select>
       </Field> : null}
     </div>
     {!current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Loading declarations…</p> : current.error ? <><FormError>{current.error}</FormError><Button size="sm" variant="secondary" onClick={() => { setCatalog(null); setRetry((value) => value + 1); }}>Try again</Button></> : !declarations.length ? <p className="text-sm text-neutral-500">This app hasn’t published any permission declarations.</p> : <>
-      {selected ? <BindingForm key={`${context}:${selected.id}`} declaration={selected} contextLabel={contexts.find((item) => item.id === context)?.label ?? "Account"} initial={initial?.context === context ? initial : undefined} systemContext={systemContext} accountAuid={accountAuid} signedInAccounts={signedInAccounts} recipientSuggestions={recipientSuggestions} onClose={onClose} onShared={onShared} onPendingChange={setBusy} /> : null}
+      {selected ? <BindingForm key={`${context}:${selected.id}`} declaration={selected} contextLabel={contexts.find((item) => item.id === context)?.label ?? "Application"} initial={initial?.context === context ? initial : undefined} systemContext={systemContext} accountAuid={accountAuid} signedInAccounts={signedInAccounts} recipientSuggestions={recipientSuggestions} onClose={onClose} onShared={onShared} onPendingChange={setBusy} /> : null}
     </>}
     {!selected ? <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button> : null}
   </div>;
