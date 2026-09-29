@@ -217,13 +217,15 @@ uses server validation because the read API does not expose types or wildcard el
 
 Developer guides: `/developers/permissions` and `/developers/become-an-app`. They cover the
 validator validate/search/describe protocol, cache invalidation, all declaration errors and migration.
-Legacy `identity.<auid>.*` and bare `*` cannot be delegated as stored grants. Bare `*` remains
-valid in native token scopes. OAuth consent uses exact scope matching and engine descriptions;
+Legacy `identity.<auid>.*` and bare `*` cannot be delegated as stored grants. AXUS ID now grants
+concrete account permissions directly on creation and backfills existing accounts at startup;
+legacy account-root grants may appear during migration. Bare `*` remains valid in native token
+scopes. OAuth consent uses exact scope matching and engine descriptions;
 custom OAuth permission keys currently use system context, since the engine's token-issuance
 API has no context argument.
 
 The engine V32 migration deletes legacy HierarchicalPermission grants. Coordinate authority
-reprovisioning and fresh app authorization as part of the engine rollout. Publishing a
+reprovisioning and fresh app authorization as part of the engine rollout. Publishing an app's
 permission declaration does not create an initial grant for its owner. The website never
 recreates removed grants automatically.
 

@@ -283,6 +283,11 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
   const visibleDirect = directPermissions.filter((permission) =>
     `${permission.label} ${permission.scope}`.toLowerCase().includes(query)
   );
+  const isOwnAccountPermission = (permission: UserPermission) =>
+    permission.context === systemContext && permission.key.startsWith(`identity.${accountAuid}.`) &&
+    permission.key !== `identity.${accountAuid}.*`;
+  const accountPermissions = visibleDirect.filter(isOwnAccountPermission);
+  const otherDirectPermissions = visibleDirect.filter((permission) => !isOwnAccountPermission(permission));
 
   const senders = new Map<string, { username: string | null; permissions: UserPermission[] }>();
   for (const permission of receivedPermissions) {
@@ -335,6 +340,17 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
     };
   };
 
+  const directPermissionRow = (permission: UserPermission) => (
+    <UserPermissionRow
+      key={permissionIdentity(permission.key, permission.context)}
+      permission={permission}
+      appContext={getAppContext(permission.context, permission.scope)}
+      canShare={shareOptions.some((option) => permissionIdentity(option.key, option.context) === permissionIdentity(permission.key, permission.context))}
+      disabled={sharing !== null || mutating}
+      onShare={() => openShare(permissionIdentity(permission.key, permission.context))}
+    />
+  );
+
   return (
     <Card>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -385,18 +401,17 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
                   {receivedPermissions.length > 0 ? (
                     <h3 className="text-xs font-medium uppercase tracking-[0.08em] text-neutral-500">Your account</h3>
                   ) : null}
-                  <ul className="divide-y divide-black/[0.05]">
-                    {visibleDirect.map((permission) => (
-                      <UserPermissionRow
-                        key={permissionIdentity(permission.key, permission.context)}
-                        permission={permission}
-                        appContext={getAppContext(permission.context, permission.scope)}
-                        canShare={shareOptions.some((option) => permissionIdentity(option.key, option.context) === permissionIdentity(permission.key, permission.context))}
-                        disabled={sharing !== null || mutating}
-                        onShare={() => openShare(permissionIdentity(permission.key, permission.context))}
-                      />
-                    ))}
-                  </ul>
+                  {accountPermissions.length > 0 ? (
+                    <details key={query} open={Boolean(query)} className="rounded-xl border border-black/[0.07] px-4 py-3">
+                      <summary className={cn("cursor-pointer text-sm font-medium text-neutral-900", focusRing)}>
+                        Account management <span className="ml-1 text-xs font-normal text-neutral-500">({accountPermissions.length})</span>
+                      </summary>
+                      <ul className="mt-3 divide-y divide-black/[0.05]">{accountPermissions.map(directPermissionRow)}</ul>
+                    </details>
+                  ) : null}
+                  {otherDirectPermissions.length > 0 ? (
+                    <ul className="divide-y divide-black/[0.05]">{otherDirectPermissions.map(directPermissionRow)}</ul>
+                  ) : null}
                 </div>
               ) : null}
 

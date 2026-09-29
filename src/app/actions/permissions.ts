@@ -73,10 +73,9 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
         const code = getPrimaryDomainError(error)?.code;
         if (code === "TOKEN_INVALID" || code === "TOKEN_REQUIRED" || isRateLimitError(error)) throw error;
         if (code === "UNDECLARED_PERMISSION" || code === "INVALID_PERMISSION_BINDINGS" || code === "PERMISSION_INVARIANT_VIOLATED") {
-          // Engine account-root authority is exposed as identity.<auid>.* for display,
-          // but is not a declared permission that can be checked or delegated.
+          // Legacy account roots may still appear while existing accounts are migrated.
           const root = context === systemContext && key === `identity.${session!.auid}.*`;
-          return { ...base, label: root ? "Account authority" : key, description: root ? "Built-in authority for your account. Choose a declared permission to share specific access." : "This permission is no longer declared or its values are invalid.", available: root ? null : false };
+          return { ...base, label: root ? "Legacy account authority" : key, description: root ? "This grant is being replaced by individual account permissions. Choose a declared permission to share specific access." : "This permission is no longer declared or its values are invalid.", available: root ? null : false };
         }
       }
       try {

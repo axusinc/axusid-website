@@ -39,7 +39,7 @@ export default function PermissionsDocsPage() {
     <section id="wildcards" className="docs-section">
       <h2>Wildcards belong to parameters.</h2>
       <p><code>section.*.posts.create</code> is valid only if the declaration’s <code>section</code> parameter allows wildcards. It covers the same declared action across section values. It does not cover <code>posts.delete</code> or arbitrary descendants.</p>
-      <p>Legacy stored grants such as <code>identity.1.*</code> and bare <code>*</code> cannot be created through delegation. Bare <code>*</code> remains valid in login/token permission scopes, where it means everything the caller holds in the token’s context. Internal account authority may still be exposed by the engine as <code>identity.&lt;auid&gt;.*</code> for display; share a concrete declared capability instead.</p>
+      <p>Legacy stored grants such as <code>identity.1.*</code> and bare <code>*</code> cannot be created through delegation. Bare <code>*</code> remains valid in login/token permission scopes, where it means everything the caller holds in the token’s context. AXUS ID now grants concrete account permissions directly; a legacy <code>identity.&lt;auid&gt;.*</code> grant may still appear while accounts are migrated. Share a concrete declared capability instead.</p>
     </section>
     <section id="picker" className="docs-section">
       <h2>Build a sharing picker from declarations.</h2>
@@ -74,7 +74,7 @@ export default function PermissionsDocsPage() {
     <section id="migration" className="docs-section">
       <h2>Migrate free-form permissions.</h2>
       <p>Publish declarations for each app’s permissions, replace legacy wildcard delegation with declared actions and allowed parameter wildcards, and preserve context alongside every grant key. Regenerate client SDKs and replace label guessing with permission descriptions.</p>
-      <p>The engine’s V32 migration removes old HierarchicalPermission grants. Coordinate engine rollout and permission reprovisioning before deployment; existing identities and app authorizations may need new authority grants and sign-in. The website does not recreate removed grants automatically. Account-root authority and newly published declarations are separate: publishing a declaration does not grant it to its owner or anyone else.</p>
+      <p>The engine’s V32 migration removes old HierarchicalPermission grants. For AXUS ID system account permissions, the engine now grants each declared capability when an account is created and backfills existing accounts at startup before removing their direct account-root grants. The website does not create these grants. Publishing an app’s own declaration still does not grant it to the app or anyone else.</p>
     </section>
   </>;
 }

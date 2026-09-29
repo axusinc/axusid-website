@@ -177,7 +177,7 @@ test('received permissions identify granters and resolve usernames', async () =>
   const { action } = setup({
     MyGrants: async () => ({
       grants: [
-        { permission: 'identity.1.*', origin: { type: 'DIRECT' } },
+        { permission: 'identity.1.grants.read', origin: { type: 'DIRECT' } },
         {
           id: 'grant-2',
           granteeAuid: '1',
@@ -192,10 +192,21 @@ test('received permissions identify granters and resolve usernames', async () =>
   });
   const result = await action({ kind: 'list' });
   assert.equal(result.permissions.length, 2);
-  const direct = result.permissions.find((p) => p.key === 'identity.1.*');
+  const direct = result.permissions.find((p) => p.key === 'identity.1.grants.read');
   assert.equal(direct.receivedFrom, null);
+  assert.equal(direct.label, 'View permissions');
   const received = result.permissions.find((p) => p.key === 'identity.2.variation.write');
   assert.deepEqual(received.receivedFrom, { id: '2', username: 'sam' });
+});
+
+test('legacy account-root grants remain readable during migration', async () => {
+  const { action } = setup({
+    MyGrants: async () => ({ grants: [{ permission: 'identity.1.*', origin: { type: 'DIRECT' } }] }),
+  });
+  const result = await action({ kind: 'list' });
+  assert.equal(result.permissions[0].label, 'Legacy account authority');
+  assert.equal(result.permissions[0].available, null);
+  assert.ok(!result.shareOptions.some((permission) => permission.key === 'identity.1.*'));
 });
 
 test('permission resource targets are not inferred to be delegators when origin is omitted', async () => {
