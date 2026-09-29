@@ -64,7 +64,7 @@ export function filterClaimsByScope(
 
 export async function buildOidcClaims(
   auid: string,
-  bearerToken: string,
+  bearerToken: string | undefined,
   scopes: string[],
 ): Promise<OidcClaims> {
   const profileClaims = await fetchProfileClaims(auid, bearerToken);

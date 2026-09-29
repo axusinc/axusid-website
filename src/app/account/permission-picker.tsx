@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Plus } from "lucide-react";
 import { permissionAction } from "@/app/actions/permissions";
 import { bindPermission, permissionIdentity } from "@/lib/permission-context";
 import type { ParameterOptionsFragment } from "@/graphql/sdk";
@@ -13,6 +13,7 @@ import { FormError } from "@/components/ui/form-message";
 import { Spinner } from "@/components/ui/spinner";
 import { UsernameAvatar } from "@/components/username-avatar";
 import { ProfileAvatar } from "@/components/ui/profile-avatar";
+import type { AvatarSize } from "@/components/ui/avatar";
 
 function bindingsFor(template: string, key?: string): Record<string, string> | null {
   if (!key) return null;
@@ -28,10 +29,20 @@ function bindingsFor(template: string, key?: string): Record<string, string> | n
   return bindings;
 }
 
-function AccountAvatar({ account }: { account: PermissionContext }) {
-  if (account.avatarUrl) return <ProfileAvatar imageUrl={account.avatarUrl} username={account.username} alt="" seed={account.id} size="sm" />;
-  if (account.username) return <UsernameAvatar username={account.username} size="sm" />;
-  return <ProfileAvatar alt="" seed={account.id} size="sm" />;
+export function AccountAvatar({
+  account,
+  size = "sm",
+  className,
+  shape = "rounded",
+}: {
+  account: PermissionContext;
+  size?: AvatarSize;
+  className?: string;
+  shape?: "circle" | "rounded";
+}) {
+  if (account.avatarUrl) return <ProfileAvatar imageUrl={account.avatarUrl} username={account.username} displayName={account.label} alt="" seed={account.id} size={size} className={className} shape={shape} />;
+  if (account.username) return <UsernameAvatar username={account.username} displayName={account.label} size={size} className={className} shape={shape} />;
+  return <ProfileAvatar alt="" seed={account.id} displayName={account.label} size={size} className={className} shape={shape} />;
 }
 
 function isAccountParameter(option: ParameterOptionsFragment) {
@@ -154,7 +165,7 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   </form>;
 }
 
-function AccountPicker({ contexts, value, disabled, onChoose, label, subject = "account", id = "permission-context", suggestionSource }: {
+export function AccountPicker({ contexts, value, disabled, onChoose, label, subject = "account", id = "permission-context", suggestionSource }: {
   contexts: PermissionContext[]; value: string; disabled: boolean; onChoose: (account: PermissionContext) => void; label: string; subject?: "account" | "application"; id?: string;
   suggestionSource?: { context: string; declarationId: string; param: string };
 }) {
@@ -349,4 +360,298 @@ export function PermissionPicker({ contexts: knownContexts, signedInAccounts, re
     </>}
     {!selected ? <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button> : null}
   </div>;
+}
+
+function TokenBindingForm({
+  declaration,
+  contextLabel,
+  appContext,
+  initial,
+  accountAuid,
+  systemContext,
+  signedInAccounts,
+  selectedKeys,
+  onAdd,
+  onClose,
+  onPendingChange,
+}: {
+  declaration: PickerDeclaration;
+  contextLabel: string;
+  appContext?: PermissionContext;
+  initial?: UserPermission;
+  accountAuid: string;
+  systemContext: string;
+  signedInAccounts: PermissionContext[];
+  selectedKeys: string[];
+  onAdd: (permission: UserPermission) => void;
+  onClose?: () => void;
+  onPendingChange: (pending: boolean) => void;
+}) {
+  const [bindings, setBindings] = useState<Record<string, string>>(() =>
+    bindingsFor(declaration.template, initial?.key) ?? (declaration.context === systemContext ? { auid: accountAuid, context: accountAuid } : {})
+  );
+  const [error, setError] = useState("");
+  const [previewAttempt, setPreviewAttempt] = useState(0);
+  const [preview, setPreview] = useState<{ identity: string; permission?: UserPermission; error?: string } | null>(null);
+
+  const key = bindPermission(declaration.template, bindings);
+  const identity = key ? permissionIdentity(key, declaration.context) : "";
+  const current = identity && preview?.identity === identity ? preview : null;
+  const permission = current?.permission;
+  const parameterNames = [...new Set([...declaration.template.matchAll(/\{([^{}]+)\}/g)].map((match) => match[1]))];
+  const options = parameterNames.map((name) => declaration.params.find((param) => param.name === name) ?? { name, label: name, dynamic: false, degraded: false, values: [] });
+
+  useEffect(() => {
+    if (!key) return;
+    let cancelled = false;
+    onPendingChange(true);
+    const timeout = setTimeout(() => {
+      permissionAction({ kind: "preview", permission: key, permissionContext: declaration.context })
+        .then((result) => { if (!cancelled) setPreview({ identity, permission: result.preview, error: result.error }); })
+        .catch(() => { if (!cancelled) setPreview({ identity, error: "Couldn’t preview this permission. Change a value or try again." }); })
+        .finally(() => { if (!cancelled) onPendingChange(false); });
+    }, 350);
+    return () => { cancelled = true; clearTimeout(timeout); onPendingChange(false); };
+  }, [key, identity, declaration.context, previewAttempt, onPendingChange]);
+
+  const isAlreadyAdded = Boolean(key && selectedKeys.includes(key));
+
+  function handleAdd() {
+    if (!permission || permission.available !== true) return;
+    if (isAlreadyAdded) {
+      setError("This permission has already been added.");
+      return;
+    }
+    onAdd(permission);
+    setError("");
+  }
+
+  return (
+    <div
+      className="space-y-4"
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.shiftKey && (event.target as HTMLElement).tagName !== "TEXTAREA") {
+          event.preventDefault();
+          handleAdd();
+        }
+      }}
+    >
+      {options.length > 0 ? (
+        <div className="grid items-start gap-3 sm:grid-cols-2">
+          {options.map((option) => (
+            <ParameterInput
+              key={option.name}
+              option={option}
+              context={declaration.context}
+              declarationId={declaration.id}
+              value={bindings[option.name] ?? ""}
+              accounts={signedInAccounts}
+              presentation={permission?.params?.find((param) => param.name === option.name)}
+              onChange={(value) => {
+                setBindings((previous) => ({ ...previous, [option.name]: value }));
+                setError("");
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {key && !current ? (
+        <p role="status" className="flex items-center gap-2 text-sm text-neutral-500">
+          <Spinner />Checking access…
+        </p>
+      ) : null}
+
+      {current?.error ? <FormError>{current.error}</FormError> : null}
+      {current?.error || permission?.available === null ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          type="button"
+          onClick={() => { setPreview(null); setPreviewAttempt((value) => value + 1); }}
+        >
+          Retry preview
+        </Button>
+      ) : null}
+
+      {permission ? (
+        <div className="rounded-lg bg-neutral-50 px-3 py-2.5">
+          {contextLabel ? (
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs text-neutral-500">
+              {appContext ? (
+                <AccountAvatar account={appContext} size="xs" className="h-4 w-4 shrink-0 text-[9px]" shape="rounded" />
+              ) : null}
+              <span>{contextLabel}</span>
+            </div>
+          ) : null}
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <PermissionIcon name={permission.icon} />
+            {permission.label || permission.key}
+          </p>
+          <p className="mt-1 text-sm text-neutral-600">{permission.description}</p>
+          {permission.params?.length ? (
+            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              {permission.params.map((param) => (
+                <div key={param.name}>
+                  <dt className="text-neutral-500">{param.label ?? param.name}</dt>
+                  <dd className="break-all">
+                    <span className="flex items-center gap-2">
+                      <PermissionIcon name={param.valueIcon ?? param.icon} />
+                      {param.valueLabel ?? param.value}
+                    </span>
+                    {param.description ? <span className="block text-neutral-500">{param.description}</span> : null}
+                    {param.hint ? <span className="block text-neutral-500">{param.hint}</span> : null}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          {permission.available !== true ? (
+            <p className="mt-2 text-sm text-amber-800">
+              {permission.available === false ? "You don’t currently hold this access." : "Your access couldn’t be verified."}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {permission?.context === systemContext && permission.key.endsWith(".grants.delegate") ? (
+        <p className="text-xs text-amber-800">
+          This lets the token holder share permissions on your behalf. Only give it to services you trust.
+        </p>
+      ) : null}
+
+      {isAlreadyAdded ? (
+        <p className="text-xs text-neutral-500">This permission is already included in this token.</p>
+      ) : null}
+
+      {error ? <FormError>{error}</FormError> : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={permission?.available !== true || isAlreadyAdded || !key}
+          onClick={handleAdd}
+        >
+          <Plus aria-hidden className="h-3.5 w-3.5" />
+          Add permission
+        </Button>
+        {onClose ? (
+          <Button size="sm" variant="ghost" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function TokenPermissionPicker({
+  contexts: knownContexts,
+  context,
+  onContextChange,
+  signedInAccounts,
+  systemContext,
+  accountAuid,
+  selectedKeys,
+  initial,
+  onAdd,
+  onClose,
+}: {
+  contexts: PermissionContext[];
+  context: string;
+  onContextChange: (contextId: string) => void;
+  signedInAccounts: PermissionContext[];
+  systemContext: string;
+  accountAuid: string;
+  selectedKeys: string[];
+  initial?: UserPermission;
+  onAdd: (permission: UserPermission) => void;
+  onClose?: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [contexts, setContexts] = useState(knownContexts);
+  const [selection, setSelection] = useState("");
+  const [catalog, setCatalog] = useState<{ context: string; declarations: PickerDeclaration[]; error?: string } | null>(null);
+  const [retry, setRetry] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    permissionAction({ kind: "catalog", permissionContext: context })
+      .then((result) => { if (!cancelled) setCatalog({ context, declarations: result.declarations ?? [], error: result.error }); })
+      .catch(() => { if (!cancelled) setCatalog({ context, declarations: [], error: "Couldn’t load this app’s permissions." }); });
+    return () => { cancelled = true; };
+  }, [context, retry]);
+
+  const current = catalog?.context === context ? catalog : null;
+  const declarations = current?.declarations ?? [];
+  const initialDeclaration = initial?.context === context ? declarations.find((item) => bindingsFor(item.template, initial.key)) : undefined;
+  const selected = declarations.find((item) => item.id === selection) ?? initialDeclaration ?? declarations[0];
+  const showGroups = new Set(declarations.map((item) => item.group)).size > 1;
+
+  return (
+    <div className="space-y-4 rounded-xl border border-black/[0.07] bg-neutral-50/50 p-4 [&_label]:text-xs [&_label]:text-neutral-500">
+      <div className="grid items-start gap-3 sm:grid-cols-2">
+        <AccountPicker
+          label="Application"
+          subject="application"
+          contexts={contexts}
+          value={context}
+          disabled={busy}
+          onChoose={(found) => {
+            setContexts((items) => items.some((item) => item.id === found.id) ? items.map((item) => item.id === found.id ? found : item) : [...items, found]);
+            onContextChange(found.id);
+            setSelection("");
+          }}
+        />
+        {declarations.length ? (
+          <Field id="token-permission-declaration" label="Permission" className="min-w-0">
+            <select
+              id="token-permission-declaration"
+              disabled={busy}
+              value={selected?.id ?? ""}
+              onChange={(event) => setSelection(event.target.value)}
+              className={`${controlClassName} h-11 px-3 sm:h-10`}
+            >
+              {declarations.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {showGroups ? `${item.group} · ` : ""}{item.title ?? item.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : null}
+      </div>
+
+      {!current ? (
+        <p role="status" className="flex items-center gap-2 text-sm text-neutral-500">
+          <Spinner />Loading declarations…
+        </p>
+      ) : current.error ? (
+        <>
+          <FormError>{current.error}</FormError>
+          <Button size="sm" variant="secondary" onClick={() => { setCatalog(null); setRetry((value) => value + 1); }}>
+            Try again
+          </Button>
+        </>
+      ) : !declarations.length ? (
+        <p className="text-sm text-neutral-500">This app hasn’t published any permission declarations.</p>
+      ) : selected ? (
+        <TokenBindingForm
+          key={`${context}:${selected.id}`}
+          declaration={selected}
+          contextLabel={contexts.find((item) => item.id === context)?.label ?? signedInAccounts.find((item) => item.id === context)?.label ?? "Application"}
+          appContext={contexts.find((item) => item.id === context) ?? signedInAccounts.find((item) => item.id === context) ?? (context ? { id: context, label: "Application", username: null, avatarUrl: null } : undefined)}
+          initial={initial?.context === context ? initial : undefined}
+          systemContext={systemContext}
+          accountAuid={accountAuid}
+          signedInAccounts={signedInAccounts}
+          selectedKeys={selectedKeys}
+          onAdd={onAdd}
+          onClose={onClose}
+          onPendingChange={setBusy}
+        />
+      ) : null}
+    </div>
+  );
 }

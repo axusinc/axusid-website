@@ -172,7 +172,7 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
     }
 
     const [incoming, outgoing, system, applications] = await Promise.all([
-      sdk.MyGrants({ auid: session.auid }), sdk.MyDelegatedGrants({ auid: session.auid }), sdk.PermissionDeclarations({ contextAuid: systemContext }), sdk.GrantedApplications({ auid: session.auid }),
+      sdk.MyGrants({ auid: session.auid }), sdk.MyDelegatedGrants({ auid: session.auid }), sdk.PermissionDeclarations({ contextAuid: systemContext }), sdk.ReceivedPermissionContexts({ auid: session.auid }),
     ]);
     const choices = new Map<string, { key: string; context: string }>();
     for (const grant of incoming.grants) {
@@ -209,7 +209,7 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
     }
     const shared: SharedPermission[] = [];
     for (let start = 0; start < outgoing.delegatedGrants.length; start += 6) shared.push(...await Promise.all(outgoing.delegatedGrants.slice(start, start + 6).map(sharedView)));
-    const contexts = [...new Set([systemContext, ...applications.grantedApplications.map(contextFor), ...outgoing.delegatedGrants.map((grant) => contextFor(grant.permissionContext))])];
+    const contexts = [...new Set([systemContext, ...applications.receivedPermissionContexts.map(contextFor), ...outgoing.delegatedGrants.map((grant) => contextFor(grant.permissionContext))])];
     return { systemContext, accountAuid: session.auid, contexts: await Promise.all(contexts.map(contextView)), permissions: permissions.sort((a, b) => Number(b.available) - Number(a.available) || a.label.localeCompare(b.label)), shareOptions,
       shared: shared.sort((a, b) => (a.username ?? "").localeCompare(b.username ?? "") || a.permission.label.localeCompare(b.permission.label)) };
   } catch (error) {

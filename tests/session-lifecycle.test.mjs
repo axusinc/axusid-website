@@ -41,6 +41,10 @@ function setup(initialAccounts, activeAuid = initialAccounts[0]?.auid, failSet =
     },
     "@/lib/oauth/adapter": { revokeWithBackend: async (token) => { events.push(["revoke", token]); } },
     "@/lib/oauth/grants": { revokeGrantsForSession: async (auid, token) => { events.push(["grants", auid, token]); } },
+    "@/lib/login-tokens": {
+      trackLoginToken: async (auid, token) => { events.push(["track", auid, token]); },
+      forgetLoginToken: async (auid, token) => { events.push(["forget", auid, token]); },
+    },
   });
   return { session, events, read: () => cookie ? JSON.parse(cookie) : null };
 }
@@ -51,16 +55,16 @@ test("replacing a login persists the new token before retiring the old token and
   const h = setup([old, other]);
   await h.session.addAccountToSession({ ...old, tokenId: "new" });
   assert.deepEqual(h.read().accounts.map((account) => account.tokenId), ["new", "other"]);
-  assert.deepEqual(h.events.map(([kind]) => kind), ["cookie", "grants", "revoke"]);
-  assert.deepEqual(h.events[1], ["grants", "1", "old"]);
-  assert.deepEqual(h.events[2], ["revoke", "old"]);
+  assert.deepEqual(h.events.map(([kind]) => kind), ["track", "cookie", "grants", "revoke", "forget"]);
+  assert.deepEqual(h.events[2], ["grants", "1", "old"]);
+  assert.deepEqual(h.events[3], ["revoke", "old"]);
 });
 
 test("updating session metadata does not revoke the same native token", async () => {
   const account = { auid: "1", tokenId: "same", consentedClients: [] };
   const h = setup([account]);
   await h.session.addAccountToSession({ ...account, consentedClients: ["app"] });
-  assert.deepEqual(h.events.map(([kind]) => kind), ["cookie"]);
+  assert.deepEqual(h.events.map(([kind]) => kind), ["track", "cookie"]);
 });
 
 test("signing out removes only the selected account and retires its dependent grants", async () => {
@@ -70,14 +74,14 @@ test("signing out removes only the selected account and retires its dependent gr
   ]);
   await h.session.removeAccountFromSession("1");
   assert.equal(h.read().activeAuid, "2");
-  assert.deepEqual(h.events.slice(1), [["grants", "1", "one"], ["revoke", "one"]]);
+  assert.deepEqual(h.events.slice(1), [["grants", "1", "one"], ["revoke", "one"], ["forget", "1", "one"]]);
 });
 
 test("a failed cookie write does not falsely complete login or revoke the previous token", async () => {
   const h = setup([{ auid: "1", tokenId: "old", consentedClients: [] }], "1", true);
   await assert.rejects(h.session.addAccountToSession({ auid: "1", tokenId: "new", consentedClients: [] }), /cookie write failed/);
   assert.equal(h.read().accounts[0].tokenId, "old");
-  assert.deepEqual(h.events, []);
+  assert.deepEqual(h.events, [["track", "1", "new"], ["forget", "1", "new"]]);
 });
 
 test("avatar URL changes with updatedAt so browsers request replacements", () => {

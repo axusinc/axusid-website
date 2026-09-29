@@ -71,3 +71,35 @@ test('replacement consent records exactly the scopes issued to its new token', a
   assert.deepEqual(issued, ['identity.1.variation.write']);
   assert.deepEqual(result.scopes, stored.scopes);
 });
+
+test('OIDC-only consent does not mint a native token', async () => {
+  let issueCalled = false;
+  let storedValues;
+  const db = {
+    select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
+    insert: () => ({ values: async (values) => { storedValues = values; } }),
+  };
+  const grants = grantsModule({
+    'drizzle-orm': { and: () => {}, desc: () => {}, eq: () => {}, isNull: () => {}, or: () => {} },
+    '@/lib/db': { getDb: () => db },
+    '@/lib/oauth/adapter': {
+      issueAuthorizationToken: async () => {
+        issueCalled = true;
+        return 'new';
+      },
+      revokeWithBackend: async () => true,
+    },
+  });
+  const result = await grants.grantAuthorization({
+    userAuid: '1',
+    clientAuid: '2',
+    sessionTokenId: 'session',
+    scopes: ['openid', 'profile'],
+    axusPermissions: [],
+  });
+  assert.equal(issueCalled, false);
+  assert.equal(storedValues.tokenId, null);
+  assert.equal(result.tokenId, null);
+  assert.deepEqual(result.scopes, ['openid', 'profile']);
+});
+

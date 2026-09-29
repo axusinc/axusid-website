@@ -19,6 +19,18 @@ export const oauthClients = pgTable("oauth_clients", {
   accessTokenFormat: text("access_token_format").notNull().default("opaque"),
 });
 
+/** Public IDs of native tokens minted for AXUS ID browser sign-ins. Never stores bearers. */
+export const loginTokens = pgTable(
+  "login_tokens",
+  {
+    tokenId: text("token_id").primaryKey(),
+    userAuid: text("user_auid").notNull(),
+    bearerHash: text("bearer_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("login_tokens_user_idx").on(table.userAuid)],
+);
+
 export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
   code: text("code").primaryKey(),
   clientAuid: text("client_auid")
@@ -49,8 +61,8 @@ export const oauthGrants = pgTable(
       .notNull()
       .references(() => oauthClients.auid, { onDelete: "cascade" }),
     scopes: text("scopes").array().notNull(),
-    // Encrypted native token id (secret-box).
-    tokenId: text("token_id").notNull(),
+    // Encrypted native token id (secret-box), or null if authorization is pure OAuth2/OIDC.
+    tokenId: text("token_id"),
     parentSessionTokenHash: text("parent_session_token_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

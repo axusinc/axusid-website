@@ -1,0 +1,21 @@
+query AccountTokens($auid: ID!) {
+  accountTokens(auid: $auid) {
+    tokenId
+    title
+    icon
+    current
+    permissions { key context }
+  }
+}
+
+mutation ChangeAccountTokenPresentation($auid: ID!, $tokenId: ID!, $title: String, $icon: String) {
+  changeAccountTokenPresentation(auid: $auid, tokenId: $tokenId, title: $title, icon: $icon) {
+    tokenId
+    title
+    icon
+  }
+}
+
+mutation RevokeAccountToken($auid: ID!, $tokenId: ID!) {
+  revokeAccountToken(auid: $auid, tokenId: $tokenId)
+}

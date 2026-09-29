@@ -40,6 +40,22 @@ export async function POST(request: Request) {
     return unauthorized("Access token is invalid, expired or revoked");
   }
 
+  if (!resolved.grant.tokenId) {
+    return Response.json(
+      {
+        error: "insufficient_scope",
+        error_description: "This authorization does not have access to the AXUS ID GraphQL engine",
+      },
+      {
+        status: 403,
+        headers: {
+          "Cache-Control": "no-store",
+          "WWW-Authenticate": 'Bearer error="insufficient_scope"',
+        },
+      },
+    );
+  }
+
   const body = await request.text();
   const response = await fetch(getEndpoint(), {
     method: "POST",

@@ -20,10 +20,10 @@ export type DualTokenResponse = {
   refresh_token?: string;
   id_token?: string;
   /**
-   * The app's own native AXUS ID token, for calling the engine directly. It does not expire,
-   * and it dies with the authorization when the user disconnects the app.
+   * The app's own native AXUS ID token, for calling the engine directly.
+   * Only present if native AXUS permissions were requested.
    */
-  axus_access_token: string;
+  axus_access_token?: string;
   scope?: string;
 };
 
@@ -47,7 +47,7 @@ async function buildResponse(params: {
     access_token: accessToken.token,
     token_type: "Bearer",
     expires_in: accessToken.expiresInSeconds,
-    axus_access_token: params.grant.tokenId,
+    ...(params.grant.tokenId ? { axus_access_token: params.grant.tokenId } : {}),
     ...(permissionScopeString ? { scope: permissionScopeString } : {}),
   };
 
@@ -58,7 +58,7 @@ async function buildResponse(params: {
   if (oidcScopes.includes("openid")) {
     const profileClaims = await buildOidcClaims(
       params.grant.userAuid,
-      params.grant.tokenId,
+      params.grant.tokenId ?? undefined,
       oidcScopes,
     );
 

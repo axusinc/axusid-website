@@ -44,6 +44,7 @@ function setup(overrides = {}, session = { auid: '1', tokenId: 'private-token' }
       return { describePermission: { key: permission, context: contextAuid, title: contextAuid === '4' ? display.label : `App ${contextAuid}: ${permission}`, description: display.description, params: [] } };
     },
     MyDelegatedGrants: async () => ({ delegatedGrants: [] }),
+    ReceivedPermissionContexts: async () => ({ receivedPermissionContexts: [] }),
     EffectivePermission: async ({ permission }) => ({ checkPermission: { allowed: permission !== 'identity.1.username.write' } }),
     Usernames: async () => ({ usernames: { defaultUsername: 'alex' } }),
     DefaultVariation: async () => ({ defaultVariation: null }),

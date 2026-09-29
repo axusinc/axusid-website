@@ -13,6 +13,7 @@ import {
 } from "@/lib/session";
 import { revokeWithBackend } from "@/lib/oauth/adapter";
 import { revokeGrantsForSession } from "@/lib/oauth/grants";
+import { forgetLoginToken, trackLoginToken } from "@/lib/login-tokens";
 
 /**
  * Signing out revokes the session's native token. Native tokens never expire, so a session
@@ -30,7 +31,12 @@ async function revokeSessionToken(auid: string, tokenId: string | undefined): Pr
   try {
     await revokeWithBackend(tokenId);
   } catch {
-    // Already revoked, or the engine is unreachable - the session still ends here.
+    // If the engine is unreachable, keep the ID so another session can still identify
+    // and revoke the token. The cookie session ends here either way.
+    return;
+  }
+  try { await forgetLoginToken(auid, tokenId); } catch (error) {
+    console.error("Could not forget an ended login token:", error);
   }
 }
 
@@ -91,8 +97,16 @@ export async function addAccountToSession(session: IdPSession): Promise<MultiSes
     accounts,
   };
 
-  await persistMultiSession(newMultiSession);
   const replaced = index >= 0 ? existing?.accounts[index] : undefined;
+  await trackLoginToken(session.auid, session.tokenId);
+  try {
+    await persistMultiSession(newMultiSession);
+  } catch (error) {
+    if (replaced?.tokenId !== session.tokenId) {
+      try { await forgetLoginToken(session.auid, session.tokenId); } catch { /* Preserve the cookie error. */ }
+    }
+    throw error;
+  }
   if (replaced?.tokenId && replaced.tokenId !== session.tokenId) {
     await revokeSessionToken(session.auid, replaced.tokenId);
   }

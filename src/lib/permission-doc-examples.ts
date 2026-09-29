@@ -1,5 +1,5 @@
 export const permissionApiSignatures = `# Queries
-grantedApplications(auid: ID!): [ID!]!
+receivedPermissionContexts(auid: ID!): [ID!]!
 searchUsernames(regex: String!, limit: Int = 20): [UsernameMatch!]!
 checkPermission(auid: ID!, permission: String!, permissionContext: ID): PermissionCheck!
 permissionDeclarations(contextAuid: ID!): [PermissionDeclaration!]!

@@ -142,15 +142,18 @@ export function ConsentForm({
                 {label}
               </li>
             ))}
-            {permissions.map((permission) => (
-              <li key={permission.key} className="flex items-center gap-3 px-3.5 py-3 text-sm text-neutral-800">
-                <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-brand" />
-                <span className="min-w-0 flex-1">{permission.label}{permission.description ? <span className="mt-1 block text-xs text-neutral-500">{permission.description}</span> : null}</span>
-                <code className="hidden shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-500 sm:inline">
-                  {permission.key}
-                </code>
-              </li>
-            ))}
+            {permissions.map((permission) => {
+              const hasTitle = Boolean(permission.label && permission.label !== permission.key);
+              return (
+                <li key={permission.key} className="flex items-center gap-3 px-3.5 py-3 text-sm text-neutral-800">
+                  <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-brand" />
+                  <span className="min-w-0 flex-1">
+                    {hasTitle ? permission.label : permission.key}
+                    {permission.description ? <span className="mt-1 block text-xs text-neutral-500">{permission.description}</span> : null}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </section>
 

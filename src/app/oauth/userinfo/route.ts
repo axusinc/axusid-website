@@ -41,10 +41,10 @@ async function handleUserinfo(request: Request): Promise<Response> {
   }
 
   try {
-    // Read the profile as the app's own token, so the engine sees who is asking.
+    // Read the profile using the app's token if available, or fall back to public claims.
     const profileClaims = await buildOidcClaims(
       resolved.userAuid,
-      resolved.grant.tokenId,
+      resolved.grant.tokenId ?? undefined,
       oidcScopes,
     );
 

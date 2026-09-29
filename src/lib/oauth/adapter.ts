@@ -24,9 +24,8 @@ export async function loginWithBackend(
 
 /**
  * Mints the token an app gets for one authorization: a child of the user's session token,
- * holding only the permissions the user consented to. It always includes the rate-limit drain
- * permission, so the app's calls are charged to the user's account rather than falling back to
- * the much smaller per-IP budget. Revoking it leaves the user's own session untouched.
+ * holding only the permissions the user consented to. Revoking it leaves the user's own
+ * session untouched.
  */
 export async function issueAuthorizationToken(params: {
   sessionTokenId: string;
@@ -34,15 +33,9 @@ export async function issueAuthorizationToken(params: {
   permissions: string[];
 }): Promise<string> {
   const sdk = getAuthSdk(params.sessionTokenId);
-  const permissions = [
-    ...new Set([...params.permissions, rateLimitDrainPermission(params.userAuid)]),
-  ];
+  const permissions = [...new Set(params.permissions)];
   const result = await sdk.LoginWithToken({ auid: params.userAuid, permissions });
   return result.loginWithToken.id;
-}
-
-export function rateLimitDrainPermission(userAuid: string): string {
-  return `identity.${userAuid}.ratelimit.drain`;
 }
 
 /** Revokes a native token, which also ends every token delegated from it. */

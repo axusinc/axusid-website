@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { AppWindow, KeyRound, Code2, ShieldCheck, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, KeyRound, Code2, ShieldCheck, Ticket, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   ConnectedAppsSection,
   type ConnectedApp,
 } from "@/app/account/connected-apps-section";
 import { PermissionsSection } from "./permissions-section";
+import { TokensSection } from "./tokens-section";
 import { DeveloperSection } from "@/app/account/developer-section";
 import { SectionIntro } from "@/app/account/dashboard-ui";
 import { BrandMark } from "@/components/brand-mark";
@@ -28,6 +29,7 @@ import type { ExternalIdentity } from "@/lib/google-oauth";
 
 type SectionId =
   | "permissions"
+  | "tokens"
   | "profile"
   | "security"
   | "connected-apps"
@@ -77,6 +79,7 @@ const sections: {
 }[] = [
   { id: "profile", label: "Profile", Icon: UserRound },
   { id: "permissions", label: "Permissions", Icon: KeyRound },
+  { id: "tokens", label: "Tokens", Icon: Ticket },
   { id: "security", label: "Security", Icon: ShieldCheck },
   { id: "connected-apps", label: "Connected apps", Icon: AppWindow },
   { id: "nested-accounts", label: "Nested accounts", Icon: UsersRound },
@@ -85,6 +88,7 @@ const sections: {
 
 function parseSection(value: string | null): SectionId {
   if (value === "permissions") return "permissions";
+  if (value === "tokens") return "tokens";
   if (value === "security") return "security";
   if (value === "connected-apps") return "connected-apps";
   if (value === "nested-accounts") return "nested-accounts";
@@ -94,6 +98,7 @@ function parseSection(value: string | null): SectionId {
 
 const sectionMeta: Record<SectionId, { title: string; description: string }> = {
   permissions: { title: "Permissions", description: "See who you’ve shared access with and manage your permissions." },
+  tokens: { title: "Tokens", description: "Create and manage tokens for scripts, devices and services." },
   profile: {
     title: "Profile",
     description:
@@ -281,6 +286,8 @@ export function AccountDashboard({
               />
             ) : active === "permissions" ? (
               <PermissionsSection key={auid} auid={auid} accounts={accounts} onEditingChange={handleEditingChange} />
+            ) : active === "tokens" ? (
+              <TokensSection key={auid} auid={auid} accounts={accounts} onEditingChange={handleEditingChange} />
             ) : active === "connected-apps" ? (
               <ConnectedAppsSection apps={connectedApps} />
             ) : active === "nested-accounts" ? (

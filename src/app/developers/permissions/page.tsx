@@ -44,7 +44,7 @@ export default function PermissionsDocsPage() {
     <section id="picker" className="docs-section">
       <h2>Build a sharing picker from declarations.</h2>
       <ol className="list-decimal space-y-3 pl-5 text-sm leading-7 text-neutral-600">
-        <li>Use <code>grantedApplications</code> to suggest app contexts without loading every grant. It lists contexts with stored ALLOW identity grants, including grants that may be inactive. Use <code>searchUsernames</code> for account suggestions; escape typed text as a regex literal and cap results.</li>
+        <li>Use <code>receivedPermissionContexts</code> to suggest app contexts without loading every grant. It lists contexts with stored ALLOW identity grants, including grants that may be inactive. Use <code>searchUsernames</code> for account suggestions; escape typed text as a regex literal and cap results.</li>
         <li>Load <code>permissionTree</code> and declaration summaries for the selected app. Render groups, declarations and parameter options in the order returned; apps can set <code>order</code> on each declaration. Discovery alone does not prove the signed-in account holds access.</li>
         <li>Use <code>searchPermissionValues</code> for dynamic parameters. Debounce searches and discard stale responses. Honor <code>degraded: true</code> with raw input and a “Validated by app” hint.</li>
         <li>Build a key from the selected bindings. Call <code>describePermission</code> for a live preview, including personalized text from the app when available, and <code>checkPermission</code> for effective access, with the same context.</li>

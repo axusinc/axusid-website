@@ -7,6 +7,7 @@ import type { AvatarSize } from "@/components/ui/avatar";
 
 type UsernameAvatarProps = {
   username?: string | null;
+  displayName?: string | null;
   size?: AvatarSize;
   className?: string;
   shape?: "circle" | "rounded";
@@ -28,7 +29,7 @@ function lookupAvatar(username: string): Promise<{ url: string | null }> {
  * Profile photo for any username, resolved on demand. Starts with (and falls
  * back to) initials, so rows for other users never block on the lookup.
  */
-export function UsernameAvatar({ username, size = "sm", className, shape }: UsernameAvatarProps) {
+export function UsernameAvatar({ username, displayName, size = "sm", className, shape }: UsernameAvatarProps) {
   const normalized = (username ?? "").trim().replace(/^@/, "");
   const [resolved, setResolved] = useState<{ username: string; url: string | null } | null>(null);
 
@@ -52,8 +53,9 @@ export function UsernameAvatar({ username, size = "sm", className, shape }: User
   return (
     <ProfileAvatar
       imageUrl={imageUrl}
-      alt={normalized ? `@${normalized}` : "Account photo"}
+      alt={displayName || (normalized ? `@${normalized}` : "Account photo")}
       username={normalized || undefined}
+      displayName={displayName}
       seed={normalized || undefined}
       size={size}
       className={className}

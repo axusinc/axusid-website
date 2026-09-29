@@ -1,0 +1,1 @@
+ALTER TABLE "oauth_grants" ALTER COLUMN "token_id" DROP NOT NULL;

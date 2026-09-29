@@ -14,8 +14,8 @@ query MyGrants($auid: ID!) {
   }
 }
 
-query GrantedApplications($auid: ID!) {
-  grantedApplications(auid: $auid)
+query ReceivedPermissionContexts($auid: ID!) {
+  receivedPermissionContexts(auid: $auid)
 }
 
 query MyDelegatedGrants($auid: ID!) {

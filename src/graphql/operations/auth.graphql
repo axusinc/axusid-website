@@ -57,8 +57,8 @@ mutation LinkExternalIdentity(
   }
 }
 
-mutation LoginWithToken($auid: ID!, $permissions: [String!]) {
-  loginWithToken(auid: $auid, permissions: $permissions) {
+mutation LoginWithToken($auid: ID!, $permissions: [String!], $permissionContext: ID, $title: String, $icon: String) {
+  loginWithToken(auid: $auid, permissions: $permissions, permissionContext: $permissionContext, title: $title, icon: $icon) {
     id
   }
 }

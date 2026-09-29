@@ -5,7 +5,7 @@ import { Plus, RefreshCw, UsersRound } from "lucide-react";
 import { permissionAction } from "@/app/actions/permissions";
 import type { PermissionContext, SharedPermission, UserPermission } from "@/lib/permission-types";
 import { PermissionIcon } from "@/components/permission-icon";
-import { PermissionPicker } from "./permission-picker";
+import { AccountAvatar, PermissionPicker } from "./permission-picker";
 import { permissionIdentity } from "@/lib/permission-context";
 import { SubsectionTitle } from "./dashboard-ui";
 import { UsernameAvatar } from "@/components/username-avatar";
@@ -24,72 +24,195 @@ const sharedStates: Record<SharedPermission["state"], string> = {
   shared: "Shared", paused: "Paused", pending: "Awaiting approval", restricted: "Restricted", unverified: "Status unavailable",
 };
 
-function SharedPermissionRow({ grant, disabled, onRemoved, onPendingChange }: { grant: SharedPermission; disabled: boolean; onRemoved: () => void; onPendingChange: (pending: boolean) => void }) {
+function SharedPermissionRow({
+  grant,
+  appContext,
+  disabled,
+  onRemoved,
+  onPendingChange,
+}: {
+  grant: SharedPermission;
+  appContext?: PermissionContext;
+  disabled: boolean;
+  onRemoved: () => void;
+  onPendingChange: (pending: boolean) => void;
+}) {
   const [confirm, setConfirm] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
   const isPaused = grant.state === "paused";
+  const hasTitle = Boolean(grant.permission.label && grant.permission.label !== grant.permission.key);
+  const title = hasTitle ? grant.permission.label : grant.permission.key;
   return (
     <li className="py-4 first:pt-0 last:pb-0">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="text-sm font-medium text-neutral-900">{grant.permission.label}</p>
-            {isPaused ? (
-              <Badge tone="warning" dot>
-                Paused
-              </Badge>
+        <div className="flex items-start gap-3 min-w-0">
+          <PermissionIcon name={grant.permission.icon} className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="text-sm font-medium text-neutral-900">{title}</p>
+              {isPaused ? (
+                <Badge tone="warning" dot>
+                  Paused
+                </Badge>
+              ) : null}
+            </div>
+            {grant.permission.scope ? (
+              <div className="mt-1 flex items-center gap-1.5 text-[13px] text-neutral-500">
+                <AccountAvatar
+                  account={
+                    appContext ?? {
+                      id: grant.permission.context,
+                      label: grant.permission.scope,
+                      username: grant.permission.scope.startsWith("@") ? grant.permission.scope.slice(1) : null,
+                      avatarUrl: null,
+                    }
+                  }
+                  size="xs"
+                  className="h-4 w-4 shrink-0 text-[9px]"
+                  shape="rounded"
+                />
+                <span>{grant.permission.scope}</span>
+              </div>
             ) : null}
+            {grant.permission.description ? (
+              <p className="mt-1 text-[13px] text-neutral-500">{grant.permission.description}</p>
+            ) : null}
+            {grant.permission.params?.length ? (
+              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-500">
+                {grant.permission.params.map((param) => (
+                  <span key={param.name} className="inline-flex items-center gap-1">
+                    <span className="text-neutral-400">{param.label ?? param.name}:</span>
+                    <span className="font-medium text-neutral-700">{param.valueLabel ?? param.value}</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {isPaused ? (
+              grant.permission.available === false ? (
+                <p className="mt-1 text-xs text-neutral-500">You no longer have this access</p>
+              ) : null
+            ) : (
+              <p className="mt-1 text-xs text-neutral-500">{sharedStates[grant.state]}</p>
+            )}
           </div>
-          <p className="mt-0.5 text-[13px] text-neutral-500">{grant.permission.scope}</p>
-          {isPaused ? (
-            grant.permission.available === false ? (
-              <p className="mt-1 text-xs text-neutral-500">You no longer have this access</p>
-            ) : null
-          ) : (
-            <p className="mt-1 text-xs text-neutral-500">{sharedStates[grant.state]}</p>
-          )}
         </div>
-        {!confirm ? <Button variant="danger-ghost" size="sm" disabled={disabled} aria-label={`Remove ${grant.permission.label} from ${grant.username ? `@${grant.username}` : "this account"}`} onClick={() => setConfirm(true)}>Remove</Button> : null}
+        {!confirm ? (
+          <Button
+            variant="danger-ghost"
+            size="sm"
+            disabled={disabled}
+            aria-label={`Remove ${grant.permission.label || grant.permission.key} from ${grant.username ? `@${grant.username}` : "this account"}`}
+            onClick={() => setConfirm(true)}
+          >
+            Remove
+          </Button>
+        ) : null}
       </div>
-      {confirm ? <div className="mt-3 rounded-xl bg-neutral-50 p-3">
-        <p className="text-[13px] text-neutral-700">Remove this permission from {grant.username ? `@${grant.username}` : "this account"}? Any access they have through other permissions will remain.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button autoFocus size="sm" variant="danger" loading={pending} disabled={disabled} onClick={async () => {
-            if (submitting.current) return;
-            submitting.current = true; setPending(true); onPendingChange(true); setError("");
-            try {
-              const result = await permissionAction({ kind: "revoke", grantId: grant.id });
-              if (result.error) setError(result.error);
-              if (result.revoked) onRemoved();
-            } catch { setError("Couldn’t remove this permission. Please try again."); }
-            finally { setPending(false); onPendingChange(false); submitting.current = false; }
-          }}>Remove permission</Button>
-          <Button size="sm" variant="ghost" disabled={pending} onClick={() => { setConfirm(false); setError(""); }}>Cancel</Button>
+      {confirm ? (
+        <div className="mt-3 rounded-xl bg-neutral-50 p-3">
+          <p className="text-[13px] text-neutral-700">
+            Remove this permission from {grant.username ? `@${grant.username}` : "this account"}? Any access they have through other permissions will remain.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              autoFocus
+              size="sm"
+              variant="danger"
+              loading={pending}
+              disabled={disabled}
+              onClick={async () => {
+                if (submitting.current) return;
+                submitting.current = true;
+                setPending(true);
+                onPendingChange(true);
+                setError("");
+                try {
+                  const result = await permissionAction({ kind: "revoke", grantId: grant.id });
+                  if (result.error) setError(result.error);
+                  if (result.revoked) onRemoved();
+                } catch {
+                  setError("Couldn’t remove this permission. Please try again.");
+                } finally {
+                  setPending(false);
+                  onPendingChange(false);
+                  submitting.current = false;
+                }
+              }}
+            >
+              Remove permission
+            </Button>
+            <Button size="sm" variant="ghost" disabled={pending} onClick={() => { setConfirm(false); setError(""); }}>
+              Cancel
+            </Button>
+          </div>
         </div>
-      </div> : null}
+      ) : null}
       {error ? <FormError className="mt-3">{error}</FormError> : null}
     </li>
   );
 }
 
-function UserPermissionRow({ permission, canShare, disabled, onShare }: { permission: UserPermission; canShare: boolean; disabled: boolean; onShare: () => void }) {
+function UserPermissionRow({
+  permission,
+  appContext,
+  canShare,
+  disabled,
+  onShare,
+}: {
+  permission: UserPermission;
+  appContext?: PermissionContext;
+  canShare: boolean;
+  disabled: boolean;
+  onShare: () => void;
+}) {
   const isPaused = Boolean(permission.receivedFrom && permission.available === false);
+  const hasTitle = Boolean(permission.label && permission.label !== permission.key);
+  const title = hasTitle ? permission.label : permission.key;
   return (
     <li className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
       <PermissionIcon name={permission.icon} className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="text-sm font-medium text-neutral-900">{permission.label}</p>
+          <p className="text-sm font-medium text-neutral-900">{title}</p>
           {isPaused ? (
             <Badge tone="warning" dot>
               Paused
             </Badge>
           ) : null}
         </div>
-        <p className="mt-0.5 text-[13px] text-neutral-500">{permission.scope}</p>
-        <p className="mt-1 text-[13px] text-neutral-500">{permission.description}</p>
+        {permission.scope ? (
+          <div className="mt-1 flex items-center gap-1.5 text-[13px] text-neutral-500">
+            <AccountAvatar
+              account={
+                appContext ?? {
+                  id: permission.context,
+                  label: permission.scope,
+                  username: permission.scope.startsWith("@") ? permission.scope.slice(1) : null,
+                  avatarUrl: null,
+                }
+              }
+              size="xs"
+              className="h-4 w-4 shrink-0 text-[9px]"
+              shape="rounded"
+            />
+            <span>{permission.scope}</span>
+          </div>
+        ) : null}
+        {permission.description ? (
+          <p className="mt-1 text-[13px] text-neutral-500">{permission.description}</p>
+        ) : null}
+        {permission.params?.length ? (
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-500">
+            {permission.params.map((param) => (
+              <span key={param.name} className="inline-flex items-center gap-1">
+                <span className="text-neutral-400">{param.label ?? param.name}:</span>
+                <span className="font-medium text-neutral-700">{param.valueLabel ?? param.value}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
         {permission.available !== true ? (
           <p className="mt-1 text-xs text-neutral-500">
             {isPaused
@@ -100,7 +223,11 @@ function UserPermissionRow({ permission, canShare, disabled, onShare }: { permis
           </p>
         ) : null}
       </div>
-      {canShare ? <Button size="sm" variant="secondary" disabled={disabled} onClick={onShare}>Share</Button> : null}
+      {canShare ? (
+        <Button size="sm" variant="secondary" disabled={disabled} onClick={onShare}>
+          Share
+        </Button>
+      ) : null}
     </li>
   );
 }
@@ -190,6 +317,24 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
     if (sender?.username && !accountSuggestions.has(sender.id)) accountSuggestions.set(sender.id, { id: sender.id, username: sender.username, label: `@${sender.username}`, avatarUrl: null });
   }
 
+  const contextLabel = (id: string) => contexts.find((item) => item.id === id)?.label ?? signedInAccounts.find((item) => item.id === id)?.label ?? `Context ${id}`;
+  const getAppContext = (contextId: string, fallbackScope?: string | null): PermissionContext => {
+    const found = contexts.find((c) => c.id === contextId) ?? signedInAccounts.find((a) => a.id === contextId);
+    if (found) {
+      if (fallbackScope && !found.label) {
+        return { ...found, label: fallbackScope };
+      }
+      return found;
+    }
+    const username = fallbackScope?.startsWith("@") ? fallbackScope.slice(1) : null;
+    return {
+      id: contextId,
+      label: fallbackScope || contextLabel(contextId),
+      username,
+      avatarUrl: null,
+    };
+  };
+
   return (
     <Card>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -219,7 +364,7 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
           {!shared.length ? <div className="py-8 text-center"><UsersRound aria-hidden className="mx-auto mb-3 h-6 w-6 text-neutral-400" /><p className="text-sm font-medium text-neutral-900">You haven’t shared any permissions</p><p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">Give someone specific access to your account. You can remove it here whenever you need to.</p></div> : <div className="space-y-5">
             {[...recipients.entries()].map(([id, grants]) => <section key={id} className="overflow-hidden rounded-xl border border-black/[0.07]">
               <div className="flex items-center gap-3 border-b border-black/[0.05] bg-neutral-50/70 px-4 py-3"><UsernameAvatar username={grants[0].username} size="sm" /><IdentityLabel username={grants[0].username} fallback="Account name unavailable" /></div>
-              <ul className="divide-y divide-black/[0.05] p-4">{grants.map((grant) => <SharedPermissionRow key={grant.id} grant={grant} disabled={sharing !== null || mutating} onPendingChange={setMutating} onRemoved={() => {
+              <ul className="divide-y divide-black/[0.05] p-4">{grants.map((grant) => <SharedPermissionRow key={grant.id} grant={grant} appContext={getAppContext(grant.permission.context, grant.permission.scope)} disabled={sharing !== null || mutating} onPendingChange={setMutating} onRemoved={() => {
                 setShared((items) => items.filter((item) => item.id !== grant.id)); setMessage("Permission removed.");
                 requestAnimationFrame(() => shareButton.current?.focus());
               }} />)}</ul>
@@ -245,6 +390,7 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
                       <UserPermissionRow
                         key={permissionIdentity(permission.key, permission.context)}
                         permission={permission}
+                        appContext={getAppContext(permission.context, permission.scope)}
                         canShare={shareOptions.some((option) => permissionIdentity(option.key, option.context) === permissionIdentity(permission.key, permission.context))}
                         disabled={sharing !== null || mutating}
                         onShare={() => openShare(permissionIdentity(permission.key, permission.context))}
@@ -271,6 +417,7 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
                             <UserPermissionRow
                               key={`${id}-${permissionIdentity(permission.key, permission.context)}`}
                               permission={permission}
+                              appContext={getAppContext(permission.context, permission.scope)}
                               canShare={shareOptions.some((option) => permissionIdentity(option.key, option.context) === permissionIdentity(permission.key, permission.context))}
                               disabled={sharing !== null || mutating}
                               onShare={() => openShare(permissionIdentity(permission.key, permission.context))}

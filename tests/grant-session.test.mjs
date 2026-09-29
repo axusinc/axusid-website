@@ -52,7 +52,9 @@ test("ending a session retires only its app grants plus grants from before paren
     "@/lib/oauth/pkce": { sha256Base64Url: async (token) => `hash:${token}` },
   });
 
+  await grants.revokeGrantsForSessionHash("1", "hash:other");
+  assert.deepEqual(rows.filter((row) => row.revokedAt).map((row) => row.id), ["other-session"]);
   await grants.revokeGrantsForSession("1", "current");
-  assert.deepEqual(rows.filter((row) => row.revokedAt).map((row) => row.id).sort(), ["current", "legacy"]);
-  assert.deepEqual(revoked.sort(), ["app-current", "app-legacy"]);
+  assert.deepEqual(rows.filter((row) => row.revokedAt).map((row) => row.id).sort(), ["current", "legacy", "other-session"]);
+  assert.deepEqual(revoked.sort(), ["app-current", "app-legacy", "app-other"]);
 });

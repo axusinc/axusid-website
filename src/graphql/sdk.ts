@@ -16,10 +16,27 @@ export type Scalars = {
   Float: { input: number; output: number; }
 };
 
+export type SchemaAccountToken = {
+  __typename?: 'AccountToken';
+  current: Scalars['Boolean']['output'];
+  icon?: Maybe<Scalars['String']['output']>;
+  permissions: Array<SchemaAccountTokenPermission>;
+  title?: Maybe<Scalars['String']['output']>;
+  tokenId: Scalars['ID']['output'];
+};
+
+export type SchemaAccountTokenPermission = {
+  __typename?: 'AccountTokenPermission';
+  context: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+};
+
 export type SchemaAuthenticatedToken = {
   __typename?: 'AuthenticatedToken';
   auid: Scalars['ID']['output'];
+  icon?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  title?: Maybe<Scalars['String']['output']>;
 };
 
 export type SchemaAvatar = {
@@ -114,6 +131,7 @@ export type SchemaMutation = {
   __typename?: 'Mutation';
   acceptParent: SchemaParents;
   addUsername: SchemaUsernames;
+  changeAccountTokenPresentation: SchemaTokenPresentation;
   changeDefaultUsername: SchemaUsernames;
   changeDescription: SchemaDescription;
   changeName: SchemaName;
@@ -142,10 +160,12 @@ export type SchemaMutation = {
   reorderParents: SchemaParents;
   requestAvatarUpload: SchemaAvatarUploadRequest;
   requestParent: SchemaParents;
+  revokeAccountToken: Scalars['Boolean']['output'];
   revokeGrant: Scalars['Boolean']['output'];
   revokeToken: Scalars['Boolean']['output'];
   setDefaultVariation: SchemaDefaultVariation;
   setPassword: Scalars['Boolean']['output'];
+  setTokenPresentation: SchemaTokenPresentation;
   startPasskeyLogin: SchemaPasskeyCeremony;
   startPasskeyRegistration: SchemaPasskeyCeremony;
   startTotpEnrollment: SchemaTotpEnrollmentResponse;
@@ -164,6 +184,14 @@ export type SchemaMutationAcceptParentArgs = {
 export type SchemaMutationAddUsernameArgs = {
   auid: Scalars['ID']['input'];
   username: Scalars['String']['input'];
+};
+
+
+export type SchemaMutationChangeAccountTokenPresentationArgs = {
+  auid: Scalars['ID']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+  tokenId: Scalars['ID']['input'];
 };
 
 
@@ -245,7 +273,9 @@ export type SchemaMutationConfirmAvatarUploadArgs = {
 
 export type SchemaMutationCreateUserArgs = {
   contextAuid?: InputMaybe<Scalars['ID']['input']>;
+  icon?: InputMaybe<Scalars['String']['input']>;
   registrationKey: Scalars['ID']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -287,31 +317,42 @@ export type SchemaMutationLinkExternalIdentityArgs = {
 
 export type SchemaMutationLoginWithExternalIdentityArgs = {
   authentication: SchemaExternalAuthenticationInput;
+  icon?: InputMaybe<Scalars['String']['input']>;
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationLoginWithPasskeyArgs = {
   challengeId: Scalars['ID']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
   responseJson: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationLoginWithPasswordArgs = {
   auid: Scalars['ID']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
   password: Scalars['String']['input'];
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationLoginWithTokenArgs = {
   auid: Scalars['ID']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
+  permissionContext?: InputMaybe<Scalars['ID']['input']>;
   permissions?: InputMaybe<Array<Scalars['String']['input']>>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type SchemaMutationLoginWithTotpArgs = {
   code: Scalars['String']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
   totpToken: Scalars['String']['input'];
 };
 
@@ -353,6 +394,12 @@ export type SchemaMutationRequestParentArgs = {
 };
 
 
+export type SchemaMutationRevokeAccountTokenArgs = {
+  auid: Scalars['ID']['input'];
+  tokenId: Scalars['ID']['input'];
+};
+
+
 export type SchemaMutationRevokeGrantArgs = {
   grantId: Scalars['ID']['input'];
 };
@@ -367,6 +414,12 @@ export type SchemaMutationSetDefaultVariationArgs = {
 export type SchemaMutationSetPasswordArgs = {
   auid: Scalars['ID']['input'];
   password: Scalars['String']['input'];
+};
+
+
+export type SchemaMutationSetTokenPresentationArgs = {
+  icon?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -590,6 +643,7 @@ export type SchemaPermissionTreeNode = {
 
 export type SchemaQuery = {
   __typename?: 'Query';
+  accountTokens: Array<SchemaAccountToken>;
   avatar?: Maybe<SchemaAvatar>;
   checkPermission: SchemaPermissionCheck;
   defaultVariation?: Maybe<SchemaDefaultVariation>;
@@ -598,7 +652,6 @@ export type SchemaQuery = {
   description?: Maybe<SchemaDescription>;
   externalIdentities: Array<SchemaExternalIdentity>;
   externalIdentityAccessToken: SchemaExternalIdentityAccessTokenResponse;
-  grantedApplications: Array<Scalars['ID']['output']>;
   grants: Array<SchemaPermissionGrant>;
   identities: SchemaPaginatedIdentities;
   isPasswordSet: Scalars['Boolean']['output'];
@@ -608,12 +661,19 @@ export type SchemaQuery = {
   passkeys: Array<SchemaPasskeyCredential>;
   permissionDeclarations: Array<SchemaPermissionDeclaration>;
   permissionTree: Array<SchemaPermissionTreeNode>;
+  receivedPermissionContexts: Array<Scalars['ID']['output']>;
   searchPermissionValues: SchemaParamOption;
   searchUsernames: Array<SchemaUsernameMatch>;
   status?: Maybe<SchemaStatus>;
+  tokenPresentation: SchemaTokenPresentation;
   user?: Maybe<SchemaUser>;
   usernames?: Maybe<SchemaUsernames>;
   variations: Array<SchemaVariation>;
+};
+
+
+export type SchemaQueryAccountTokensArgs = {
+  auid: Scalars['ID']['input'];
 };
 
 
@@ -658,11 +718,6 @@ export type SchemaQueryExternalIdentitiesArgs = {
 export type SchemaQueryExternalIdentityAccessTokenArgs = {
   auid: Scalars['ID']['input'];
   externalIdentityId: Scalars['ID']['input'];
-};
-
-
-export type SchemaQueryGrantedApplicationsArgs = {
-  auid: Scalars['ID']['input'];
 };
 
 
@@ -714,6 +769,11 @@ export type SchemaQueryPermissionTreeArgs = {
 };
 
 
+export type SchemaQueryReceivedPermissionContextsArgs = {
+  auid: Scalars['ID']['input'];
+};
+
+
 export type SchemaQuerySearchPermissionValuesArgs = {
   contextAuid: Scalars['ID']['input'];
   declarationId: Scalars['ID']['input'];
@@ -760,7 +820,16 @@ export type SchemaStatus = {
 
 export type SchemaToken = {
   __typename?: 'Token';
+  icon?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+export type SchemaTokenPresentation = {
+  __typename?: 'TokenPresentation';
+  icon?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+  tokenId: Scalars['ID']['output'];
 };
 
 export type SchemaTotpEnrollmentResponse = {
@@ -926,6 +995,9 @@ export type LinkExternalIdentityMutation = { linkExternalIdentity: { id: string,
 export type LoginWithTokenMutationVariables = Exact<{
   auid: string | number;
   permissions?: Array<string> | string | null | undefined;
+  permissionContext?: string | number | null | undefined;
+  title?: string | null | undefined;
+  icon?: string | null | undefined;
 }>;
 
 
@@ -1036,12 +1108,12 @@ export type MyGrantsQueryVariables = Exact<{
 
 export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
 
-export type GrantedApplicationsQueryVariables = Exact<{
+export type ReceivedPermissionContextsQueryVariables = Exact<{
   auid: string | number;
 }>;
 
 
-export type GrantedApplicationsQuery = { grantedApplications: Array<string> };
+export type ReceivedPermissionContextsQuery = { receivedPermissionContexts: Array<string> };
 
 export type MyDelegatedGrantsQueryVariables = Exact<{
   auid: string | number;
@@ -1127,6 +1199,31 @@ export type RemoveSharedPermissionMutationVariables = Exact<{
 
 
 export type RemoveSharedPermissionMutation = { revokeGrant: boolean };
+
+export type AccountTokensQueryVariables = Exact<{
+  auid: string | number;
+}>;
+
+
+export type AccountTokensQuery = { accountTokens: Array<{ tokenId: string, title: string | null, icon: string | null, current: boolean, permissions: Array<{ key: string, context: string }> }> };
+
+export type ChangeAccountTokenPresentationMutationVariables = Exact<{
+  auid: string | number;
+  tokenId: string | number;
+  title?: string | null | undefined;
+  icon?: string | null | undefined;
+}>;
+
+
+export type ChangeAccountTokenPresentationMutation = { changeAccountTokenPresentation: { tokenId: string, title: string | null, icon: string | null } };
+
+export type RevokeAccountTokenMutationVariables = Exact<{
+  auid: string | number;
+  tokenId: string | number;
+}>;
+
+
+export type RevokeAccountTokenMutation = { revokeAccountToken: boolean };
 
 export type OwnerByUsernameQueryVariables = Exact<{
   username: string;
@@ -1369,8 +1466,14 @@ export const LinkExternalIdentityDocument = gql`
 }
     `;
 export const LoginWithTokenDocument = gql`
-    mutation LoginWithToken($auid: ID!, $permissions: [String!]) {
-  loginWithToken(auid: $auid, permissions: $permissions) {
+    mutation LoginWithToken($auid: ID!, $permissions: [String!], $permissionContext: ID, $title: String, $icon: String) {
+  loginWithToken(
+    auid: $auid
+    permissions: $permissions
+    permissionContext: $permissionContext
+    title: $title
+    icon: $icon
+  ) {
     id
   }
 }
@@ -1513,9 +1616,9 @@ export const MyGrantsDocument = gql`
   }
 }
     `;
-export const GrantedApplicationsDocument = gql`
-    query GrantedApplications($auid: ID!) {
-  grantedApplications(auid: $auid)
+export const ReceivedPermissionContextsDocument = gql`
+    query ReceivedPermissionContexts($auid: ID!) {
+  receivedPermissionContexts(auid: $auid)
 }
     `;
 export const MyDelegatedGrantsDocument = gql`
@@ -1656,6 +1759,39 @@ export const NotifyValidationChangedDocument = gql`
 export const RemoveSharedPermissionDocument = gql`
     mutation RemoveSharedPermission($grantId: ID!) {
   revokeGrant(grantId: $grantId)
+}
+    `;
+export const AccountTokensDocument = gql`
+    query AccountTokens($auid: ID!) {
+  accountTokens(auid: $auid) {
+    tokenId
+    title
+    icon
+    current
+    permissions {
+      key
+      context
+    }
+  }
+}
+    `;
+export const ChangeAccountTokenPresentationDocument = gql`
+    mutation ChangeAccountTokenPresentation($auid: ID!, $tokenId: ID!, $title: String, $icon: String) {
+  changeAccountTokenPresentation(
+    auid: $auid
+    tokenId: $tokenId
+    title: $title
+    icon: $icon
+  ) {
+    tokenId
+    title
+    icon
+  }
+}
+    `;
+export const RevokeAccountTokenDocument = gql`
+    mutation RevokeAccountToken($auid: ID!, $tokenId: ID!) {
+  revokeAccountToken(auid: $auid, tokenId: $tokenId)
 }
     `;
 export const OwnerByUsernameDocument = gql`
@@ -1945,8 +2081,8 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     MyGrants(variables: MyGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyGrantsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<MyGrantsQuery>({ document: MyGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyGrants', 'query', variables);
     },
-    GrantedApplications(variables: GrantedApplicationsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<GrantedApplicationsQuery> {
-      return withWrapper((wrappedRequestHeaders) => client.request<GrantedApplicationsQuery>({ document: GrantedApplicationsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'GrantedApplications', 'query', variables);
+    ReceivedPermissionContexts(variables: ReceivedPermissionContextsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ReceivedPermissionContextsQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ReceivedPermissionContextsQuery>({ document: ReceivedPermissionContextsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ReceivedPermissionContexts', 'query', variables);
     },
     MyDelegatedGrants(variables: MyDelegatedGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyDelegatedGrantsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<MyDelegatedGrantsQuery>({ document: MyDelegatedGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyDelegatedGrants', 'query', variables);
@@ -1977,6 +2113,15 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     RemoveSharedPermission(variables: RemoveSharedPermissionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RemoveSharedPermissionMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<RemoveSharedPermissionMutation>({ document: RemoveSharedPermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RemoveSharedPermission', 'mutation', variables);
+    },
+    AccountTokens(variables: AccountTokensQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<AccountTokensQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<AccountTokensQuery>({ document: AccountTokensDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'AccountTokens', 'query', variables);
+    },
+    ChangeAccountTokenPresentation(variables: ChangeAccountTokenPresentationMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeAccountTokenPresentationMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ChangeAccountTokenPresentationMutation>({ document: ChangeAccountTokenPresentationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeAccountTokenPresentation', 'mutation', variables);
+    },
+    RevokeAccountToken(variables: RevokeAccountTokenMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<RevokeAccountTokenMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<RevokeAccountTokenMutation>({ document: RevokeAccountTokenDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'RevokeAccountToken', 'mutation', variables);
     },
     OwnerByUsername(variables: OwnerByUsernameQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<OwnerByUsernameQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<OwnerByUsernameQuery>({ document: OwnerByUsernameDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'OwnerByUsername', 'query', variables);

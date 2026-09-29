@@ -18,8 +18,9 @@ type Query {
     isPasswordSet(auid: ID!): Boolean!
     # Permission reads require identity.<auid>.grants.read on the caller token.
     grants(auid: ID!): [PermissionGrant!]!
-    # Distinct permission contexts of ALLOW identity grants; requires identity.<auid>.grants.read.
-    grantedApplications(auid: ID!): [ID!]!
+    # Distinct contexts of ALLOW permissions received directly or by delegation.
+    # Requires identity.<auid>.grants.read. Includes stored grants that may not currently confer access.
+    receivedPermissionContexts(auid: ID!): [ID!]!
     # Identity grants delegated by this identity; requires identity.<auid>.grants.read.
     # Includes grants that may not currently confer access. Excludes token and role recipients.
     delegatedGrants(auid: ID!): [PermissionGrant!]!
@@ -28,11 +29,15 @@ type Query {
     describePermission(contextAuid: ID!, permission: String!): DescribedPermission!
     permissionTree(contextAuid: ID!): [PermissionTreeNode!]!
     searchPermissionValues(contextAuid: ID!, declarationId: ID!, param: String!, query: String!, limit: Int): ParamOption!
+    # Presentation of the token in the Authorization header.
+    tokenPresentation: TokenPresentation!
+    # Tokens whose delegated grants trace to this identity; requires identity.<auid>.token.issue.
+    accountTokens(auid: ID!): [AccountToken!]!
 }
 
 
 type Mutation {
-    createUser(contextAuid: ID, registrationKey: ID!): CreatedUser!
+    createUser(contextAuid: ID, registrationKey: ID!, title: String, icon: String): CreatedUser!
     addUsername(auid: ID!, username: String!): Usernames!
     removeUsername(auid: ID!, username: String!): Usernames!
     changeDefaultUsername(auid: ID!, username: String!): Usernames!
@@ -53,25 +58,29 @@ type Mutation {
     acceptParent(auid: ID!, parentAuid: ID!): Parents!
     reorderParents(auid: ID!, parentAuids: [ID!]!): Parents!
     setPassword(auid: ID!, password: String!): Boolean!
-    # `permissions` lists exactly what the new token may do. Omitting it, or passing an empty
-    # list, issues a token with no permissions at all - ask for "*" to get everything the
-    # authenticating identity holds.
-    loginWithPassword(auid: ID!, password: String!, permissions: [String!]): Token!
-    loginWithExternalIdentity(authentication: ExternalAuthenticationInput!, permissions: [String!]): AuthenticatedToken!
-    loginWithToken(auid: ID!, permissions: [String!]): Token!
+    # `permissions` must contain at least one requested permission. Ask for "*" to delegate
+    # the authenticating identity's permissions in the selected context.
+    loginWithPassword(auid: ID!, password: String!, permissions: [String!], title: String, icon: String): Token!
+    loginWithExternalIdentity(authentication: ExternalAuthenticationInput!, permissions: [String!], title: String, icon: String): AuthenticatedToken!
+    loginWithToken(auid: ID!, permissions: [String!], permissionContext: ID, title: String, icon: String): Token!
     # Revokes the token sent in the Authorization header. Tokens delegated from it stop working too.
     revokeToken: Boolean!
+    # Sets or clears the title and icon of the token in the Authorization header.
+    setTokenPresentation(title: String, icon: String): TokenPresentation!
+    # These operations require identity.<auid>.token.issue and a matching grant origin.
+    changeAccountTokenPresentation(auid: ID!, tokenId: ID!, title: String, icon: String): TokenPresentation!
+    revokeAccountToken(auid: ID!, tokenId: ID!): Boolean!
     linkExternalIdentity(auid: ID!, authentication: ExternalAuthenticationInput!): ExternalIdentity!
     unlinkExternalIdentity(auid: ID!, externalIdentityId: ID!): Boolean!
     startTotpEnrollment(auid: ID!, currentCode: String): TotpEnrollmentResponse!
     verifyTotpEnrollment(auid: ID!, code: String!): Boolean!
-    loginWithTotp(totpToken: String!, code: String!): AuthenticatedToken!
+    loginWithTotp(totpToken: String!, code: String!, title: String, icon: String): AuthenticatedToken!
     startPasskeyRegistration(auid: ID!, displayName: String, relyingPartyId: String!): PasskeyCeremony!
     finishPasskeyRegistration(auid: ID!, challengeId: ID!, responseJson: String!, name: String): Boolean!
     updatePasskeyName(auid: ID!, credentialId: ID!, name: String!): Boolean!
     deletePasskey(auid: ID!, credentialId: ID!): Boolean!
     startPasskeyLogin(permissions: [String!], relyingPartyId: String!): PasskeyCeremony!
-    loginWithPasskey(challengeId: ID!, responseJson: String!): AuthenticatedToken!
+    loginWithPasskey(challengeId: ID!, responseJson: String!, title: String, icon: String): AuthenticatedToken!
     # Requires identity.<granterAuid>.grants.delegate on the caller token and
     # requires the granter identity to hold the requested permission.
     delegatePermission(granterAuid: ID!, granteeAuid: ID!, permission: String!, permissionContext: ID): PermissionGrant!
@@ -363,12 +372,35 @@ type Token {
     # Send this as `Authorization: Bearer`. It is returned only here: the engine keeps the
     # token's public id and a hash of its secret, never the string itself.
     id: ID!
+    title: String
+    icon: String
 }
 
 type AuthenticatedToken {
     # Send this as `Authorization: Bearer`; see Token.id.
     id: ID!
     auid: ID!
+    title: String
+    icon: String
+}
+
+type TokenPresentation {
+    tokenId: ID!
+    title: String
+    icon: String
+}
+
+type AccountTokenPermission {
+    key: String!
+    context: ID!
+}
+
+type AccountToken {
+    tokenId: ID!
+    title: String
+    icon: String
+    permissions: [AccountTokenPermission!]!
+    current: Boolean!
 }
 
 input ExternalAuthenticationInput {
