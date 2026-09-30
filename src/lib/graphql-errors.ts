@@ -427,6 +427,7 @@ export const PERMISSION_ERROR_MESSAGES: Partial<Record<DomainErrorCode, string>>
 };
 
 export function permissionErrorMessage(error: unknown, fallback = "Couldn’t complete the permission request. Please try again."): string {
+  if (error instanceof Error && error.name === "InvalidPermissionScopeError") return error.message;
   if (isRateLimitError(error)) return RATE_LIMIT_MESSAGE;
   const code = getPrimaryDomainError(error)?.code;
   if (code && PERMISSION_ERROR_MESSAGES[code]) return PERMISSION_ERROR_MESSAGES[code]!;
@@ -436,6 +437,7 @@ export function permissionErrorMessage(error: unknown, fallback = "Couldn’t co
 }
 
 export function isPermissionValidationError(error: unknown): boolean {
+  if (error instanceof Error && error.name === "InvalidPermissionScopeError") return true;
   const code = getPrimaryDomainError(error)?.code;
   return Boolean(code && code !== "PERMISSION_VALIDATOR_UNAVAILABLE" && PERMISSION_ERROR_MESSAGES[code]);
 }

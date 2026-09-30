@@ -137,7 +137,7 @@ Important fields:
 | `jwks_uri` | `{issuer}/.well-known/jwks.json` |
 | `revocation_endpoint` | `{issuer}/oauth/revoke` |
 
-Supported scopes: `openid`, `profile`, `email`, `offline_access`.
+OIDC scopes: `openid`, `profile`, `email`, `offline_access`. Declared AXUS permission scopes can also be requested; see the permission section below.
 
 ---
 
@@ -621,4 +621,4 @@ For a quick smoke test without registering a client, use seeded `axusid-dev` if 
 - The `email` OIDC scope returns a synthetic email (`[auid]@amail.com`) for application compatibility.
 - OIDC scopes (`openid`, `profile`, …) are **not** AXUS declared permissions — they control consent and JWT claims only.
 
-For Winelore-specific permissions, publish declarations under the app owner AUID and pass that context explicitly to checks and delegations. Current native token issuance uses system context and does not support app-context OAuth scopes. See `/developers/permissions` and `/developers/become-an-app` for declaration, validator and provisioning requirements.
+For Winelore-specific permissions, publish declarations under the app owner AUID and request OAuth scopes as `axus:<Winelore AUID>:<permission key>`. Pass the same context to checks and delegations. Unprefixed permission scopes use the AXUS ID system context. See `/developers/permissions` and `/developers/become-an-app` for declaration, validator and provisioning requirements.

@@ -18,6 +18,7 @@ export {
   partitionScopes,
   isOidcScope,
   isValidPermissionKey,
+  parsePermissionScope,
   permissionImplies,
   validatePermissionKeys,
   getConsentPermissions,

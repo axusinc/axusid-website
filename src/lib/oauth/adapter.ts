@@ -1,4 +1,7 @@
 import { getAuthSdk } from "@/lib/auth-graphql";
+import { publicTokenId } from "@/lib/native-token-id";
+import { InvalidPermissionScopeError, parsePermissionScope } from "@/lib/oauth/scopes";
+import { getSystemPermissionContext } from "@/lib/permission-config";
 
 /**
  * What the user's own session token asks for. An empty list would now mean no permissions at
@@ -33,9 +36,49 @@ export async function issueAuthorizationToken(params: {
   permissions: string[];
 }): Promise<string> {
   const sdk = getAuthSdk(params.sessionTokenId);
-  const permissions = [...new Set(params.permissions)];
-  const result = await sdk.LoginWithToken({ auid: params.userAuid, permissions });
-  return result.loginWithToken.id;
+  const systemContext = getSystemPermissionContext();
+  const groups = new Map<string, Set<string>>();
+  for (const scope of params.permissions) {
+    const parsed = parsePermissionScope(scope);
+    const context = parsed.contextAuid ?? systemContext;
+    if (!groups.has(context)) groups.set(context, new Set());
+    groups.get(context)!.add(parsed.key);
+  }
+  if (groups.size === 0) throw new InvalidPermissionScopeError("At least one permission is required for a native token");
+  // The engine can issue a wildcard only while creating a token in that context.
+  // Other contexts are added as concrete grants to the same token afterward.
+  const wildcardContexts = [...groups].filter(([, keys]) => keys.has("*"));
+  if (wildcardContexts.length > 1) throw new InvalidPermissionScopeError("An OAuth request can use all-access permissions in only one context");
+  const [primaryContext, primaryPermissions] = wildcardContexts[0] ?? [...groups][0];
+  const additional = [...groups].filter(([context]) => context !== primaryContext)
+    .flatMap(([context, keys]) => [...keys].map((permission) => ({
+      granterAuid: params.userAuid,
+      permissionContext: context,
+      permission,
+    })));
+  const result = await sdk.LoginWithToken({
+    auid: params.userAuid,
+    permissions: [...primaryPermissions],
+    permissionContext: primaryContext,
+  });
+  const bearer = result.loginWithToken.id;
+  if (additional.length === 0) return bearer;
+  try {
+    const tokenId = publicTokenId(bearer);
+    if (!tokenId) throw new Error("Engine returned an invalid token ID");
+    for (let start = 0; start < additional.length; start += 100) {
+      await sdk.ApplyPermissionBatch({
+        delegations: additional.slice(start, start + 100).map((grant) => ({ ...grant, granteeTokenId: tokenId })),
+        revocations: [],
+      });
+    }
+    return bearer;
+  } catch (error) {
+    // Revoke any partial token before the OAuth grant can be recorded or returned.
+    try { await revokeWithBackend(bearer); }
+    catch (revokeError) { console.error("Could not revoke an incomplete OAuth native token:", revokeError); }
+    throw error;
+  }
 }
 
 /** Revokes a native token, which also ends every token delegated from it. */

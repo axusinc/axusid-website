@@ -21,7 +21,7 @@ type ConsentFormProps = {
   /** Standard OIDC scopes requested (openid, profile, email, offline_access). */
   oidcScopes?: string[];
   /** Custom AXUS permissions requested. */
-  permissions: { key: string; label: string; description: string }[];
+  permissions: { key: string; label: string; description: string; contextLabel: string }[];
   redirectUri: string;
   accounts?: AccountItemInfo[];
   currentAuid?: string;
@@ -149,6 +149,7 @@ export function ConsentForm({
                   <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-brand" />
                   <span className="min-w-0 flex-1">
                     {hasTitle ? permission.label : permission.key}
+                    <span className="mt-1 block text-xs text-neutral-500">{permission.contextLabel}</span>
                     {permission.description ? <span className="mt-1 block text-xs text-neutral-500">{permission.description}</span> : null}
                   </span>
                 </li>

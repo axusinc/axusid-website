@@ -58,7 +58,7 @@ export default function PermissionsDocsPage() {
     </section>
     <section id="oauth" className="docs-section">
       <h2>OAuth scopes and app contexts.</h2>
-      <p>The four OIDC scopes control identity claims and refresh tokens. Custom OAuth permission scopes currently use system-context declared keys, because native login/token mutations accept a string list without a permission-context argument. An OAuth client ID does not select a permission context. App-context checks and identity delegations use the explicit GraphQL context arguments shown above; app-context token issuance needs an engine API extension.</p>
+      <p>The four OIDC scopes control identity claims and refresh tokens. Unprefixed custom OAuth scopes use system-context declared keys. To request another app’s permission, use <code>axus:&lt;app AUID&gt;:&lt;permission key&gt;</code>, for example <code>axus:5:posts.read</code>. One authorization can include keys from several contexts. The app AUID identifies the declaration owner; the OAuth client ID does not select a permission context. The consent screen names each context, and the native token receives only the approved permissions in each context. A bare <code>*</code> can be requested in only one context per authorization.</p>
       <p>The website reuses consent only for exactly matching scopes. A token wildcard does not include OIDC scopes. Undeclared keys or invalid bindings produce <code>invalid_scope</code>; validator outages produce <code>server_error</code>. Existing sessions are retained so the person can correct the request.</p>
     </section>
     <section id="api" className="docs-section">

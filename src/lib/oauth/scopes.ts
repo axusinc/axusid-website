@@ -9,6 +9,39 @@ export type OidcScope = (typeof OIDC_SCOPES)[number];
 
 // OAuth scope tokens follow RFC 6749; declaration validity belongs to the engine.
 const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
+const CONTEXTUAL_SCOPE_PREFIX = "axus:";
+const CONTEXTUAL_SCOPE = /^axus:([0-9]+(?:,[0-9]+)*):(.+)$/;
+
+export type ParsedPermissionScope = { scope: string; key: string; contextAuid: string | null };
+
+export class InvalidPermissionScopeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidPermissionScopeError";
+  }
+}
+
+/** Unprefixed permissions retain the system context for existing OAuth clients. */
+export function parsePermissionScope(scope: string): ParsedPermissionScope {
+  if (scope.startsWith(CONTEXTUAL_SCOPE_PREFIX)) {
+    const match = CONTEXTUAL_SCOPE.exec(scope);
+    if (!match || !isValidPermissionKey(match[2])) throw new InvalidPermissionScopeError(`Invalid permission scope: ${scope}`);
+    const contextAuid = match[1].split(",").map((part) => BigInt(part).toString()).join(",");
+    if (contextAuid !== match[1]) throw new InvalidPermissionScopeError(`Non-canonical permission context: ${match[1]}`);
+    return { scope, key: match[2], contextAuid };
+  }
+  if (!isValidPermissionKey(scope)) throw new InvalidPermissionScopeError(`Invalid permission scope: ${scope}`);
+  return { scope, key: scope, contextAuid: null };
+}
+
+export function validatePermissionScopeCombination(permissions: string[], systemContext: string): void {
+  const wildcardContexts = new Set(permissions.map(parsePermissionScope)
+    .filter((permission) => permission.key === "*")
+    .map((permission) => permission.contextAuid ?? systemContext));
+  if (wildcardContexts.size > 1) {
+    throw new InvalidPermissionScopeError("An OAuth request can use all-access permissions in only one context");
+  }
+}
 
 export function isOidcScope(scope: string): scope is OidcScope {
   return (OIDC_SCOPES as readonly string[]).includes(scope);
@@ -58,7 +91,13 @@ export function getConsentPermissions(axusPermissions: string[]): string[] {
 }
 
 export function formatPermissionLabel(key: string): string {
-  return key === "*" ? "All AXUS ID permissions you hold" : key;
+  try {
+    const parsed = parsePermissionScope(key);
+    const label = parsed.key === "*" ? "All permissions you hold" : parsed.key;
+    return parsed.contextAuid ? `App ${parsed.contextAuid}: ${label}` : parsed.key === "*" ? "All AXUS ID permissions you hold" : label;
+  } catch {
+    return key;
+  }
 }
 
 export function combineScopes(

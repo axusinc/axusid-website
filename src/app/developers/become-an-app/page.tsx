@@ -63,7 +63,7 @@ export default function BecomeAnAppPage() {
     </section>
     <section id="next" className="docs-section">
       <h2>Discover, describe and delegate.</h2>
-      <p>Use the <Link href="/developers/permissions#picker" className="docs-link">permission picker workflow</Link> and the <Link href="/developers/api" className="docs-link">GraphQL schema explorer</Link> for exact signatures and return types. Your app context must be forwarded with every identity permission check and delegation. Current OAuth token scopes use system context; they do not implicitly select your app’s AUID.</p>
+      <p>Use the <Link href="/developers/permissions#picker" className="docs-link">permission picker workflow</Link> and the <Link href="/developers/api" className="docs-link">GraphQL schema explorer</Link> for exact signatures and return types. Your app context must be forwarded with every identity permission check and delegation. OAuth scopes for your app use <code>axus:&lt;your AUID&gt;:&lt;permission key&gt;</code>; unprefixed scopes use the AXUS ID system context.</p>
     </section>
   </>;
 }

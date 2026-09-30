@@ -1,4 +1,4 @@
-import { isOidcScope, isValidPermissionKey } from "@/lib/oauth/scopes";
+import { isOidcScope, parsePermissionScope } from "@/lib/oauth/scopes";
 
 export type OAuthClient = {
   auid: string;
@@ -36,9 +36,10 @@ export function normalizeScopes(scope?: string): string[] {
  * consent screen and bounded by what their own account holds. Only the syntax is checked here.
  */
 export function validateScopes(scopes: string[]): string[] {
-  const invalidPermissions = scopes.filter(
-    (scope) => !isOidcScope(scope) && !isValidPermissionKey(scope),
-  );
+  const invalidPermissions = scopes.filter((scope) => {
+    if (isOidcScope(scope)) return false;
+    try { parsePermissionScope(scope); return false; } catch { return true; }
+  });
 
   if (invalidPermissions.length > 0) {
     throw new Error(`Invalid permission keys: ${invalidPermissions.join(", ")}`);

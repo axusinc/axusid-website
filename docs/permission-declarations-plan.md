@@ -2,6 +2,10 @@
 
 Status: implementation complete; live engine integration and deployment remain unverified.
 
+Later update: the current engine schema includes `permissionContext` on `loginWithToken`.
+OAuth now accepts `axus:<app AUID>:<permission key>` and delegates additional contexts to
+the same native token. The original rollout notes below describe the earlier contract.
+
 Implemented the schema/SDK update, context-aware actions, declaration picker, complete-definition publisher, OAuth consent corrections, and developer guides below. Contract checks used the local AXUS ID engine source and its authoritative SDL.
 
 Confirmed contract decisions:

@@ -197,9 +197,10 @@ export default async function ReferencePage() {
           ]}
         />
         <P>
-          Scopes are the four OIDC scopes plus declared AXUS permission keys in
-          system context. Parameter wildcards require declaration support; bare <M>*</M>
-          requests all permissions the caller holds in that context. Legacy prefix
+          Scopes are the four OIDC scopes plus declared AXUS permission keys. Unprefixed
+          keys use system context; use <M>axus:&lt;app AUID&gt;:&lt;permission key&gt;</M> for another
+          app’s context. Parameter wildcards require declaration support; bare <M>*</M>
+          requests all permissions the caller holds in one context. Legacy prefix
           wildcards are rejected. The user reviews engine-provided descriptions on
           the consent screen. See <Link href="/developers/permissions#oauth" className="docs-link">permission scopes and contexts</Link>.
         </P>

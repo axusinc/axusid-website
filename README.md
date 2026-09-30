@@ -221,8 +221,12 @@ Legacy `identity.<auid>.*` and bare `*` cannot be delegated as stored grants. AX
 concrete account permissions directly on creation and backfills existing accounts at startup;
 legacy account-root grants may appear during migration. Bare `*` remains valid in native token
 scopes. OAuth consent uses exact scope matching and engine descriptions;
-custom OAuth permission keys currently use system context, since the engine's token-issuance
-API has no context argument.
+unprefixed OAuth permission keys use system context. To request another app's permission,
+use the scope `axus:<app AUID>:<permission key>` (for example, `axus:5:posts.read`).
+The context is part of the permission identity: the same key in two apps grants different
+access. One authorization can request permissions from multiple app contexts. A bare `*`
+can be requested in only one context per authorization; it grants all access the user holds
+there, so use concrete keys whenever possible.
 
 The engine V32 migration deletes legacy HierarchicalPermission grants. Coordinate authority
 reprovisioning and fresh app authorization as part of the engine rollout. Publishing an app's

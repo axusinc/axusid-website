@@ -25,6 +25,8 @@ import {
   authorizeQuerySchema,
 } from "@/lib/oauth/schemas";
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
+import { validatePermissionScopeCombination } from "@/lib/oauth/scopes";
+import { getSystemPermissionContext } from "@/lib/permission-config";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -138,6 +140,7 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
   let scopes: string[];
   try {
     scopes = validateScopes(normalizeScopes(query.scope));
+    validatePermissionScopeCombination(partitionScopes(scopes).axusPermissions, getSystemPermissionContext());
   } catch (error) {
     return oauthRedirectError(
       query.redirect_uri,
