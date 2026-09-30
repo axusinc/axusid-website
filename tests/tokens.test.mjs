@@ -76,6 +76,87 @@ test('account token management uses the active session account and a public toke
   ]);
 });
 
+test('permission edits add selected access and revoke removed grants on the same token', async () => {
+  const calls = [];
+  const action = loadAction({
+    AccountTokens: async () => ({ accountTokens: [{ tokenId, title: 'Build server', icon: 'server', current: false,
+      permissions: [{ grantId: 'old-grant', key: 'identity.1.username.write', context: '4' }] }] }),
+    ApplyPermissionBatch: async (args) => { calls.push(args); return { applyPermissionBatch: { delegated: [{ id: 'new-grant' }], revokedGrantIds: ['old-grant'] } }; },
+  });
+  const result = await action({ kind: 'change-permissions', tokenId, permissions: [{ key: 'identity.1.variation.write', context: '4' }] });
+  assert.equal(result.permissionsChanged, true);
+  assert.deepEqual(calls, [{
+    delegations: [{ granterAuid: '1', granteeTokenId: tokenId, permission: 'identity.1.variation.write', permissionContext: '4' }],
+    revocations: [{ grantId: 'old-grant', granterAuid: '1' }],
+  }]);
+});
+
+test('permission edits preserve selected access across application contexts', async () => {
+  const calls = [];
+  const action = loadAction({
+    AccountTokens: async () => ({ accountTokens: [{ tokenId, current: false,
+      permissions: [{ grantId: 'existing', key: 'read.one', context: '4' }] }] }),
+    ApplyPermissionBatch: async (args) => { calls.push(args); return { applyPermissionBatch: { delegated: [{ id: 'added' }], revokedGrantIds: [] } }; },
+  });
+  const result = await action({ kind: 'change-permissions', tokenId, permissions: [
+    { key: 'read.one', context: '4' }, { key: 'read.two', context: '5' },
+  ] });
+  assert.equal(result.permissionsChanged, true);
+  assert.deepEqual(calls, [{ delegations: [{ granterAuid: '1', granteeTokenId: tokenId, permission: 'read.two', permissionContext: '5' }], revocations: [] }]);
+});
+
+test('narrowing an all-access token adds selected access and revokes its wildcard', async () => {
+  const calls = [];
+  const action = loadAction({
+    AccountTokens: async () => ({ accountTokens: [{ tokenId, current: false,
+      permissions: [{ grantId: 'wildcard', key: '*', context: '4' }] }] }),
+    ApplyPermissionBatch: async (args) => { calls.push(args); return { applyPermissionBatch: { delegated: [{ id: 'specific' }], revokedGrantIds: ['wildcard'] } }; },
+  });
+  const result = await action({ kind: 'change-permissions', tokenId, permissions: [{ key: 'read.one', context: '4' }] });
+  assert.equal(result.permissionsChanged, true);
+  assert.deepEqual(calls, [{
+    delegations: [{ granterAuid: '1', granteeTokenId: tokenId, permission: 'read.one', permissionContext: '4' }],
+    revocations: [{ grantId: 'wildcard', granterAuid: '1' }],
+  }]);
+});
+
+test('failed permission batches report an error without claiming success', async () => {
+  const action = loadAction({
+    AccountTokens: async () => ({ accountTokens: [{ tokenId, current: false,
+      permissions: [{ grantId: 'old-grant', key: 'old.permission', context: '4' }] }] }),
+    ApplyPermissionBatch: async () => { throw new Error('Unavailable'); },
+  });
+  const result = await action({ kind: 'change-permissions', tokenId, permissions: [{ key: 'new.permission', context: '4' }] });
+  assert.equal(result.permissionsChanged, undefined);
+  assert.equal(result.error, 'Request failed.');
+});
+
+test('unchanged token permissions do not submit a batch', async () => {
+  const action = loadAction({
+    AccountTokens: async () => ({ accountTokens: [{ tokenId, current: false,
+      permissions: [{ grantId: 'existing', key: 'read.one', context: '4' }] }] }),
+    ApplyPermissionBatch: async () => { throw new Error('No batch needed'); },
+  });
+  const result = await action({ kind: 'change-permissions', tokenId, permissions: [{ key: 'read.one', context: '4' }] });
+  assert.equal(result.permissionsChanged, true);
+});
+
+test('permission edits over 100 grant changes are rejected before submitting', async () => {
+  const action = loadAction({
+    AccountTokens: async () => ({ accountTokens: [{ tokenId, current: false,
+      permissions: Array.from({ length: 102 }, (_, index) => ({ grantId: `grant-${index}`, key: `read.${index}`, context: '4' })) }] }),
+    ApplyPermissionBatch: async () => { throw new Error('Batch exceeded limit'); },
+  });
+  const result = await action({ kind: 'change-permissions', tokenId, permissions: [{ key: 'read.0', context: '4' }] });
+  assert.equal(result.permissionsChanged, undefined);
+  assert.match(result.error, /more than 100 grants/);
+});
+
+test('permission edits refuse wildcard expansion', async () => {
+  const action = loadAction({ AccountTokens: async () => ({ accountTokens: [{ tokenId, current: false, permissions: [] }] }) });
+  assert.match((await action({ kind: 'change-permissions', tokenId, permissions: [{ key: '*', context: '4' }] })).error, /all-access permissions/i);
+});
+
 test('OAuth2 application tokens are excluded from list, and cannot be renamed', async () => {
   const calls = [];
   const personalTokenId = '99999999-9999-4999-8999-999999999999';
@@ -101,6 +182,7 @@ test('OAuth2 application tokens are excluded from list, and cannot be renamed', 
   assert.equal(listed.tokens.length, 1);
   assert.equal(listed.tokens[0].tokenId, personalTokenId);
   assert.match((await action({ kind: 'update', tokenId, title: 'New title', icon: 'server' })).error, /application profile/i);
+  assert.match((await action({ kind: 'change-permissions', tokenId, permissions: [{ key: 'identity.1.username.write', context: '4' }] })).error, /application profile/i);
   assert.equal((await action({ kind: 'revoke', tokenId })).revoked, true);
   assert.deepEqual(calls, [['disconnect', 'grant-1', 'user']]);
 });
@@ -130,6 +212,7 @@ test('browser session tokens are excluded from list, and remote sessions are for
   assert.equal(listed.tokens.length, 1);
   assert.equal(listed.tokens[0].tokenId, personalTokenId);
   assert.match((await action({ kind: 'update', tokenId: remoteId, title: 'Changed', icon: 'key' })).error, /managed by AXUS ID/i);
+  assert.match((await action({ kind: 'change-permissions', tokenId: remoteId, permissions: [{ key: 'identity.1.username.write', context: '4' }] })).error, /managed by AXUS ID/i);
   assert.equal((await action({ kind: 'revoke', tokenId: remoteId })).revoked, true);
   assert.deepEqual(events.slice(-4), [['hash', '1', remoteId], ['grants', '1', 'session-hash'], ['revoke', remoteId], ['forget', '1', remoteId]]);
 });

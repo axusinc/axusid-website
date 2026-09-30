@@ -4,7 +4,14 @@ query AccountTokens($auid: ID!) {
     title
     icon
     current
-    permissions { key context }
+    permissions { grantId key context }
+  }
+}
+
+mutation ApplyPermissionBatch($delegations: [PermissionDelegationInput!]!, $revocations: [PermissionRevocationInput!]!) {
+  applyPermissionBatch(delegations: $delegations, revocations: $revocations) {
+    delegated { id }
+    revokedGrantIds
   }
 }
 

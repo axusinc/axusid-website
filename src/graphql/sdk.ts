@@ -28,6 +28,7 @@ export type SchemaAccountToken = {
 export type SchemaAccountTokenPermission = {
   __typename?: 'AccountTokenPermission';
   context: Scalars['ID']['output'];
+  grantId: Scalars['ID']['output'];
   key: Scalars['String']['output'];
 };
 
@@ -131,6 +132,7 @@ export type SchemaMutation = {
   __typename?: 'Mutation';
   acceptParent: SchemaParents;
   addUsername: SchemaUsernames;
+  applyPermissionBatch: SchemaPermissionBatchResult;
   changeAccountTokenPresentation: SchemaTokenPresentation;
   changeDefaultUsername: SchemaUsernames;
   changeDescription: SchemaDescription;
@@ -184,6 +186,12 @@ export type SchemaMutationAcceptParentArgs = {
 export type SchemaMutationAddUsernameArgs = {
   auid: Scalars['ID']['input'];
   username: Scalars['String']['input'];
+};
+
+
+export type SchemaMutationApplyPermissionBatchArgs = {
+  delegations: Array<SchemaPermissionDelegationInput>;
+  revocations: Array<SchemaPermissionRevocationInput>;
 };
 
 
@@ -288,7 +296,8 @@ export type SchemaMutationCreateVariationArgs = {
 
 
 export type SchemaMutationDelegatePermissionArgs = {
-  granteeAuid: Scalars['ID']['input'];
+  granteeAuid?: InputMaybe<Scalars['ID']['input']>;
+  granteeTokenId?: InputMaybe<Scalars['ID']['input']>;
   granterAuid: Scalars['ID']['input'];
   permission: Scalars['String']['input'];
   permissionContext?: InputMaybe<Scalars['ID']['input']>;
@@ -402,6 +411,7 @@ export type SchemaMutationRevokeAccountTokenArgs = {
 
 export type SchemaMutationRevokeGrantArgs = {
   grantId: Scalars['ID']['input'];
+  granterAuid?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -563,6 +573,12 @@ export type SchemaPasskeyCredential = {
   transports: Array<Scalars['String']['output']>;
 };
 
+export type SchemaPermissionBatchResult = {
+  __typename?: 'PermissionBatchResult';
+  delegated: Array<SchemaPermissionGrant>;
+  revokedGrantIds: Array<Scalars['ID']['output']>;
+};
+
 export type SchemaPermissionCheck = {
   __typename?: 'PermissionCheck';
   allowed: Scalars['Boolean']['output'];
@@ -595,11 +611,20 @@ export type SchemaPermissionDeclarationInput = {
   validatorUrl?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type SchemaPermissionDelegationInput = {
+  granteeAuid?: InputMaybe<Scalars['ID']['input']>;
+  granteeTokenId?: InputMaybe<Scalars['ID']['input']>;
+  granterAuid: Scalars['ID']['input'];
+  permission: Scalars['String']['input'];
+  permissionContext?: InputMaybe<Scalars['ID']['input']>;
+};
+
 export type SchemaPermissionGrant = {
   __typename?: 'PermissionGrant';
   activationState: SchemaPermissionGrantActivationState;
   effect: SchemaPermissionGrantEffect;
-  granteeAuid: Scalars['ID']['output'];
+  granteeAuid?: Maybe<Scalars['ID']['output']>;
+  granteeTokenId?: Maybe<Scalars['ID']['output']>;
   id: Scalars['ID']['output'];
   isShadow: Scalars['Boolean']['output'];
   origin: SchemaPermissionGrantOrigin;
@@ -631,6 +656,11 @@ export enum SchemaPermissionGrantOriginType {
   DelegatedByToken = 'DELEGATED_BY_TOKEN',
   Direct = 'DIRECT'
 }
+
+export type SchemaPermissionRevocationInput = {
+  grantId: Scalars['ID']['input'];
+  granterAuid?: InputMaybe<Scalars['ID']['input']>;
+};
 
 export type SchemaPermissionTreeNode = {
   __typename?: 'PermissionTreeNode';
@@ -929,6 +959,14 @@ export type PermissionDeclarationInput = {
   validatorUrl?: string | null | undefined;
 };
 
+export type PermissionDelegationInput = {
+  granteeAuid?: string | number | null | undefined;
+  granteeTokenId?: string | number | null | undefined;
+  granterAuid: string | number;
+  permission: string;
+  permissionContext?: string | number | null | undefined;
+};
+
 export type PermissionGrantActivationState =
   | 'ACTIVE'
   | 'INACTIVE'
@@ -943,6 +981,11 @@ export type PermissionGrantOriginType =
   | 'DELEGATED'
   | 'DELEGATED_BY_TOKEN'
   | 'DIRECT';
+
+export type PermissionRevocationInput = {
+  grantId: string | number;
+  granterAuid?: string | number | null | undefined;
+};
 
 export type LoginWithPasswordMutationVariables = Exact<{
   auid: string | number;
@@ -1106,7 +1149,7 @@ export type MyGrantsQueryVariables = Exact<{
 }>;
 
 
-export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
+export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
 
 export type ReceivedPermissionContextsQueryVariables = Exact<{
   auid: string | number;
@@ -1120,7 +1163,7 @@ export type MyDelegatedGrantsQueryVariables = Exact<{
 }>;
 
 
-export type MyDelegatedGrantsQuery = { delegatedGrants: Array<{ id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean }> };
+export type MyDelegatedGrantsQuery = { delegatedGrants: Array<{ id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean }> };
 
 export type EffectivePermissionQueryVariables = Exact<{
   auid: string | number;
@@ -1139,7 +1182,7 @@ export type SharePermissionMutationVariables = Exact<{
 }>;
 
 
-export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean } };
+export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean } };
 
 export type DeclarationSummaryFragment = { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null, order: number | null };
 
@@ -1205,7 +1248,15 @@ export type AccountTokensQueryVariables = Exact<{
 }>;
 
 
-export type AccountTokensQuery = { accountTokens: Array<{ tokenId: string, title: string | null, icon: string | null, current: boolean, permissions: Array<{ key: string, context: string }> }> };
+export type AccountTokensQuery = { accountTokens: Array<{ tokenId: string, title: string | null, icon: string | null, current: boolean, permissions: Array<{ grantId: string, key: string, context: string }> }> };
+
+export type ApplyPermissionBatchMutationVariables = Exact<{
+  delegations: Array<PermissionDelegationInput> | PermissionDelegationInput;
+  revocations: Array<PermissionRevocationInput> | PermissionRevocationInput;
+}>;
+
+
+export type ApplyPermissionBatchMutation = { applyPermissionBatch: { revokedGrantIds: Array<string>, delegated: Array<{ id: string }> } };
 
 export type ChangeAccountTokenPresentationMutationVariables = Exact<{
   auid: string | number;
@@ -1769,9 +1820,20 @@ export const AccountTokensDocument = gql`
     icon
     current
     permissions {
+      grantId
       key
       context
     }
+  }
+}
+    `;
+export const ApplyPermissionBatchDocument = gql`
+    mutation ApplyPermissionBatch($delegations: [PermissionDelegationInput!]!, $revocations: [PermissionRevocationInput!]!) {
+  applyPermissionBatch(delegations: $delegations, revocations: $revocations) {
+    delegated {
+      id
+    }
+    revokedGrantIds
   }
 }
     `;
@@ -2116,6 +2178,9 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     },
     AccountTokens(variables: AccountTokensQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<AccountTokensQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<AccountTokensQuery>({ document: AccountTokensDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'AccountTokens', 'query', variables);
+    },
+    ApplyPermissionBatch(variables: ApplyPermissionBatchMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ApplyPermissionBatchMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<ApplyPermissionBatchMutation>({ document: ApplyPermissionBatchDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ApplyPermissionBatch', 'mutation', variables);
     },
     ChangeAccountTokenPresentation(variables: ChangeAccountTokenPresentationMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<ChangeAccountTokenPresentationMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<ChangeAccountTokenPresentationMutation>({ document: ChangeAccountTokenPresentationDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'ChangeAccountTokenPresentation', 'mutation', variables);

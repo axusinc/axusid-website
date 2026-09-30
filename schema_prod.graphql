@@ -81,11 +81,14 @@ type Mutation {
     deletePasskey(auid: ID!, credentialId: ID!): Boolean!
     startPasskeyLogin(permissions: [String!], relyingPartyId: String!): PasskeyCeremony!
     loginWithPasskey(challengeId: ID!, responseJson: String!, title: String, icon: String): AuthenticatedToken!
-    # Requires identity.<granterAuid>.grants.delegate on the caller token and
-    # requires the granter identity to hold the requested permission.
-    delegatePermission(granterAuid: ID!, granteeAuid: ID!, permission: String!, permissionContext: ID): PermissionGrant!
-    # Requires the original granter's grants.delegate permission.
-    revokeGrant(grantId: ID!): Boolean!
+    # Account recipients require grants.delegate; token recipients require token.issue,
+    # ownership of the target token, and the requested permission on the caller token.
+    delegatePermission(granterAuid: ID!, granteeAuid: ID, granteeTokenId: ID, permission: String!, permissionContext: ID): PermissionGrant!
+    # Identity grants require the original granter's grants.delegate permission.
+    # Token grants require granterAuid and that account's token.issue permission.
+    revokeGrant(grantId: ID!, granterAuid: ID): Boolean!
+    # Applies delegations before revocations in one transaction; any failure rolls back the batch.
+    applyPermissionBatch(delegations: [PermissionDelegationInput!]!, revocations: [PermissionRevocationInput!]!): PermissionBatchResult!
     # Every app declares only under its own AUID. Requires grants.delegate for the owner.
     publishPermissionDeclaration(ownerAuid: ID!, declaration: PermissionDeclarationInput!): PermissionDeclaration!
     # App-side invalidation push: clears cached validator verdicts. Requires grants.delegate for the owner.
@@ -99,13 +102,32 @@ type PermissionCheck {
 
 type PermissionGrant {
     id: ID!
-    granteeAuid: ID!
+    granteeAuid: ID
+    granteeTokenId: ID
     permission: String!
     permissionContext: ID
     effect: PermissionGrantEffect!
     origin: PermissionGrantOrigin!
     activationState: PermissionGrantActivationState!
     isShadow: Boolean!
+}
+
+input PermissionDelegationInput {
+    granterAuid: ID!
+    granteeAuid: ID
+    granteeTokenId: ID
+    permission: String!
+    permissionContext: ID
+}
+
+input PermissionRevocationInput {
+    grantId: ID!
+    granterAuid: ID
+}
+
+type PermissionBatchResult {
+    delegated: [PermissionGrant!]!
+    revokedGrantIds: [ID!]!
 }
 
 type PermissionDeclaration {
@@ -391,6 +413,7 @@ type TokenPresentation {
 }
 
 type AccountTokenPermission {
+    grantId: ID!
     key: String!
     context: ID!
 }

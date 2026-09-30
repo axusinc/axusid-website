@@ -91,6 +91,7 @@ export async function permissionAction(input: PermissionRequest): Promise<Permis
     return checks.get(identity)!;
   }
   async function sharedView(grant: Grant): Promise<SharedPermission> {
+    if (!grant.granteeAuid) throw new Error("Expected an account permission grant.");
     const permission = await describe(grant.permission, grant.permissionContext);
     return { id: grant.id, recipientId: grant.granteeAuid, username: await usernameFor(grant.granteeAuid), permission,
       state: grant.effect === "DENY" || grant.isShadow ? "restricted" : grant.activationState === "REQUIRES_APPROVAL" ? "pending"

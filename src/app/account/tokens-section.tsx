@@ -64,6 +64,7 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
   const [selectedPermissions, setSelectedPermissions] = useState<UserPermission[]>([]);
   const [bearer, setBearer] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingPermissionsId, setEditingPermissionsId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editIcon, setEditIcon] = useState<IconName>("key");
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -99,6 +100,7 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
   function closeEditor() {
     setCreating(false);
     setEditingId(null);
+    setEditingPermissionsId(null);
     setError("");
     setSelectedPermissions([]);
     onEditingChange?.(false);
@@ -107,6 +109,7 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
   function startCreate() {
     setCreating(true);
     setEditingId(null);
+    setEditingPermissionsId(null);
     setConfirmId(null);
     setError("");
     setMessage("");
@@ -118,10 +121,30 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
   function startEdit(token: AccountToken) {
     setCreating(false);
     setEditingId(token.tokenId);
+    setEditingPermissionsId(null);
     setEditTitle(token.title ?? "");
     setEditIcon(tokenIcons.find((item) => item.value === token.icon)?.value ?? "key");
     setConfirmId(null);
     setError("");
+    onEditingChange?.(true);
+  }
+
+  function startPermissionEdit(token: AccountToken) {
+    const tokenContext = token.permissions[0]?.context ?? systemContext;
+    const hasWildcard = token.permissions.some((grant) => grant.key === "*");
+    setCreating(false);
+    setEditingId(null);
+    setEditingPermissionsId(token.tokenId);
+    setConfirmId(null);
+    setContext(tokenContext);
+    setScopeMode(hasWildcard ? "all" : "specific");
+    setSelectedPermissions(token.permissions.filter((grant, index, grants) => grant.key !== "*" && grants.findIndex((item) => item.key === grant.key && item.context === grant.context) === index).map((grant) =>
+      permissions.find((item) => item.context === grant.context && item.key === grant.key) ?? {
+        key: grant.key, context: grant.context, label: grant.key, scope: "", description: "", available: null,
+      }
+    ));
+    setError("");
+    setMessage("");
     onEditingChange?.(true);
   }
 
@@ -190,6 +213,32 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
         setMessage("Token details saved.");
       }
     } catch { setError("Couldn’t save the token. Try again."); }
+    finally { setPending(false); }
+  }
+
+  async function savePermissions() {
+    if (!editingPermissionsId || pending || scopeMode === "all" || selectedPermissions.length === 0) return;
+    const token = tokens.find((item) => item.tokenId === editingPermissionsId);
+    if (!token) return;
+    const desired = selectedPermissions.map(({ key, context }) => ({ key, context }));
+    const unchanged = token.permissions.length === desired.length && token.permissions.every((grant) =>
+      desired.some((item) => item.context === grant.context && item.key === grant.key)
+    );
+    if (unchanged) { closeEditor(); return; }
+    setPending(true);
+    setError("");
+    try {
+      const result = await tokenAction({ kind: "change-permissions", tokenId: editingPermissionsId, permissions: desired });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      if (result.permissionsChanged) {
+        await refreshTokens().catch(() => setLoadError("Couldn’t refresh tokens. Try again."));
+        closeEditor();
+        setMessage("Token permissions saved. The existing token secret still works.");
+      } else setError("Couldn’t save token permissions. Try again.");
+    } catch { setError("Couldn’t save token permissions. Try again."); }
     finally { setPending(false); }
   }
 
@@ -409,8 +458,9 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
             <p className="mt-1 text-xs text-neutral-500">{token.permissions.some((permission) => permission.key === "*") ? "All access" : `${token.permissions.length} ${token.permissions.length === 1 ? "permission" : "permissions"}`}</p>
             <code className="mt-1 block truncate font-mono text-xs text-neutral-400" title={token.tokenId}>{token.tokenId}</code>
           </div></div>
-          {editingId !== token.tokenId && confirmId !== token.tokenId ? <div className="flex shrink-0 gap-1">
+          {editingId !== token.tokenId && editingPermissionsId !== token.tokenId && confirmId !== token.tokenId ? <div className="flex shrink-0 flex-wrap justify-end gap-1">
             <Button size="sm" variant="ghost" disabled={pending} onClick={() => startEdit(token)}>Edit</Button>
+            <Button size="sm" variant="ghost" disabled={pending || Boolean(catalogError)} onClick={() => startPermissionEdit(token)}>Change access</Button>
             <Button size="sm" variant="danger-ghost" disabled={pending} onClick={() => { setConfirmId(token.tokenId); setMessage(""); }}>Revoke</Button>
           </div> : null}
         </div>
@@ -422,7 +472,7 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
             const title = grant.key === "*" ? `All access` : (hasTitle ? described!.label : grant.key);
             const appContext = getAppContext(grant.context, described?.scope);
             return (
-              <li key={`${grant.context}:${grant.key}`} className="flex items-center gap-2">
+              <li key={grant.grantId} className="flex items-center gap-2">
                 <PermissionIcon name={described?.icon} className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
                 <span className="flex items-center gap-1.5">
                   <span>{title}</span>
@@ -446,6 +496,44 @@ export function TokensSection({ auid, accounts = [], onEditingChange }: { auid: 
           {error ? <FormError>{error}</FormError> : null}
           <div className="flex gap-2"><Button type="submit" size="sm" loading={pending}><Check aria-hidden className="h-3.5 w-3.5" />Save</Button><Button size="sm" variant="ghost" disabled={pending} onClick={closeEditor}>Cancel</Button></div>
         </form> : null}
+        {editingPermissionsId === token.tokenId ? <div className="mt-4 space-y-4 rounded-xl bg-neutral-50 p-4">
+          <div>
+            <h4 className="text-sm font-semibold text-neutral-900">Change access</h4>
+            <p className="mt-1 text-[13px] text-neutral-600">Changes take effect for the existing token secret as soon as you save.</p>
+          </div>
+          {token.permissions.some((grant) => grant.key === "*") ? <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-neutral-800">Access</legend>
+            <label className="flex items-center gap-2 text-sm text-neutral-700"><input type="radio" name={`edit-scope-${token.tokenId}`} checked={scopeMode === "all"} disabled={pending} onChange={() => { setScopeMode("all"); setContext(token.permissions[0]?.context ?? systemContext); }} className="accent-neutral-950" />Keep all current access</label>
+            <label className="flex items-center gap-2 text-sm text-neutral-700"><input type="radio" name={`edit-scope-${token.tokenId}`} checked={scopeMode === "specific"} disabled={pending} onChange={() => setScopeMode("specific")} className="accent-neutral-950" />Limit to selected permissions</label>
+          </fieldset> : null}
+          {scopeMode === "specific" ? <>
+            {selectedPermissions.length > 0 ? <ul className="divide-y divide-black/[0.05] rounded-xl border border-black/[0.07] bg-white px-3">
+              {selectedPermissions.map((item) => <li key={`${item.context}:${item.key}`} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0 truncate text-sm text-neutral-800" title={item.key}>{item.label || item.key}<span className="ml-2 text-xs text-neutral-500">{item.scope || contextLabel(item.context)}</span></span>
+                <Button type="button" variant="danger-ghost" size="sm" disabled={pending} onClick={() => setSelectedPermissions((current) => current.filter((selected) => selected.context !== item.context || selected.key !== item.key))} aria-label={`Remove ${item.label || item.key}`}>Remove</Button>
+              </li>)}
+            </ul> : <p className="text-[13px] text-neutral-600">Choose at least one permission.</p>}
+            <fieldset disabled={pending}>
+              <TokenPermissionPicker
+                contexts={contexts}
+                context={context}
+                onContextChange={(newContext) => {
+                  if (newContext !== context) setContext(newContext);
+                }}
+                signedInAccounts={signedInAccounts}
+                systemContext={systemContext}
+                accountAuid={accountAuid}
+                selectedKeys={selectedPermissions.filter((item) => item.context === context).map((item) => item.key)}
+                onAdd={(permission) => setSelectedPermissions((current) => [...current, permission])}
+              />
+            </fieldset>
+          </> : <p className="text-[13px] text-neutral-600">This token can use all access you hold in its application context. Choose selected permissions to narrow it.</p>}
+          {error ? <FormError>{error}</FormError> : null}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" loading={pending} disabled={scopeMode === "specific" && selectedPermissions.length === 0} onClick={scopeMode === "all" ? closeEditor : savePermissions}><Check aria-hidden className="h-3.5 w-3.5" />{scopeMode === "all" ? "Done" : "Save permissions"}</Button>
+            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={closeEditor}>Cancel</Button>
+          </div>
+        </div> : null}
         {confirmId === token.tokenId ? <div className="mt-4 rounded-xl bg-red-50/70 p-4">
           <p className="text-[13px] text-neutral-700">Revoke {token.title || "this token"}? Anything using it will lose access immediately.</p>
           {error ? <div className="mt-3"><FormError>{error}</FormError></div> : null}
