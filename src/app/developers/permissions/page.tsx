@@ -48,13 +48,13 @@ export default function PermissionsDocsPage() {
         <li>Load <code>permissionTree</code> and declaration summaries for the selected app. Render groups, declarations and parameter options in the order returned; apps can set <code>order</code> on each declaration. Discovery alone does not prove the signed-in account holds access.</li>
         <li>Use <code>searchPermissionValues</code> for dynamic parameters. Debounce searches and discard stale responses. Honor <code>degraded: true</code> with raw input and a “Validated by app” hint.</li>
         <li>Build a key from the selected bindings. Call <code>describePermission</code> for a live preview, including personalized text from the app when available, and <code>checkPermission</code> for effective access, with the same context.</li>
-        <li>Review the recipient and values, then call <code>delegatePermission</code>. Validation happens again at grant time; a preview is not a promise that a later grant will succeed.</li>
+        <li>Review the recipient and values. In your own app context, call <code>issuePermission</code>; in another app’s context, call <code>delegatePermission</code>. Validation happens again at grant time; a preview is not a promise that a later grant will succeed.</li>
       </ol>
       <CodeBlock label="Discover declarations and groups" code={permissionDiscoveryExample} />
       <CodeBlock label="Search a dynamic parameter" code={permissionSearchExample} />
       <CodeBlock label="Describe and check the same permission context" code={permissionPreviewExample} />
       <CodeBlock label="Delegate access" code={permissionShareExample} />
-      <p>Send the native AXUS token as <code>Authorization: Bearer …</code>. Sharing requires the granter’s system capability <code>identity.&lt;granter&gt;.grants.delegate</code> and the granter must hold the requested permission. Reading incoming and outgoing grants requires <code>identity.&lt;auid&gt;.grants.read</code>. Grant results include nullable <code>permissionContext</code>; null means system context. Use that context in later checks and displays.</p>
+      <p>Send the native AXUS token as <code>Authorization: Bearer …</code>. Issuing permissions requires <code>identity.&lt;issuer&gt;.grants.delegate</code> and a declaration in the issuer’s own context; no self-grant is needed. Read issued account grants with <code>issuedGrants</code> and remove them with <code>revokeGrant</code> without <code>granterAuid</code>. Sharing another app’s permissions requires the granter’s system capability <code>identity.&lt;granter&gt;.grants.delegate</code> and the granter must hold the requested permission. Reading incoming and outgoing grants requires <code>identity.&lt;auid&gt;.grants.read</code>. Grant results include nullable <code>permissionContext</code>; null means system context. Use that context in later checks and displays.</p>
     </section>
     <section id="oauth" className="docs-section">
       <h2>OAuth scopes and app contexts.</h2>

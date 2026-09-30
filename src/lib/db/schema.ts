@@ -19,6 +19,13 @@ export const oauthClients = pgTable("oauth_clients", {
   accessTokenFormat: text("access_token_format").notNull().default("opaque"),
 });
 
+/** Public lookup for Gravatar hashes of the compatibility email; survives sign-out. */
+export const gravatarAccounts = pgTable("gravatar_accounts", {
+  auid: text("auid").primaryKey(),
+  md5: text("md5").notNull().unique(),
+  sha256: text("sha256").notNull().unique(),
+});
+
 /** Public IDs of native tokens minted for AXUS ID browser sign-ins. Never stores bearers. */
 export const loginTokens = pgTable(
   "login_tokens",

@@ -129,6 +129,34 @@ OIDC scopes (`openid`, `profile`, `email`, `offline_access`) are **not** AXUS de
 
 The `email` scope returns a synthetic email (`[auid]@amail.com`) for app compatibility.
 
+### Gravatar-compatible avatars
+
+`GET /gravatar/<email_hash>?s=80&d=identicon` serves the account's current
+default-variation avatar as a square JPEG. Hash the trimmed, lowercase synthetic
+email (`<auid>@amail.com`) using MD5 or SHA-256; both are accepted, along with an
+optional `.jpg` suffix. No authentication is required.
+
+- `s` / `size`: 1–2048 pixels, default 80 (invalid values use 80).
+- `d` / `default`: `404` returns HTTP 404 when no avatar exists. Other values
+  (including `mp`, `blank`, `identicon`, `retro`, and custom image URLs) redirect
+  to Gravatar's default-image service with `f=y`.
+- `f=y` / `forcedefault=y`: always return the requested default.
+- Responses allow cross-origin reads and cache for five minutes. Backend or
+  image-processing failures return an uncached HTTP 503.
+
+For `https://avatars.thewinelore.com/gravatar/<email_hash>`, route that hostname's
+`/gravatar/*` requests to this Next.js app. The route also works on the IdP host.
+The database migration backfills accounts already known to this IdP; new
+sign-ins and OIDC profile claims register their hashes. Accounts used only
+through the engine must sign in here once before their hashes can be resolved.
+
+```js
+import { createHash } from "node:crypto";
+
+const hash = createHash("md5").update(email.trim().toLowerCase()).digest("hex");
+const avatarUrl = `https://avatars.thewinelore.com/gravatar/${hash}?s=128&d=404`;
+```
+
 ## OAuth2 flow
 
 1. Client redirects the user to `/authorize` with PKCE params. PKCE is required: there are no

@@ -9,6 +9,7 @@ export type UserPermission = {
   scope: string;
   description: string;
   available: boolean | null;
+  canIssue?: boolean;
   icon?: string | null;
   params?: DescribePermissionQuery["describePermission"]["params"];
   receivedFrom?: {
@@ -20,6 +21,7 @@ export type UserPermission = {
 export type SharedPermission = {
   id: string;
   recipientId: string;
+  issued?: boolean;
   username: string | null;
   permission: UserPermission;
   state: "shared" | "paused" | "pending" | "restricted" | "unverified";
@@ -31,7 +33,7 @@ export type PermissionRequest =
   | { kind: "catalog"; permissionContext: string }
   | { kind: "resolve-context"; username: string }
   | { kind: "resolve-account"; accountId: string }
-  | { kind: "preview"; permission: string; permissionContext: string }
+  | { kind: "preview"; permission: string; permissionContext: string; forSharing?: boolean }
   | { kind: "search"; permissionContext: string; declarationId: string; param: string; query: string }
   | { kind: "search-usernames"; query: string }
   | { kind: "search-accounts"; permissionContext: string; declarationId: string; param: string; query: string }

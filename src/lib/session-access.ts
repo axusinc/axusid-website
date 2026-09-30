@@ -14,6 +14,7 @@ import {
 import { revokeWithBackend } from "@/lib/oauth/adapter";
 import { revokeGrantsForSession } from "@/lib/oauth/grants";
 import { forgetLoginToken, trackLoginToken } from "@/lib/login-tokens";
+import { registerGravatarAccount } from "@/lib/gravatar-accounts";
 
 /**
  * Signing out revokes the session's native token. Native tokens never expire, so a session
@@ -98,6 +99,7 @@ export async function addAccountToSession(session: IdPSession): Promise<MultiSes
   };
 
   const replaced = index >= 0 ? existing?.accounts[index] : undefined;
+  await registerGravatarAccount(session.auid);
   await trackLoginToken(session.auid, session.tokenId);
   try {
     await persistMultiSession(newMultiSession);

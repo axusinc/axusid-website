@@ -1,5 +1,7 @@
 import "server-only";
 
+export { formatSyntheticEmail } from "@/lib/synthetic-email";
+
 import { cache } from "react";
 import type { getSdk } from "@/graphql/sdk";
 import type { VariationsQuery } from "@/graphql/sdk";
@@ -82,10 +84,6 @@ export function userDisplayInfoFromProfile(
     displayName: canonicalName || (username ? `@${username}` : auid),
     avatarUrl: defaultVariation?.avatarUrl ?? null,
   };
-}
-
-export function formatSyntheticEmail(auid: string): string {
-  return `${auid}@amail.com`;
 }
 
 export type AccountItemInfo = {

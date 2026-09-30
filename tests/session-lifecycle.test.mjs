@@ -19,6 +19,7 @@ function loadTs(file, mocks) {
 
 function setup(initialAccounts, activeAuid = initialAccounts[0]?.auid, failSet = false) {
   const events = [];
+  const gravatarAccounts = [];
   let cookie = initialAccounts.length ? JSON.stringify({ activeAuid, accounts: initialAccounts }) : undefined;
   const cookieStore = {
     get: () => cookie === undefined ? undefined : { value: cookie },
@@ -45,8 +46,9 @@ function setup(initialAccounts, activeAuid = initialAccounts[0]?.auid, failSet =
       trackLoginToken: async (auid, token) => { events.push(["track", auid, token]); },
       forgetLoginToken: async (auid, token) => { events.push(["forget", auid, token]); },
     },
+    "@/lib/gravatar-accounts": { registerGravatarAccount: async auid => { gravatarAccounts.push(auid); } },
   });
-  return { session, events, read: () => cookie ? JSON.parse(cookie) : null };
+  return { session, events, gravatarAccounts, read: () => cookie ? JSON.parse(cookie) : null };
 }
 
 test("replacing a login persists the new token before retiring the old token and its grants", async () => {
@@ -54,6 +56,7 @@ test("replacing a login persists the new token before retiring the old token and
   const other = { auid: "2", tokenId: "other", consentedClients: [] };
   const h = setup([old, other]);
   await h.session.addAccountToSession({ ...old, tokenId: "new" });
+  assert.deepEqual(h.gravatarAccounts, ["1"]);
   assert.deepEqual(h.read().accounts.map((account) => account.tokenId), ["new", "other"]);
   assert.deepEqual(h.events.map(([kind]) => kind), ["track", "cookie", "grants", "revoke", "forget"]);
   assert.deepEqual(h.events[2], ["grants", "1", "old"]);

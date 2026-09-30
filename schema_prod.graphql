@@ -24,6 +24,8 @@ type Query {
     # Identity grants delegated by this identity; requires identity.<auid>.grants.read.
     # Includes grants that may not currently confer access. Excludes token and role recipients.
     delegatedGrants(auid: ID!): [PermissionGrant!]!
+    # Identity grants issued by this app; requires identity.<auid>.grants.read. Excludes token and role recipients.
+    issuedGrants(auid: ID!): [PermissionGrant!]!
     checkPermission(auid: ID!, permission: String!, permissionContext: ID): PermissionCheck!
     permissionDeclarations(contextAuid: ID!): [PermissionDeclaration!]!
     describePermission(contextAuid: ID!, permission: String!): DescribedPermission!
@@ -81,10 +83,13 @@ type Mutation {
     deletePasskey(auid: ID!, credentialId: ID!): Boolean!
     startPasskeyLogin(permissions: [String!], relyingPartyId: String!): PasskeyCeremony!
     loginWithPasskey(challengeId: ID!, responseJson: String!, title: String, icon: String): AuthenticatedToken!
+    # Issues only permissions declared in the issuer's context. Requires the issuer's grants.delegate.
+    issuePermission(issuerAuid: ID!, granteeAuid: ID, granteeTokenId: ID, permission: String!): PermissionGrant!
     # Account recipients require grants.delegate; token recipients require token.issue,
     # ownership of the target token, and the requested permission on the caller token.
     delegatePermission(granterAuid: ID!, granteeAuid: ID, granteeTokenId: ID, permission: String!, permissionContext: ID): PermissionGrant!
-    # Identity grants require the original granter's grants.delegate permission.
+    # Issued grants (accounts or tokens) require the issuer's grants.delegate; omit granterAuid.
+    # Identity delegations require the original granter's grants.delegate permission.
     # Token grants require granterAuid and that account's token.issue permission.
     revokeGrant(grantId: ID!, granterAuid: ID): Boolean!
     # Applies delegations before revocations in one transaction; any failure rolls back the batch.
@@ -218,6 +223,7 @@ type PermissionTreeNode {
 
 type PermissionGrantOrigin {
     type: PermissionGrantOriginType!
+    issuerAuid: ID
     delegatorAuid: ID
     delegatorTokenId: ID
 }
@@ -229,6 +235,7 @@ enum PermissionGrantEffect {
 
 enum PermissionGrantOriginType {
     DIRECT
+    ISSUED
     DELEGATED
     DELEGATED_BY_TOKEN
 }

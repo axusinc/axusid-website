@@ -97,6 +97,8 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
   const identity = key ? permissionIdentity(key, declaration.context) : "";
   const current = identity && preview?.identity === identity ? preview : null;
   const permission = current?.permission;
+  const issuing = declaration.context === accountAuid;
+  const canShare = issuing ? permission?.canIssue === true : permission?.available === true;
   const parameterNames = [...new Set([...declaration.template.matchAll(/\{([^{}]+)\}/g)].map((match) => match[1]))];
   const options = parameterNames.map((name) => declaration.params.find((param) => param.name === name) ?? { name, label: name, dynamic: false, degraded: false, values: [] });
 
@@ -104,7 +106,7 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
     if (!key) return;
     let cancelled = false;
     const timeout = setTimeout(() => {
-      permissionAction({ kind: "preview", permission: key, permissionContext: declaration.context })
+      permissionAction({ kind: "preview", permission: key, permissionContext: declaration.context, forSharing: true })
         .then((result) => { if (!cancelled) setPreview({ identity, permission: result.preview, error: result.error }); })
         .catch(() => { if (!cancelled) setPreview({ identity, error: "Couldn’t preview this permission. Change a value or try again." }); });
     }, 350);
@@ -113,7 +115,7 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
 
   return <form className="space-y-4" onSubmit={async (event) => {
     event.preventDefault();
-    if (submitting.current || !permission || permission.available !== true) return;
+    if (submitting.current || !permission || !canShare) return;
     if (!username.trim().replace(/^@/, "")) { setError("Choose an account to share with."); return; }
     if (!review) { setReview(true); setError(""); requestAnimationFrame(() => heading.current?.focus()); return; }
     submitting.current = true; setPending(true); onPendingChange(true); setError("");
@@ -131,19 +133,19 @@ function BindingForm({ declaration, contextLabel, initial, accountAuid, systemCo
     </div> : <div className="flex items-center gap-3">{recipient?.avatarUrl ? <ProfileAvatar imageUrl={recipient.avatarUrl} username={username} alt="" size="sm" /> : <UsernameAvatar username={username} size="sm" />}<span className="break-all text-sm font-medium">@{username.trim().replace(/^@/, "")}</span></div>}
     {key && !current ? <p role="status" className="flex items-center gap-2 text-sm text-neutral-500"><Spinner />Checking access…</p> : null}
     {current?.error ? <FormError>{current.error}</FormError> : null}
-    {current?.error || permission?.available === null ? <Button size="sm" variant="secondary" onClick={() => { setPreview(null); setPreviewAttempt((value) => value + 1); }}>Retry preview</Button> : null}
+    {current?.error || (!issuing && permission?.available === null) ? <Button size="sm" variant="secondary" onClick={() => { setPreview(null); setPreviewAttempt((value) => value + 1); }}>Retry preview</Button> : null}
     {permission ? <div className="rounded-lg bg-neutral-50 px-3 py-2.5">
       {review ? <p className="mb-1 text-xs text-neutral-500">{contextLabel}</p> : null}
       <p className="flex items-center gap-2 text-sm font-medium"><PermissionIcon name={permission.icon} />{permission.label}</p>
       <p className="mt-1 text-sm text-neutral-600">{permission.description}</p>
       {review && permission.params?.length ? <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">{permission.params.map((param) => <div key={param.name}><dt className="text-neutral-500">{param.label ?? param.name}</dt><dd className="break-all"><span className="flex items-center gap-2"><PermissionIcon name={param.valueIcon ?? param.icon} />{param.valueLabel ?? param.value}</span>{param.description ? <span className="block text-neutral-500">{param.description}</span> : null}{param.hint ? <span className="block text-neutral-500">{param.hint}</span> : null}</dd></div>)}</dl> : null}
-      {permission.available !== true ? <p className="mt-2 text-sm text-amber-800">{permission.available === false ? "You don’t currently hold this access." : "Your access couldn’t be verified."}</p> : null}
+      {issuing ? <p className={`mt-2 text-sm ${canShare ? "text-neutral-500" : "text-amber-800"}`}>{canShare ? "You can give others permissions declared by your app." : "This sign-in can’t grant permissions for your app."}</p> : permission.available !== true ? <p className="mt-2 text-sm text-amber-800">{permission.available === false ? "You don’t currently hold this access." : "Your access couldn’t be verified."}</p> : null}
     </div> : null}
     {permission?.context === systemContext && permission.key.endsWith(".grants.delegate") ? <p className="text-xs text-amber-800">This lets the recipient share permissions on your behalf. Only give it to someone you trust.</p> : null}
     {review ? <p className="text-xs text-neutral-500">You can remove this access anytime. The app validates these values again when you share.</p> : null}
     {error ? <FormError>{error}</FormError> : null}
     <div className="flex flex-wrap gap-2">
-      <Button type="submit" size="sm" disabled={permission?.available !== true} loading={pending}>{review ? "Confirm and share" : "Review access"}{!review ? <ArrowRight aria-hidden className="h-3.5 w-3.5" /> : null}</Button>
+      <Button type="submit" size="sm" disabled={!canShare} loading={pending}>{review ? "Confirm and share" : "Review access"}{!review ? <ArrowRight aria-hidden className="h-3.5 w-3.5" /> : null}</Button>
       {review ? <Button size="sm" variant="ghost" disabled={pending} onClick={() => setReview(false)}>Back</Button> : null}
       <Button size="sm" variant="ghost" disabled={pending} onClick={onClose}>Cancel</Button>
     </div>

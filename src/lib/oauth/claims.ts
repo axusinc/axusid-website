@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAuthSdk } from "@/lib/auth-graphql";
+import { registerGravatarAccount } from "@/lib/gravatar-accounts";
 import {
   fetchUserProfileWithVariations,
   formatSyntheticEmail,
@@ -16,6 +17,7 @@ export async function fetchProfileClaims(
   auid: string,
   bearerToken?: string,
 ): Promise<OidcClaims> {
+  await registerGravatarAccount(auid);
   const sdk = getAuthSdk(bearerToken);
   const { user, variations } = await fetchUserProfileWithVariations(sdk, auid);
 

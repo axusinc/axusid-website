@@ -365,6 +365,7 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
         setView("shared"); setFilter("");
         setMessage(alreadyShared ? "This permission is already shared with this person." : `${grant.permission.label} shared with ${grant.username ? `@${grant.username}` : "the recipient"}.`);
         closeShare();
+        if (grant.recipientId === accountAuid) refresh();
       }} /> : null}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-black/[0.06]">
         <div className="flex gap-4" aria-label="Permission views">
@@ -377,17 +378,18 @@ export function PermissionsSection({ auid, accounts, onEditingChange }: { auid: 
       {loading ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-neutral-500"><Spinner />Loading permissions…</p> : error ? <div className="space-y-3"><FormError>{error}</FormError>{recoveryRequired ? <a className={buttonVariants({ size: "sm", variant: "secondary" })} href={`/auth/session-recovery?auid=${encodeURIComponent(auid)}`}>Sign in again</a> : <Button size="sm" variant="secondary" onClick={refresh}>Try again</Button>}</div> : <>
         {(view === "shared" ? shared.length : permissions.length) > 6 ? <div className="mb-5"><Input id="find-permission" label={view === "shared" || receivedPermissions.length > 0 ? "Find a person or permission" : "Find a permission"} placeholder={view === "shared" || receivedPermissions.length > 0 ? "Search usernames or permissions…" : "Search permissions…"} value={filter} onChange={(event) => setFilter(event.target.value)} disabled={sharing !== null || mutating} /></div> : null}
         {view === "shared" ? <>
-          {!shared.length ? <div className="py-8 text-center"><UsersRound aria-hidden className="mx-auto mb-3 h-6 w-6 text-neutral-400" /><p className="text-sm font-medium text-neutral-900">You haven’t shared any permissions</p><p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">Give someone specific access to your account. You can remove it here whenever you need to.</p></div> : <div className="space-y-5">
+          {!shared.length ? <div className="py-8 text-center"><UsersRound aria-hidden className="mx-auto mb-3 h-6 w-6 text-neutral-400" /><p className="text-sm font-medium text-neutral-900">You haven’t shared any permissions</p><p className="mx-auto mt-1 max-w-sm text-sm text-neutral-500">Give someone specific access to your account or app. You can remove it here whenever you need to.</p></div> : <div className="space-y-5">
             {[...recipients.entries()].map(([id, grants]) => <section key={id} className="overflow-hidden rounded-xl border border-black/[0.07]">
               <div className="flex items-center gap-3 border-b border-black/[0.05] bg-neutral-50/70 px-4 py-3"><UsernameAvatar username={grants[0].username} size="sm" /><IdentityLabel username={grants[0].username} fallback="Account name unavailable" /></div>
               <ul className="divide-y divide-black/[0.05] p-4">{grants.map((grant) => <SharedPermissionRow key={grant.id} grant={grant} appContext={getAppContext(grant.permission.context, grant.permission.scope)} disabled={sharing !== null || mutating} onPendingChange={setMutating} onRemoved={() => {
                 setShared((items) => items.filter((item) => item.id !== grant.id)); setMessage("Permission removed.");
+                if (grant.recipientId === accountAuid) refresh();
                 requestAnimationFrame(() => shareButton.current?.focus());
               }} />)}</ul>
             </section>)}
             {!recipients.size ? <p className="py-4 text-sm text-neutral-500">No people or permissions match your search.</p> : null}
           </div>}
-          {shared.length > 0 ? <p className="mt-5 text-xs leading-relaxed text-neutral-500">Shared access stays linked to your account, even after you sign out. It can pause if you lose the permission yourself.</p> : null}
+          {shared.length > 0 ? <p className="mt-5 text-xs leading-relaxed text-neutral-500">You can remove shared access here at any time. Access delegated from other apps can pause if you lose the permission yourself.</p> : null}
         </> : <>
           <p className="mb-4 text-[13px] text-neutral-500">Permissions assigned to your account. Availability reflects your current access.</p>
           {!permissions.length ? (

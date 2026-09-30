@@ -150,6 +150,7 @@ export type SchemaMutation = {
   delegatePermission: SchemaPermissionGrant;
   deletePasskey: Scalars['Boolean']['output'];
   finishPasskeyRegistration: Scalars['Boolean']['output'];
+  issuePermission: SchemaPermissionGrant;
   linkExternalIdentity: SchemaExternalIdentity;
   loginWithExternalIdentity: SchemaAuthenticatedToken;
   loginWithPasskey: SchemaAuthenticatedToken;
@@ -315,6 +316,14 @@ export type SchemaMutationFinishPasskeyRegistrationArgs = {
   challengeId: Scalars['ID']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   responseJson: Scalars['String']['input'];
+};
+
+
+export type SchemaMutationIssuePermissionArgs = {
+  granteeAuid?: InputMaybe<Scalars['ID']['input']>;
+  granteeTokenId?: InputMaybe<Scalars['ID']['input']>;
+  issuerAuid: Scalars['ID']['input'];
+  permission: Scalars['String']['input'];
 };
 
 
@@ -648,13 +657,15 @@ export type SchemaPermissionGrantOrigin = {
   __typename?: 'PermissionGrantOrigin';
   delegatorAuid?: Maybe<Scalars['ID']['output']>;
   delegatorTokenId?: Maybe<Scalars['ID']['output']>;
+  issuerAuid?: Maybe<Scalars['ID']['output']>;
   type: SchemaPermissionGrantOriginType;
 };
 
 export enum SchemaPermissionGrantOriginType {
   Delegated = 'DELEGATED',
   DelegatedByToken = 'DELEGATED_BY_TOKEN',
-  Direct = 'DIRECT'
+  Direct = 'DIRECT',
+  Issued = 'ISSUED'
 }
 
 export type SchemaPermissionRevocationInput = {
@@ -685,6 +696,7 @@ export type SchemaQuery = {
   grants: Array<SchemaPermissionGrant>;
   identities: SchemaPaginatedIdentities;
   isPasswordSet: Scalars['Boolean']['output'];
+  issuedGrants: Array<SchemaPermissionGrant>;
   name?: Maybe<SchemaName>;
   ownerByUsername?: Maybe<Scalars['ID']['output']>;
   parents?: Maybe<SchemaParents>;
@@ -765,6 +777,11 @@ export type SchemaQueryIdentitiesArgs = {
 
 
 export type SchemaQueryIsPasswordSetArgs = {
+  auid: Scalars['ID']['input'];
+};
+
+
+export type SchemaQueryIssuedGrantsArgs = {
   auid: Scalars['ID']['input'];
 };
 
@@ -980,7 +997,8 @@ export type PermissionGrantEffect =
 export type PermissionGrantOriginType =
   | 'DELEGATED'
   | 'DELEGATED_BY_TOKEN'
-  | 'DIRECT';
+  | 'DIRECT'
+  | 'ISSUED';
 
 export type PermissionRevocationInput = {
   grantId: string | number;
@@ -1149,7 +1167,7 @@ export type MyGrantsQueryVariables = Exact<{
 }>;
 
 
-export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, delegatorAuid: string | null } }> };
+export type MyGrantsQuery = { grants: Array<{ id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, issuerAuid: string | null, delegatorAuid: string | null } }> };
 
 export type ReceivedPermissionContextsQueryVariables = Exact<{
   auid: string | number;
@@ -1158,12 +1176,21 @@ export type ReceivedPermissionContextsQueryVariables = Exact<{
 
 export type ReceivedPermissionContextsQuery = { receivedPermissionContexts: Array<string> };
 
+export type SharedGrantFragment = { id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, issuerAuid: string | null, delegatorAuid: string | null } };
+
 export type MyDelegatedGrantsQueryVariables = Exact<{
   auid: string | number;
 }>;
 
 
-export type MyDelegatedGrantsQuery = { delegatedGrants: Array<{ id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean }> };
+export type MyDelegatedGrantsQuery = { delegatedGrants: Array<{ id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, issuerAuid: string | null, delegatorAuid: string | null } }> };
+
+export type MyIssuedGrantsQueryVariables = Exact<{
+  auid: string | number;
+}>;
+
+
+export type MyIssuedGrantsQuery = { issuedGrants: Array<{ id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, issuerAuid: string | null, delegatorAuid: string | null } }> };
 
 export type EffectivePermissionQueryVariables = Exact<{
   auid: string | number;
@@ -1182,7 +1209,16 @@ export type SharePermissionMutationVariables = Exact<{
 }>;
 
 
-export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean } };
+export type SharePermissionMutation = { delegatePermission: { id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, issuerAuid: string | null, delegatorAuid: string | null } } };
+
+export type IssuePermissionMutationVariables = Exact<{
+  issuerAuid: string | number;
+  granteeAuid: string | number;
+  permission: string;
+}>;
+
+
+export type IssuePermissionMutation = { issuePermission: { id: string, granteeAuid: string | null, permission: string, permissionContext: string | null, effect: PermissionGrantEffect, activationState: PermissionGrantActivationState, isShadow: boolean, origin: { type: PermissionGrantOriginType, issuerAuid: string | null, delegatorAuid: string | null } } };
 
 export type DeclarationSummaryFragment = { id: string, context: string, name: string, version: number, template: string, validatorUrl: string | null, title: string | null, description: string | null, icon: string | null, order: number | null };
 
@@ -1441,6 +1477,22 @@ export type UnlinkExternalIdentityMutationVariables = Exact<{
 
 export type UnlinkExternalIdentityMutation = { unlinkExternalIdentity: boolean };
 
+export const SharedGrantFragmentDoc = gql`
+    fragment SharedGrant on PermissionGrant {
+  id
+  granteeAuid
+  permission
+  permissionContext
+  effect
+  origin {
+    type
+    issuerAuid
+    delegatorAuid
+  }
+  activationState
+  isShadow
+}
+    `;
 export const DeclarationSummaryFragmentDoc = gql`
     fragment DeclarationSummary on PermissionDeclaration {
   id
@@ -1660,6 +1712,7 @@ export const MyGrantsDocument = gql`
     effect
     origin {
       type
+      issuerAuid
       delegatorAuid
     }
     activationState
@@ -1675,16 +1728,17 @@ export const ReceivedPermissionContextsDocument = gql`
 export const MyDelegatedGrantsDocument = gql`
     query MyDelegatedGrants($auid: ID!) {
   delegatedGrants(auid: $auid) {
-    id
-    granteeAuid
-    permission
-    permissionContext
-    effect
-    activationState
-    isShadow
+    ...SharedGrant
   }
 }
-    `;
+    ${SharedGrantFragmentDoc}`;
+export const MyIssuedGrantsDocument = gql`
+    query MyIssuedGrants($auid: ID!) {
+  issuedGrants(auid: $auid) {
+    ...SharedGrant
+  }
+}
+    ${SharedGrantFragmentDoc}`;
 export const EffectivePermissionDocument = gql`
     query EffectivePermission($auid: ID!, $permission: String!, $permissionContext: ID) {
   checkPermission(
@@ -1704,16 +1758,21 @@ export const SharePermissionDocument = gql`
     permission: $permission
     permissionContext: $permissionContext
   ) {
-    id
-    granteeAuid
-    permission
-    permissionContext
-    effect
-    activationState
-    isShadow
+    ...SharedGrant
   }
 }
-    `;
+    ${SharedGrantFragmentDoc}`;
+export const IssuePermissionDocument = gql`
+    mutation IssuePermission($issuerAuid: ID!, $granteeAuid: ID!, $permission: String!) {
+  issuePermission(
+    issuerAuid: $issuerAuid
+    granteeAuid: $granteeAuid
+    permission: $permission
+  ) {
+    ...SharedGrant
+  }
+}
+    ${SharedGrantFragmentDoc}`;
 export const PermissionDeclarationsDocument = gql`
     query PermissionDeclarations($contextAuid: ID!) {
   permissionDeclarations(contextAuid: $contextAuid) {
@@ -2149,11 +2208,17 @@ export function getSdk(client: GraphQLClient, withWrapper: SdkFunctionWrapper = 
     MyDelegatedGrants(variables: MyDelegatedGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyDelegatedGrantsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<MyDelegatedGrantsQuery>({ document: MyDelegatedGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyDelegatedGrants', 'query', variables);
     },
+    MyIssuedGrants(variables: MyIssuedGrantsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<MyIssuedGrantsQuery> {
+      return withWrapper((wrappedRequestHeaders) => client.request<MyIssuedGrantsQuery>({ document: MyIssuedGrantsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'MyIssuedGrants', 'query', variables);
+    },
     EffectivePermission(variables: EffectivePermissionQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<EffectivePermissionQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<EffectivePermissionQuery>({ document: EffectivePermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'EffectivePermission', 'query', variables);
     },
     SharePermission(variables: SharePermissionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<SharePermissionMutation> {
       return withWrapper((wrappedRequestHeaders) => client.request<SharePermissionMutation>({ document: SharePermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'SharePermission', 'mutation', variables);
+    },
+    IssuePermission(variables: IssuePermissionMutationVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<IssuePermissionMutation> {
+      return withWrapper((wrappedRequestHeaders) => client.request<IssuePermissionMutation>({ document: IssuePermissionDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'IssuePermission', 'mutation', variables);
     },
     PermissionDeclarations(variables: PermissionDeclarationsQueryVariables, requestHeaders?: GraphQLClientRequestHeaders, signal?: RequestInit['signal']): Promise<PermissionDeclarationsQuery> {
       return withWrapper((wrappedRequestHeaders) => client.request<PermissionDeclarationsQuery>({ document: PermissionDeclarationsDocument, variables, requestHeaders: { ...requestHeaders, ...wrappedRequestHeaders }, signal }), 'PermissionDeclarations', 'query', variables);

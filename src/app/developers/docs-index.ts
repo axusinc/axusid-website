@@ -106,6 +106,12 @@ export const docsIndex = [
     description: "Userinfo, sub, name, synthetic email and scopes",
   },
   {
+    href: "/developers/reference#gravatar",
+    title: "Gravatar avatars",
+    group: "On this page",
+    description: "Synthetic email hash, avatar size and default images",
+  },
+  {
     href: "/developers/reference#revoke",
     title: "Revoke authorization",
     group: "On this page",

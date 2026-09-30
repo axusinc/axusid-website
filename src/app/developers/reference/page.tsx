@@ -144,6 +144,7 @@ export default async function ReferencePage() {
               "POST",
               "Proxy AXUS GraphQL using an OAuth access token",
             ],
+            ["/gravatar/<email_hash>", "GET", "Gravatar-compatible account avatar"],
             ["/.well-known/openid-configuration", "GET", "Discovery document"],
             [
               "/.well-known/jwks.json",
@@ -357,6 +358,35 @@ export default async function ReferencePage() {
             ],
           ]}
         />
+      </section>
+
+      <section
+        aria-label="Gravatar avatars"
+        className="mt-6 rounded-[20px] border border-black/[0.07] bg-white p-6 sm:p-8"
+      >
+        <H id="gravatar">GET /gravatar/&lt;email_hash&gt;</H>
+        <P>
+          Hash the trimmed, lowercase synthetic email (<M>&lt;auid&gt;@amail.com</M>)
+          using MD5 or SHA-256. This public endpoint returns the current default
+          variation’s avatar as a square JPEG. An optional <M>.jpg</M> suffix is
+          accepted. Responses cache for five minutes and allow cross-origin reads.
+        </P>
+        <Table
+          head={["Parameter", "Default", "Notes"]}
+          rows={[
+            ["s / size", "80", "Square edge in pixels, 1–2048; invalid values use 80"],
+            ["d / default", "Gravatar default", "404 returns HTTP 404; built-in styles and custom image URLs redirect to Gravatar’s default-image service"],
+            ["f / forcedefault", "off", "Set to y to always return the requested default"],
+          ]}
+        />
+        <P>
+          Accounts become available after signing in through this provider.
+          Missing accounts or avatars use the requested default; service failures
+          return an uncached 503.
+        </P>
+        <div className="mt-4">
+          <CodeBlock label="Avatar URL" code={`${issuer}/gravatar/<email_hash>?s=128&d=404`} />
+        </div>
       </section>
 
       <section

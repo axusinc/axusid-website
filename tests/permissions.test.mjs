@@ -44,6 +44,8 @@ function setup(overrides = {}, session = { auid: '1', tokenId: 'private-token' }
       return { describePermission: { key: permission, context: contextAuid, title: contextAuid === '4' ? display.label : `App ${contextAuid}: ${permission}`, description: display.description, params: [] } };
     },
     MyDelegatedGrants: async () => ({ delegatedGrants: [] }),
+    MyIssuedGrants: async () => ({ issuedGrants: [] }),
+    IssuePermission: async () => ({ issuePermission: { ...grant, permissionContext: "1", origin: { type: "ISSUED", issuerAuid: "1" } } }),
     ReceivedPermissionContexts: async () => ({ receivedPermissionContexts: [] }),
     EffectivePermission: async ({ permission }) => ({ checkPermission: { allowed: permission !== 'identity.1.username.write' } }),
     Usernames: async () => ({ usernames: { defaultUsername: 'alex' } }),
@@ -288,4 +290,100 @@ test('permission tree associates declaration IDs with parameter metadata and rej
 test('large numeric bindings are never rounded by the frontend', () => {
   assert.equal(permissionContext.bindPermission('record.{id}.read', { id: '9223372036854775807' }), 'record.9223372036854775807.read');
   assert.equal(permissionContext.bindPermission('record.{id}.read', { id: '1.25' }), null);
+});
+
+const issued = { ...grant, permission: 'section.forum.posts.create', permissionContext: '1', origin: { type: 'ISSUED', issuerAuid: '1' } };
+
+test('sharing in the active accounts context issues directly without a self-grant', async () => {
+  const { action, calls } = setup({
+    MyGrants: async () => ({ grants: [] }),
+    EffectivePermission: async () => ({ checkPermission: { allowed: false } }),
+    IssuePermission: async () => ({ issuePermission: issued }),
+  });
+  const result = await action({ kind: 'share', username: 'alex', permission: issued.permission, permissionContext: '01', issuerAuid: 'untrusted' });
+  assert.equal(result.sharedGrant.id, grantId);
+  assert.equal(result.sharedGrant.issued, true);
+  assert.equal(result.sharedGrant.state, 'shared');
+  assert.deepEqual(calls.find((call) => call.name === 'IssuePermission').args, { issuerAuid: '1', granteeAuid: '2', permission: issued.permission });
+  assert.ok(!calls.some((call) => call.name === 'SharePermission' || call.name === 'EffectivePermission'));
+});
+
+test('issuance permits the app itself as recipient while delegation still rejects self-sharing', async () => {
+  const { action, calls } = setup({ OwnerByUsername: async () => ({ ownerByUsername: '1' }) });
+  assert.ok((await action({ kind: 'share', username: 'alex', permission: issued.permission, permissionContext: '1' })).sharedGrant);
+  assert.equal(calls.find((call) => call.name === 'IssuePermission').args.granteeAuid, '1');
+  assert.ok((await action({ kind: 'share', username: 'alex', permission: grant.permission, permissionContext: '4' })).error);
+  assert.ok(!calls.some((call) => call.name === 'SharePermission'));
+});
+
+test('sharing previews distinguish app issuance authority from held access and token previews', async () => {
+  const { action, calls } = setup({ EffectivePermission: async ({ permission }) => ({ checkPermission: { allowed: permission === 'identity.1.grants.delegate' } }) });
+  const preview = await action({ kind: 'preview', permission: issued.permission, permissionContext: '01', forSharing: true });
+  assert.equal(preview.preview.available, false);
+  assert.equal(preview.preview.canIssue, true);
+  assert.ok(calls.some((call) => call.name === 'EffectivePermission' && call.args.permission === 'identity.1.grants.delegate' && call.args.permissionContext === '4'));
+  const tokenPreview = await action({ kind: 'preview', permission: issued.permission, permissionContext: '1' });
+  assert.equal(tokenPreview.preview.available, false);
+  assert.equal(tokenPreview.preview.canIssue, undefined);
+  const foreign = await action({ kind: 'preview', permission: issued.permission, permissionContext: '20', forSharing: true, canIssue: true });
+  assert.equal(foreign.preview.canIssue, undefined);
+  const denied = setup({ EffectivePermission: async ({ permission }) => ({ checkPermission: { allowed: permission !== 'identity.1.grants.delegate' } }) });
+  const own = await denied.action({ kind: 'preview', permission: issued.permission, permissionContext: '1', forSharing: true });
+  assert.equal(own.preview.available, true);
+  assert.equal(own.preview.canIssue, false);
+});
+
+test('app sharing previews still reject invalid declarations before offering issuance', async () => {
+  const failure = new ClientError({ errors: [{ message: 'private', extensions: { code: 'INVALID_PERMISSION_BINDINGS' } }] }, { query: 'query' });
+  const { action, calls } = setup({ DescribePermission: async () => { throw failure; } });
+  assert.ok((await action({ kind: 'preview', permission: issued.permission, permissionContext: '1', forSharing: true })).error);
+  assert.ok(!calls.some((call) => call.name === 'EffectivePermission'));
+});
+
+test('issued grants remain visible after refresh without depending on the issuers own access', async () => {
+  const { action, calls } = setup({
+    MyGrants: async () => ({ grants: [] }),
+    MyIssuedGrants: async () => ({ issuedGrants: [issued] }),
+    EffectivePermission: async () => ({ checkPermission: { allowed: false } }),
+  });
+  const result = await action({ kind: 'list' });
+  assert.equal(result.shared[0].id, grantId);
+  assert.equal(result.shared[0].state, 'shared');
+  assert.ok(result.contexts.some((context) => context.id === '1'));
+  assert.deepEqual(calls.find((call) => call.name === 'MyIssuedGrants').args, { auid: '1' });
+  assert.ok(!calls.some((call) => call.name === 'EffectivePermission' && call.args.permission === issued.permission));
+});
+
+test('own app context is suggested even before any permissions are received or issued', async () => {
+  const { action } = setup({ MyGrants: async () => ({ grants: [] }) });
+  const result = await action({ kind: 'list' });
+  assert.ok(result.contexts.some((context) => context.id === '1'));
+  assert.equal(result.shared.length, 0);
+});
+
+test('issued grants support duplicate detection and removal in the existing sharing flow', async () => {
+  const { action, calls } = setup({ MyIssuedGrants: async () => ({ issuedGrants: [issued] }) });
+  const repeated = await action({ kind: 'share', username: 'alex', permission: issued.permission, permissionContext: '1' });
+  assert.equal(repeated.alreadyShared, true);
+  assert.equal(repeated.sharedGrant.id, grantId);
+  assert.ok(!calls.some((call) => call.name === 'IssuePermission'));
+  assert.equal((await action({ kind: 'revoke', grantId })).revoked, true);
+  assert.deepEqual(calls.find((call) => call.name === 'RemoveSharedPermission').args, { grantId });
+});
+
+test('incoming issued permissions identify the issuing app as sender', async () => {
+  const { action } = setup({
+    MyGrants: async () => ({ grants: [{ ...issued, permissionContext: '2', origin: { type: 'ISSUED', issuerAuid: '2' } }] }),
+    Usernames: async ({ auid }) => ({ usernames: { defaultUsername: auid === '2' ? 'publisher' : 'alex' } }),
+  });
+  const result = await action({ kind: 'list' });
+  assert.deepEqual(result.permissions[0].receivedFrom, { id: '2', username: 'publisher' });
+});
+
+test('issuance mutation errors are reported without claiming the permission was shared', async () => {
+  const failure = new ClientError({ errors: [{ message: 'private', extensions: { code: 'PERMISSION_VALIDATOR_UNAVAILABLE' } }] }, { query: 'mutation' });
+  const { action } = setup({ IssuePermission: async () => { throw failure; } });
+  const result = await action({ kind: 'share', username: 'alex', permission: issued.permission, permissionContext: '1' });
+  assert.match(result.error, /No permission was granted/);
+  assert.equal(result.sharedGrant, undefined);
 });
