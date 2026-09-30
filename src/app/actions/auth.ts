@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import {
-  isPermissionValidationError,
   permissionErrorMessage,
   DOMAIN_ERROR_CODES,
   formatGraphqlError,
@@ -18,12 +17,13 @@ import { SESSION_PERMISSIONS, loginWithBackend } from "@/lib/oauth/adapter";
 import { resolveLoginAuid } from "@/lib/resolve-login-identity";
 import {
   getOAuthClient,
-  normalizeScopes,
-  partitionScopes,
-  validateScopes,
   validateRedirectUri,
 } from "@/lib/oauth/clients";
-import { grantAuthorization } from "@/lib/oauth/grants";
+import { authorizeQuerySchema } from "@/lib/oauth/schemas";
+import { MissingRequiredPermissionsError, parseRequestedScopes, selectGrantedScopes } from "@/lib/oauth/requested-scopes";
+import { resolveScopeAvailability } from "@/lib/oauth/scope-availability";
+import { authorizationErrorCode, createAuthorizationResponse } from "@/lib/oauth/authorization-response";
+import { getSystemPermissionContext } from "@/lib/permission-config";
 
 import {
   addAccountToSession,
@@ -391,29 +391,34 @@ export async function consentAction(formData: FormData) {
   }
 
   if (client) {
-    // Consent for an OAuth app is a record of its own, holding the app's token and the scopes
-    // it may act on. SAML has no such record, so it still rides along in the session.
-    let scopes: string[];
-    try {
-      scopes = validateScopes(normalizeScopes(url.searchParams.get("scope") ?? ""));
-    } catch {
-      redirect("/");
+    if (formData.get("consent_auid") !== session.auid) {
+      redirect(`/consent?redirect_uri=${encodeURIComponent(redirectUri)}`);
     }
-
+    // Complete the authorization directly so a declined optional scope cannot cause a
+    // consent loop or be restored from the original authorization URL.
+    const params = Object.fromEntries(url.searchParams);
+    if (!params.client_id && params.auid) params.client_id = params.auid;
+    const parsed = authorizeQuerySchema.safeParse(params);
+    if (url.pathname !== "/authorize" || !parsed.success) redirect("/");
+    let response: string;
     try {
-      await grantAuthorization({
-        userAuid: session.auid, clientAuid: client.auid,
+      const requested = parseRequestedScopes(parsed.data, getSystemPermissionContext());
+      const available = await resolveScopeAvailability(session.tokenId, session.auid, requested);
+      const selected = formData.getAll("optional_scope");
+      if (selected.some((value) => typeof value !== "string")) throw new Error("Invalid optional selection");
+      const scopes = selectGrantedScopes(available, selected as string[]);
+      response = await createAuthorizationResponse({
+        query: parsed.data, clientAuid: client.auid, userAuid: session.auid,
         sessionTokenId: session.tokenId, scopes,
-        axusPermissions: partitionScopes(scopes).axusPermissions,
       });
     } catch (error) {
-      const response = new URL(url.searchParams.get("redirect_uri")!);
-      response.searchParams.set("error", isPermissionValidationError(error) ? "invalid_scope" : "server_error");
-      response.searchParams.set("error_description", permissionErrorMessage(error));
-      const state = url.searchParams.get("state");
-      if (state) response.searchParams.set("state", state);
+      const response = new URL(parsed.data.redirect_uri);
+      response.searchParams.set("error", authorizationErrorCode(error));
+      response.searchParams.set("error_description", error instanceof MissingRequiredPermissionsError ? error.message : permissionErrorMessage(error));
+      if (parsed.data.state) response.searchParams.set("state", parsed.data.state);
       redirect(response.toString());
     }
+    redirect(response);
   } else {
     const updatedSession: IdPSession = {
       ...session,
@@ -423,20 +428,7 @@ export async function consentAction(formData: FormData) {
     await addAccountToSession(updatedSession);
   }
 
-  let targetUri = redirectUri;
-  if (targetUri.startsWith("/authorize")) {
-    try {
-      const targetUrl = new URL(targetUri, "http://localhost");
-      if (targetUrl.searchParams.has("prompt")) {
-        targetUrl.searchParams.set("prompt_consent", "done");
-        targetUri = `${targetUrl.pathname}${targetUrl.search}`;
-      }
-    } catch {
-      // fallback
-    }
-  }
-
-  redirect(targetUri);
+  redirect(redirectUri);
 }
 
 export async function denyConsentAction(formData: FormData) {

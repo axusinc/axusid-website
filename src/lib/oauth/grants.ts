@@ -87,8 +87,8 @@ export function grantCoversScopes(grant: OAuthGrant, requested: string[]): boole
 
 /**
  * Records the user's consent and hands back the token the app will act with. An existing
- * authorization keeps its token while the scopes and parent session still match. Widening
- * scopes or authorizing from a different session mints a fresh token and revokes the old one.
+ * authorization keeps its token while the scopes and parent session still match. Changing
+ * scopes (including removing access) or the session mints a new token and revokes the old one.
  */
 export async function grantAuthorization(params: {
   userAuid: string;
@@ -105,7 +105,8 @@ export async function grantAuthorization(params: {
   const existing = await findActiveGrant(params.userAuid, params.clientAuid);
   const parentSessionTokenHash = await sha256Base64Url(params.sessionTokenId);
 
-  if (existing && existing.parentSessionTokenHash === parentSessionTokenHash && grantCoversScopes(existing, params.scopes)) {
+  if (existing && existing.parentSessionTokenHash === parentSessionTokenHash &&
+    existing.scopes.length === new Set(params.scopes).size && grantCoversScopes(existing, params.scopes)) {
     const now = new Date();
     await db
       .update(oauthGrants)

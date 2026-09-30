@@ -5,6 +5,8 @@ export const authorizeQuerySchema = z.object({
   client_id: z.string().min(1),
   redirect_uri: z.string().url(),
   scope: z.string().optional(),
+  optional_scope: z.string().optional(),
+  conditional_scope: z.string().optional(),
   state: z.string().optional(),
   nonce: z.string().optional(),
   // PKCE is mandatory. There are no client secrets here, so the code challenge is the only
@@ -96,7 +98,6 @@ export async function parseRequestBody(
 
   return parseFormBody(await request.text());
 }
-
 
 
 

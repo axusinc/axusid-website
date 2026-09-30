@@ -24,7 +24,7 @@ export type DualTokenResponse = {
    * Only present if native AXUS permissions were requested.
    */
   axus_access_token?: string;
-  scope?: string;
+  scope: string;
 };
 
 async function buildResponse(params: {
@@ -34,8 +34,7 @@ async function buildResponse(params: {
   nonce?: string;
   withRefreshToken: string | undefined;
 }): Promise<DualTokenResponse> {
-  const { oidcScopes, axusPermissions } = partitionScopes(params.scopes);
-  const permissionScopeString = axusPermissions.join(" ");
+  const { oidcScopes } = partitionScopes(params.scopes);
 
   const accessToken = await issueAccessToken({
     client: params.client,
@@ -48,7 +47,7 @@ async function buildResponse(params: {
     token_type: "Bearer",
     expires_in: accessToken.expiresInSeconds,
     ...(params.grant.tokenId ? { axus_access_token: params.grant.tokenId } : {}),
-    ...(permissionScopeString ? { scope: permissionScopeString } : {}),
+    scope: params.scopes.join(" "),
   };
 
   if (params.withRefreshToken) {

@@ -183,7 +183,9 @@ export default async function ReferencePage() {
               "S256 output: 43-character unpadded base64url SHA-256 digest",
             ],
             ["code_challenge_method", "yes", "Must be S256"],
-            ["scope", "no", "Space-separated; defaults to openid"],
+            ["scope", "no", "Mandatory, space-separated; defaults to openid"],
+            ["optional_scope", "no", "AXUS ID extension: scopes the user can toggle; unavailable permissions are omitted"],
+            ["conditional_scope", "no", "AXUS ID extension: AXUS permissions required when held, omitted otherwise"],
             [
               "state",
               "recommended",
@@ -299,8 +301,8 @@ export default async function ReferencePage() {
             ],
             [
               "scope",
-              "sometimes",
-              "Echoed only when non-OIDC permission keys were granted",
+              "always",
+              "Complete approved scope set, including OIDC; excludes declined or unavailable permissions",
             ],
             [
               "id_token",
@@ -314,17 +316,16 @@ export default async function ReferencePage() {
             ],
             [
               "axus_access_token",
-              "always",
+              "AXUS permission scopes",
               "Native token for AXUS GraphQL APIs. No expiry; dies when the user disconnects the app",
             ],
           ]}
         />
         <div className="docs-note">
-          <strong>Provider-specific scope behavior:</strong> for OIDC-only
-          grants, the token response omits <M>scope</M>. When present, it
-          contains granted AXUS permission keys, not the full OIDC scope set.
-          Introspection returns the complete stored scope set. Check this
-          behavior when adapting a generic library.
+          <strong>Check approved scopes:</strong> the token response’s <M>scope</M>
+          lists the complete approved OIDC and AXUS scope set. Enable optional or
+          conditional features only when their scopes appear here. Missing mandatory
+          permissions return <M>access_denied</M> without an authorization code.
         </div>
         <P>
           Refresh tokens are bound to their client. Request{" "}

@@ -64,7 +64,7 @@ const issues = [
       "Sign-in succeeds, but a claim is absent or the email ends in @amail.com.",
     steps: [
       "Request profile for name and preferred_username, and email for the synthetic email claim — a compatibility address, not a verified contact. Treat names as optional and key users by issuer + sub.",
-      "The token response's scope field lists AXUS permission keys only; don't infer granted OIDC scopes from it.",
+      "Check the token response's scope field for approved OIDC and AXUS scopes. Optional scopes may have been declined, and unavailable optional or conditional permissions are omitted.",
     ],
     link: "/developers/reference#userinfo",
     cta: "See claims by scope",

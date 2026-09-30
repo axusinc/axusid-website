@@ -144,8 +144,10 @@ optional `.jpg` suffix. No authentication is required.
 - Responses allow cross-origin reads and cache for five minutes. Backend or
   image-processing failures return an uncached HTTP 503.
 
-For `https://avatars.thewinelore.com/gravatar/<email_hash>`, route that hostname's
-`/gravatar/*` requests to this Next.js app. The route also works on the IdP host.
+Use the AXUS ID frontend's public URL directly:
+`https://<frontend-host>/gravatar/<email_hash>`. Grafana's
+`security.gravatar_url` should be `https://<frontend-host>/gravatar`.
+No additional avatar hostname or ingress rule is required.
 The database migration backfills accounts already known to this IdP; new
 sign-ins and OIDC profile claims register their hashes. Accounts used only
 through the engine must sign in here once before their hashes can be resolved.
@@ -154,8 +156,39 @@ through the engine must sign in here once before their hashes can be resolved.
 import { createHash } from "node:crypto";
 
 const hash = createHash("md5").update(email.trim().toLowerCase()).digest("hex");
-const avatarUrl = `https://avatars.thewinelore.com/gravatar/${hash}?s=128&d=404`;
+const avatarUrl = `${axusIdFrontendUrl}/gravatar/${hash}?s=128&d=404`;
 ```
+
+## Required, optional and conditional OAuth scopes
+
+The authorization request supports three space-separated scope lists:
+
+| Parameter | Behavior |
+| --- | --- |
+| `scope` | Mandatory. Defaults to `openid`. Missing AXUS permissions stop authorization with `access_denied`. |
+| `optional_scope` | User-controlled checkboxes, initially enabled for available scopes. Unavailable permissions are disabled and omitted. Supports OIDC scopes too. |
+| `conditional_scope` | AXUS permissions required when the user holds them, otherwise omitted. These cannot be toggled off. |
+
+For example, request `scope=openid app:5:posts.read`,
+`optional_scope=app:5:posts.write`, and `conditional_scope=app:5:posts.moderate`.
+The extra parameters are AXUS ID extensions. A scope must appear in only one list;
+OIDC scopes cannot be conditional. Context syntax is the same in every list.
+A bare `*` (including `app:5:*`) requests whatever access the user holds in that
+context, even if empty; it is not a concrete permission whose absence blocks sign-in.
+Only one wildcard context is allowed across the three lists.
+
+Effective permission checks run after account selection and again on consent submission.
+Check failures stop authorization rather than treating access as absent. The engine still
+validates the granted permissions during token issuance. No authorization code or tokens
+are issued when a mandatory permission is missing; the callback receives `access_denied`,
+an explanation, and the original `state`. This does not end the user's session.
+
+Authorization codes, access tokens and the token response's `scope` contain only the
+approved scopes, including OIDC scopes. Apps must inspect the returned `scope` before
+using optional or conditional features. Changing the approved set replaces the native
+app token and revokes its previous token. Declined optional scopes are not remembered
+as a separate refusal: requesting them again prompts for consent (or returns
+`consent_required` with `prompt=none`). Use `prompt=consent` to review existing choices.
 
 ## OAuth2 flow
 

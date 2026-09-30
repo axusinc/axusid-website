@@ -83,7 +83,11 @@ test("discardInvalidSessionAction redirects rather than returning a destination 
     "@/lib/oauth/adapter": { SESSION_PERMISSIONS: ["*"], loginWithBackend: async () => "token" },
     "@/lib/resolve-login-identity": {},
     "@/lib/oauth/clients": { getOAuthClient: async () => null, normalizeScopes: () => [], partitionScopes: () => ({}), validateScopes: () => [] },
-    "@/lib/oauth/grants": { grantAuthorization: async () => ({}) },
+    "@/lib/oauth/schemas": {},
+    "@/lib/oauth/requested-scopes": {},
+    "@/lib/oauth/scope-availability": {},
+    "@/lib/oauth/authorization-response": {},
+    "@/lib/permission-config": {},
     "@/lib/session-access": {
       addAccountToSession: async () => {},
       clearAllSessions: async () => {},

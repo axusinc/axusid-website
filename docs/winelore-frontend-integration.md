@@ -207,7 +207,20 @@ window.location.assign(
 | `email` | `email` (synthetic email `[auid]@amail.com`) |
 | `offline_access` | Enables `refresh_token` in the token response |
 
-If `scope` is omitted, AXUS ID defaults to `openid`.
+If `scope` is omitted, AXUS ID defaults to `openid`. Scopes in `scope` are mandatory:
+a missing AXUS permission returns `access_denied` with no authorization code.
+AXUS ID also accepts `optional_scope` (user-controlled checkboxes; unavailable
+permissions are omitted) and `conditional_scope` (AXUS permissions included whenever
+the account holds them, otherwise omitted). These are space-separated lists using
+the same `app:<AUID>:<permission>` syntax. Each scope can appear in only one list.
+Optional scopes can include OIDC scopes; conditional scopes cannot.
+
+For example, keep `openid app:5:posts.read` mandatory, request `app:5:posts.write`
+in `optional_scope`, and `app:5:posts.moderate` in `conditional_scope`.
+Always read the returned token response's `scope`, which includes the approved
+OIDC and AXUS scopes, before enabling optional or conditional app features.
+Declined optional scopes prompt again when requested later. Use `prompt=consent`
+to review choices that were previously approved.
 
 ### 4.4 What happens on AXUS ID
 

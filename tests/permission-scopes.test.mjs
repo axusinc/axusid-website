@@ -200,6 +200,34 @@ test('OIDC-only consent does not mint a native token', async () => {
   assert.deepEqual(result.scopes, ['openid', 'profile']);
 });
 
+test('turning off access replaces a broader native token even in the same session', async () => {
+  for (const approved of [['openid', 'app:5:posts.read'], ['openid']]) {
+    const row = { id: 'grant', userAuid: '1', clientAuid: '5', scopes: ['openid', 'app:5:posts.read', 'app:5:posts.write'], tokenId: 'broad-token', parentSessionTokenHash: 'session-hash' };
+    let stored;
+    const issued = [];
+    const revoked = [];
+    const db = {
+      select: () => ({ from: () => ({ where: () => ({ limit: async () => [row] }) }) }),
+      update: () => ({ set: (values) => ({ where: async () => { stored = values; } }) }),
+    };
+    const grants = grantsModule({
+      'drizzle-orm': { and: () => {}, desc: () => {}, eq: () => {}, isNull: () => {}, or: () => {} },
+      '@/lib/db': { getDb: () => db },
+      '@/lib/oauth/adapter': {
+        issueAuthorizationToken: async (args) => { issued.push(args.permissions); return 'narrow-token'; },
+        revokeWithBackend: async (token) => { revoked.push(token); return true; },
+      },
+    });
+    const axusPermissions = scopes.partitionScopes(approved).axusPermissions;
+    const result = await grants.grantAuthorization({ userAuid: '1', clientAuid: '5', sessionTokenId: 'same-session', scopes: approved, axusPermissions });
+    assert.deepEqual(stored.scopes, approved);
+    assert.deepEqual(result.scopes, approved);
+    assert.equal(result.tokenId, axusPermissions.length ? 'narrow-token' : null);
+    assert.deepEqual(issued, axusPermissions.length ? [axusPermissions] : []);
+    assert.deepEqual(revoked, ['broad-token']);
+  }
+});
+
 test('consent descriptions include declared icons, contextual app info, and context AUID', async () => {
   const permissionScopes = loadTs('src/lib/oauth/permission-scopes.ts', {
     'server-only': {}, '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
@@ -221,4 +249,3 @@ test('consent descriptions include declared icons, contextual app info, and cont
   assert.equal(result[2].contextAuid, '6');
   assert.deepEqual(result[2].app, { id: '6', label: 'App 6', username: null, avatarUrl: null });
 });
-

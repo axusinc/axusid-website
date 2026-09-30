@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useId } from "react";
 import { AtSign, IdCard, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { denyConsentAction, consentAction } from "@/app/actions/auth";
@@ -16,11 +17,14 @@ import { eyebrow, roundedRect } from "@/lib/design";
 import { cn } from "@/lib/utils";
 import type { AccountItemInfo } from "@/lib/user-profile";
 import type { PermissionContext } from "@/lib/permission-types";
+import type { AvailableScope, ScopeMode } from "@/lib/oauth/requested-scopes";
 
 export type ConsentApplicationUserInfo = RequestingAppInfo;
 
 export type ConsentPermission = {
   key: string;
+  mode?: ScopeMode;
+  available?: boolean;
   label: string;
   description: string;
   contextLabel: string;
@@ -34,6 +38,7 @@ type ConsentFormProps = {
   redirectHost?: string | null;
   /** Standard OIDC scopes requested (openid, profile, email, offline_access). */
   oidcScopes?: string[];
+  scopeChoices?: AvailableScope[];
   /** Custom AXUS permissions requested. */
   permissions: ConsentPermission[];
   redirectUri: string;
@@ -68,14 +73,16 @@ function SubmitButton({
   children,
   pendingLabel,
   variant,
+  disabled = false,
 }: {
   children: React.ReactNode;
   pendingLabel: string;
   variant: "primary" | "secondary";
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant={variant} className="w-full" loading={pending}>
+    <Button type="submit" variant={variant} className="w-full" loading={pending} disabled={disabled}>
       {pending ? pendingLabel : children}
     </Button>
   );
@@ -85,11 +92,14 @@ export function ConsentForm({
   applicationUser,
   redirectHost,
   oidcScopes = [],
+  scopeChoices = [],
   permissions,
   redirectUri,
   accounts = [],
   currentAuid = "",
 }: ConsentFormProps) {
+  const consentFormId = useId();
+  const missingRequired = scopeChoices.some(({ mode, available }) => mode === "required" && !available);
   const activeAccount =
     accounts.find((a) => a.auid === currentAuid) ||
     accounts.find((a) => a.isActive) ||
@@ -99,9 +109,9 @@ export function ConsentForm({
   const hasCustomPermissions = permissions.length > 0;
   const changeAccountHref = buildChangeAccountHref(redirectUri);
 
-  const sharedData = (oidcScopes.length > 0 ? oidcScopes : ["openid", "profile"])
-    .map((scope) => sharedDataByScope[scope])
-    .filter(Boolean);
+  const sharedData = (oidcScopes.length > 0 || scopeChoices.length > 0 ? oidcScopes : ["openid", "profile"])
+    .map((scope) => ({ scope, ...sharedDataByScope[scope], choice: scopeChoices.find((choice) => choice.scope === scope) }))
+    .filter(({ label }) => Boolean(label));
 
   return (
     <AuthShell
@@ -150,10 +160,15 @@ export function ConsentForm({
             {hasCustomPermissions ? `${appName} will have access to` : `${appName} will be able to see`}
           </p>
           <ul className={cn("divide-y divide-black/[0.05] border border-black/[0.07] bg-white", roundedRect)}>
-            {sharedData.map(({ label, Icon }) => (
+            {sharedData.map(({ scope, label, Icon, choice }) => (
               <li key={label} className="flex items-center gap-3 px-3.5 py-3 text-sm text-neutral-800">
                 <Icon aria-hidden className="h-4 w-4 shrink-0 text-neutral-400" />
-                <span>{label}</span>
+                <label className="flex flex-1 items-center justify-between gap-3">
+                  <span>{label}{choice?.mode === "optional" ? <span className="mt-1 block text-xs text-neutral-500">Optional · You choose whether to share</span> : null}</span>
+                  {choice?.mode === "optional" ? (
+                    <input aria-label={`Share ${label.toLowerCase()}`} type="checkbox" name="optional_scope" value={scope} form={consentFormId} defaultChecked className="h-4 w-4 accent-neutral-900" />
+                  ) : null}
+                </label>
               </li>
             ))}
             {permissions.map((permission) => {
@@ -198,9 +213,11 @@ export function ConsentForm({
                       hasDescription && "mt-0.5",
                     )}
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className={cn("min-w-0 flex-1", permission.available === false && "opacity-60")}>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-normal text-neutral-800">{title}</span>
+                      {permission.mode === "optional"
+                        ? <label htmlFor={`${consentFormId}-${permission.key}`} className="font-normal text-neutral-800">{title}</label>
+                        : <span className="font-normal text-neutral-800">{title}</span>}
                       {appContext ? (
                         <span className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
                           <span className="text-neutral-300">·</span>
@@ -217,12 +234,24 @@ export function ConsentForm({
                     {hasDescription ? (
                       <p className="mt-0.5 text-xs text-neutral-500">{permission.description}</p>
                     ) : null}
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {permission.available === false
+                        ? permission.mode === "required" ? "Required · You don’t have this permission" : "Unavailable on this account · Won’t be shared"
+                        : permission.mode === "optional" ? "Optional · You choose whether to share"
+                        : permission.mode === "conditional" ? "Required because you have this permission"
+                        : "Required"}
+                    </p>
                   </div>
+                  {permission.mode === "optional" ? (
+                    <input id={`${consentFormId}-${permission.key}`} aria-label={`Share ${title}`} type="checkbox" name="optional_scope" value={permission.key} form={consentFormId} defaultChecked={permission.available !== false} disabled={permission.available === false} className="mt-0.5 h-4 w-4 shrink-0 accent-neutral-900" />
+                  ) : null}
                 </li>
               );
             })}
           </ul>
         </section>
+
+        {missingRequired ? <p role="alert" className="text-sm text-red-700">This account is missing permissions required by the app. Switch accounts or cancel to return to the app.</p> : null}
 
         <div className="flex flex-col-reverse gap-2.5 min-[420px]:flex-row">
           <form action={denyConsentAction} className="flex-1">
@@ -231,9 +260,10 @@ export function ConsentForm({
               Cancel
             </SubmitButton>
           </form>
-          <form action={consentAction} className="flex-1">
+          <form id={consentFormId} action={consentAction} className="flex-1">
             <input type="hidden" name="redirect_uri" value={redirectUri} />
-            <SubmitButton variant="primary" pendingLabel="Continuing…">
+            <input type="hidden" name="consent_auid" value={currentAuid} />
+            <SubmitButton variant="primary" pendingLabel="Continuing…" disabled={missingRequired}>
               {hasCustomPermissions ? "Allow" : "Continue"}
             </SubmitButton>
           </form>

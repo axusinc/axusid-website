@@ -5,27 +5,20 @@ import { StatusPage } from "@/components/status-page";
 import { buttonVariants } from "@/components/ui/button";
 import {
   getOAuthClient,
-  normalizeScopes,
-  partitionScopes,
   validateRedirectUri,
-  validateScopes,
 } from "@/lib/oauth/clients";
 import {
   findActiveGrant,
-  grantAuthorization,
   grantCoversScopes,
 } from "@/lib/oauth/grants";
-import {
-  AUTH_CODE_TTL_MS,
-  saveAuthorizationCode,
-} from "@/lib/oauth/auth-code-store";
-import { isPermissionValidationError, permissionErrorMessage } from "@/lib/graphql-errors";
-import { generateOpaqueCode } from "@/lib/oauth/pkce";
+import { permissionErrorMessage } from "@/lib/graphql-errors";
 import {
   authorizeQuerySchema,
 } from "@/lib/oauth/schemas";
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
-import { validatePermissionScopeCombination } from "@/lib/oauth/scopes";
+import { MissingRequiredPermissionsError, parseRequestedScopes, selectGrantedScopes } from "@/lib/oauth/requested-scopes";
+import { resolveScopeAvailability } from "@/lib/oauth/scope-availability";
+import { authorizationErrorCode, createAuthorizationResponse } from "@/lib/oauth/authorization-response";
 import { getSystemPermissionContext } from "@/lib/permission-config";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -137,10 +130,9 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     );
   }
 
-  let scopes: string[];
+  let requested: ReturnType<typeof parseRequestedScopes>;
   try {
-    scopes = validateScopes(normalizeScopes(query.scope));
-    validatePermissionScopeCombination(partitionScopes(scopes).axusPermissions, getSystemPermissionContext());
+    requested = parseRequestedScopes(query, getSystemPermissionContext());
   } catch (error) {
     return oauthRedirectError(
       query.redirect_uri,
@@ -187,15 +179,6 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
         "Account selection is required",
       );
     }
-
-    if (!(await hasConsentFor(session.auid, client.auid, scopes))) {
-      return oauthRedirectError(
-        query.redirect_uri,
-        "consent_required",
-        query.state,
-        "User consent is required",
-      );
-    }
   } else {
     // 3. Handle prompt=login (requires re-authentication)
     if (promptTokens.has("login") && queryParams.prompt_reauth !== "true") {
@@ -221,57 +204,42 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     if (multiSession && multiSession.accounts.length > 1 && queryParams.account_selected !== "true") {
       redirect(`/login?redirect_uri=${encodeURIComponent(currentUrl)}`);
     }
+  }
 
-    // 5. Handle prompt=consent or standard consent check
-    const hasConsented = await hasConsentFor(session.auid, client.auid, scopes);
-    const forceConsent = promptTokens.has("consent") && queryParams.prompt_consent !== "done";
+  // Availability is checked after account selection, including for previously approved scopes.
+  let scopes: string[];
+  try {
+    const available = await resolveScopeAvailability(session.tokenId, session.auid, requested);
+    scopes = selectGrantedScopes(available, available.filter(({ mode }) => mode === "optional").map(({ scope }) => scope));
+  } catch (error) {
+    return oauthRedirectError(query.redirect_uri,
+      authorizationErrorCode(error),
+      query.state, error instanceof MissingRequiredPermissionsError ? error.message : permissionErrorMessage(error));
+  }
 
-    if (!hasConsented || forceConsent) {
-      redirect(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`);
-    }
+  const hasConsented = await hasConsentFor(session.auid, client.auid, scopes);
+  if (promptTokens.has("none")) {
+    if (!hasConsented) return oauthRedirectError(query.redirect_uri, "consent_required", query.state, "User consent is required");
+  } else if (!hasConsented || promptTokens.has("consent")) {
+    redirect(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`);
   }
 
   // The app gets its own token, scoped to what was consented to, rather than the user's
   // session token: revoking the app must not sign the user out, and an app must not inherit
   // the whole account.
-  let grant;
+  let response: string;
   try {
-    grant = await grantAuthorization({
-      userAuid: session.auid,
-      clientAuid: client.auid,
-      sessionTokenId: session.tokenId,
-      scopes,
-      axusPermissions: partitionScopes(scopes).axusPermissions,
+    response = await createAuthorizationResponse({
+      query, clientAuid: client.auid, userAuid: session.auid,
+      sessionTokenId: session.tokenId, scopes,
     });
   } catch (error) {
     return oauthRedirectError(
       query.redirect_uri,
-      isPermissionValidationError(error) ? "invalid_scope" : "server_error",
+      authorizationErrorCode(error),
       query.state,
       permissionErrorMessage(error, "Could not issue a token for this authorization"),
     );
   }
-
-  const code = await generateOpaqueCode();
-  await saveAuthorizationCode({
-    code,
-    clientAuid: client.auid,
-    redirectUri: query.redirect_uri,
-    scopes,
-    userAuid: session.auid,
-    grantId: grant.id,
-    codeChallenge: query.code_challenge,
-    codeChallengeMethod: "S256",
-    nonce: query.nonce,
-    // eslint-disable-next-line react-hooks/purity
-    expiresAt: new Date(Date.now() + AUTH_CODE_TTL_MS),
-  });
-
-  const redirectUrl = new URL(query.redirect_uri);
-  redirectUrl.searchParams.set("code", code);
-  if (query.state) {
-    redirectUrl.searchParams.set("state", query.state);
-  }
-
-  redirect(redirectUrl.toString());
+  redirect(response);
 }

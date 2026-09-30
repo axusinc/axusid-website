@@ -7,9 +7,7 @@ import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError, isRateLimitError } from "@/lib/graphql-errors";
 import {
   getOAuthClient,
-  normalizeScopes,
   partitionScopes,
-  validateScopes,
   getConsentPermissions,
 } from "@/lib/oauth/clients";
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
@@ -19,6 +17,9 @@ import { parsePermissionScope } from "@/lib/oauth/scopes";
 import { permissionErrorMessage } from "@/lib/graphql-errors";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import type { PermissionContext } from "@/lib/permission-types";
+import { parseRequestedScopes, type AvailableScope } from "@/lib/oauth/requested-scopes";
+import { resolveScopeAvailability } from "@/lib/oauth/scope-availability";
+import { getSystemPermissionContext } from "@/lib/permission-config";
 
 export const metadata: Metadata = { title: "Review access" };
 
@@ -88,6 +89,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   let redirectHost: string | null = null;
   let permissions: string[] = [];
   let oidcScopes: string[] = [];
+  let scopeChoices: AvailableScope[] = [];
   let applicationUser = null;
 
   const sdk = getAuthSdkForSession(session);
@@ -113,15 +115,13 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
       redirect("/");
     }
 
-    const scopeParam = url.searchParams.get("scope");
-    let scopes: string[];
     try {
-      scopes = validateScopes(normalizeScopes(scopeParam ?? ""));
-    } catch {
-      redirect("/");
+      const requested = parseRequestedScopes(Object.fromEntries(url.searchParams), getSystemPermissionContext());
+      scopeChoices = await resolveScopeAvailability(session.tokenId, session.auid, requested);
+    } catch (error) {
+      return <StatusPage tone="error" title="We couldn’t check this access request" description={permissionErrorMessage(error)} actions={<a href={`/consent?redirect_uri=${encodeURIComponent(redirectUri)}`} className={buttonVariants()}>Try again</a>} />;
     }
-
-    const partitioned = partitionScopes(scopes);
+    const partitioned = partitionScopes(scopeChoices.map(({ scope }) => scope));
     oidcScopes = partitioned.oidcScopes;
     permissions = getConsentPermissions(partitioned.axusPermissions);
 
@@ -209,7 +209,11 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
       applicationUser={applicationUser}
       redirectHost={redirectHost}
       oidcScopes={oidcScopes}
-      permissions={permissionsWithApps}
+      scopeChoices={scopeChoices}
+      permissions={permissionsWithApps.map((permission) => {
+        const choice = scopeChoices.find(({ scope }) => scope === permission.key);
+        return { ...permission, mode: choice?.mode, available: choice?.available };
+      })}
       redirectUri={redirectUri}
       accounts={accountInfos}
       currentAuid={session.auid}
