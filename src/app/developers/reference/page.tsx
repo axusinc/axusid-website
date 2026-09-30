@@ -198,7 +198,7 @@ export default async function ReferencePage() {
         />
         <P>
           Scopes are the four OIDC scopes plus declared AXUS permission keys. Unprefixed
-          keys use system context; use <M>axus:&lt;app AUID&gt;:&lt;permission key&gt;</M> for another
+          keys use system context; use <M>app:&lt;app AUID&gt;:&lt;permission key&gt;</M> for another
           app’s context. Parameter wildcards require declaration support; bare <M>*</M>
           requests all permissions the caller holds in one context. Legacy prefix
           wildcards are rejected. The user reviews engine-provided descriptions on

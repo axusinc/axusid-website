@@ -13,7 +13,8 @@ import { FormError } from "@/components/ui/form-message";
 import { Spinner } from "@/components/ui/spinner";
 import { UsernameAvatar } from "@/components/username-avatar";
 import { ProfileAvatar } from "@/components/ui/profile-avatar";
-import type { AvatarSize } from "@/components/ui/avatar";
+import { AccountAvatar } from "@/components/account-avatar";
+export { AccountAvatar };
 
 function bindingsFor(template: string, key?: string): Record<string, string> | null {
   if (!key) return null;
@@ -27,22 +28,6 @@ function bindingsFor(template: string, key?: string): Record<string, string> | n
     else if (segments[i] !== parts[i]) return null;
   }
   return bindings;
-}
-
-export function AccountAvatar({
-  account,
-  size = "sm",
-  className,
-  shape = "rounded",
-}: {
-  account: PermissionContext;
-  size?: AvatarSize;
-  className?: string;
-  shape?: "circle" | "rounded";
-}) {
-  if (account.avatarUrl) return <ProfileAvatar imageUrl={account.avatarUrl} username={account.username} displayName={account.label} alt="" seed={account.id} size={size} className={className} shape={shape} />;
-  if (account.username) return <UsernameAvatar username={account.username} displayName={account.label} size={size} className={className} shape={shape} />;
-  return <ProfileAvatar alt="" seed={account.id} displayName={account.label} size={size} className={className} shape={shape} />;
 }
 
 function isAccountParameter(option: ParameterOptionsFragment) {

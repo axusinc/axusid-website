@@ -15,8 +15,10 @@ import {
 import { getValidSession, getValidMultiSession } from "@/lib/session-access";
 import { resolveUserDisplayInfo, fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { describeConsentPermissions } from "@/lib/oauth/permission-scopes";
+import { parsePermissionScope } from "@/lib/oauth/scopes";
 import { permissionErrorMessage } from "@/lib/graphql-errors";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
+import type { PermissionContext } from "@/lib/permission-types";
 
 export const metadata: Metadata = { title: "Review access" };
 
@@ -142,16 +144,72 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   }
 
   let describedPermissions;
-  try { describedPermissions = await describeConsentPermissions(session.tokenId, permissions); }
-  catch (error) {
+  try {
+    describedPermissions = await describeConsentPermissions(session.tokenId, permissions);
+  } catch (error) {
     return <StatusPage tone="error" title="These permissions aren’t available" description={permissionErrorMessage(error, "Couldn’t load the requested permissions. Please try again.")} actions={<a href={`/consent?redirect_uri=${encodeURIComponent(redirectUri)}`} className={buttonVariants()}>Try again</a>} />;
   }
+
+  // Resolve unique app contexts (username, display name, avatar) for other apps' permissions
+  const contextAuids = [
+    ...new Set(
+      describedPermissions
+        .map((p) => p.contextAuid)
+        .filter((auid): auid is string => Boolean(auid)),
+    ),
+  ];
+
+  const contextApps = new Map<string, PermissionContext>();
+  await Promise.all(
+    contextAuids.map(async (auid) => {
+      try {
+        const info = await resolveUserDisplayInfo(sdk, auid);
+        const username = info.username ?? null;
+        contextApps.set(auid, {
+          id: auid,
+          username,
+          label: username ? `@${username}` : (info.displayName || `App ${auid}`),
+          avatarUrl: info.avatarUrl ?? null,
+        });
+      } catch {
+        contextApps.set(auid, {
+          id: auid,
+          username: null,
+          label: `App ${auid}`,
+          avatarUrl: null,
+        });
+      }
+    }),
+  );
+
+  const permissionsWithApps = describedPermissions.map((permission) => {
+    if (!permission.contextAuid) {
+      return permission;
+    }
+    const app = contextApps.get(permission.contextAuid) ?? permission.app;
+    const appLabel = app?.label ?? `App ${permission.contextAuid}`;
+    let label = permission.label;
+    let description = permission.description;
+    const { key } = parsePermissionScope(permission.key);
+    if (key === "*") {
+      label = "All permissions you hold";
+      description = `Lets this app use all your access in ${appLabel}.`;
+    }
+    return {
+      ...permission,
+      label,
+      description,
+      contextLabel: appLabel,
+      app: app ?? null,
+    };
+  });
+
   return (
     <ConsentForm
       applicationUser={applicationUser}
       redirectHost={redirectHost}
       oidcScopes={oidcScopes}
-      permissions={describedPermissions}
+      permissions={permissionsWithApps}
       redirectUri={redirectUri}
       accounts={accountInfos}
       currentAuid={session.auid}

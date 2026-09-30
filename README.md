@@ -222,7 +222,7 @@ concrete account permissions directly on creation and backfills existing account
 legacy account-root grants may appear during migration. Bare `*` remains valid in native token
 scopes. OAuth consent uses exact scope matching and engine descriptions;
 unprefixed OAuth permission keys use system context. To request another app's permission,
-use the scope `axus:<app AUID>:<permission key>` (for example, `axus:5:posts.read`).
+use the scope `app:<app AUID>:<permission key>` (for example, `app:5:posts.read`).
 The context is part of the permission identity: the same key in two apps grants different
 access. One authorization can request permissions from multiple app contexts. A bare `*`
 can be requested in only one context per authorization; it grants all access the user holds

@@ -621,4 +621,4 @@ For a quick smoke test without registering a client, use seeded `axusid-dev` if 
 - The `email` OIDC scope returns a synthetic email (`[auid]@amail.com`) for application compatibility.
 - OIDC scopes (`openid`, `profile`, …) are **not** AXUS declared permissions — they control consent and JWT claims only.
 
-For Winelore-specific permissions, publish declarations under the app owner AUID and request OAuth scopes as `axus:<Winelore AUID>:<permission key>`. Pass the same context to checks and delegations. Unprefixed permission scopes use the AXUS ID system context. See `/developers/permissions` and `/developers/become-an-app` for declaration, validator and provisioning requirements.
+For Winelore-specific permissions, publish declarations under the app owner AUID and request OAuth scopes as `app:<Winelore AUID>:<permission key>`. Pass the same context to checks and delegations. Unprefixed permission scopes use the AXUS ID system context. See `/developers/permissions` and `/developers/become-an-app` for declaration, validator and provisioning requirements.

@@ -273,7 +273,7 @@ export default async function QuickstartPage({
         <p>
           The <code>sub</code> claim is the user’s AUID. Name and username can
           be absent. The example requests only <code>openid profile</code>; add
-          other scopes only when your app needs them. Unprefixed permission keys use the AXUS ID system context; request another app’s permission as <code>axus:&lt;app AUID&gt;:&lt;permission key&gt;</code>. See the <Link href="/developers/permissions#oauth" className="docs-link">permission guide</Link>.
+          other scopes only when your app needs them. Unprefixed permission keys use the AXUS ID system context; request another app’s permission as <code>app:&lt;app AUID&gt;:&lt;permission key&gt;</code>. See the <Link href="/developers/permissions#oauth" className="docs-link">permission guide</Link>.
         </p>
       </section>
 

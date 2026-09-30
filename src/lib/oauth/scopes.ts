@@ -9,8 +9,8 @@ export type OidcScope = (typeof OIDC_SCOPES)[number];
 
 // OAuth scope tokens follow RFC 6749; declaration validity belongs to the engine.
 const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
-const CONTEXTUAL_SCOPE_PREFIX = "axus:";
-const CONTEXTUAL_SCOPE = /^axus:([0-9]+(?:,[0-9]+)*):(.+)$/;
+const CONTEXTUAL_SCOPE_PREFIX = "app:";
+const CONTEXTUAL_SCOPE = /^app:([0-9]+(?:,[0-9]+)*):(.+)$/;
 
 export type ParsedPermissionScope = { scope: string; key: string; contextAuid: string | null };
 
@@ -23,6 +23,9 @@ export class InvalidPermissionScopeError extends Error {
 
 /** Unprefixed permissions retain the system context for existing OAuth clients. */
 export function parsePermissionScope(scope: string): ParsedPermissionScope {
+  if (scope.startsWith("axus:")) {
+    throw new InvalidPermissionScopeError("Invalid permission scope: use the app: prefix for application permissions");
+  }
   if (scope.startsWith(CONTEXTUAL_SCOPE_PREFIX)) {
     const match = CONTEXTUAL_SCOPE.exec(scope);
     if (!match || !isValidPermissionKey(match[2])) throw new InvalidPermissionScopeError(`Invalid permission scope: ${scope}`);

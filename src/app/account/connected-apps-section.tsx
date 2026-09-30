@@ -109,7 +109,7 @@ function AppCard({ app }: { app: ConnectedApp }) {
             ))}
             {axusPermissions.map((permission) => (
               <li key={permission} className="flex items-center gap-2.5 text-sm text-neutral-700">
-                <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-brand" />
+                <KeyRound aria-hidden className="h-4 w-4 shrink-0 text-neutral-400" />
                 <span>{formatPermissionLabel(permission)}</span>
               </li>
             ))}

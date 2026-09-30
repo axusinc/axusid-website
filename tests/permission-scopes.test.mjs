@@ -25,7 +25,7 @@ test('scope coverage cannot use prefix or parameter wildcards to skip consent', 
     assert.equal(grants.grantCoversScopes({ scopes: [granted] }, [requested]), false, `${granted} / ${requested}`);
   }
   assert.equal(grants.grantCoversScopes({ scopes: ['openid', '*'] }, ['openid', '*']), true);
-  assert.equal(grants.grantCoversScopes({ scopes: ['axus:5:read.posts'] }, ['axus:6:read.posts']), false);
+  assert.equal(grants.grantCoversScopes({ scopes: ['app:5:read.posts'] }, ['app:6:read.posts']), false);
 });
 
 test('scope syntax preserves nested AUIDs and parameter wildcards while rejecting malformed scope tokens', () => {
@@ -57,24 +57,24 @@ test('contextual scopes use the named app declaration and keep same keys separat
       return { describePermission: { title: `Read from ${args.contextAuid}`, description: '' } };
     } }) },
   });
-  const requested = ['read.posts', 'axus:5:read.posts', 'axus:6:read.posts'];
+  const requested = ['read.posts', 'app:5:read.posts', 'app:6:read.posts'];
   const described = await permissionScopes.describeConsentPermissions('session-token', requested);
   assert.deepEqual(calls, requested.map((_, index) => ({ contextAuid: ['4', '5', '6'][index], permission: 'read.posts' })));
   assert.deepEqual(described.map(({ key, label }) => [key, label]), [
-    ['read.posts', 'Read from 4'], ['axus:5:read.posts', 'Read from 5'], ['axus:6:read.posts', 'Read from 6'],
+    ['read.posts', 'Read from 4'], ['app:5:read.posts', 'Read from 5'], ['app:6:read.posts', 'Read from 6'],
   ]);
-  await assert.rejects(permissionScopes.describeConsentPermissions('session-token', ['*', 'axus:5:*']), /only one context/);
+  await assert.rejects(permissionScopes.describeConsentPermissions('session-token', ['*', 'app:5:*']), /only one context/);
 });
 
 test('contextual scope syntax requires a canonical app AUID and valid permission key', () => {
-  assert.deepEqual(scopes.parsePermissionScope('axus:5,7:section.*.posts.create'), {
-    scope: 'axus:5,7:section.*.posts.create', key: 'section.*.posts.create', contextAuid: '5,7',
+  assert.deepEqual(scopes.parsePermissionScope('app:5,7:section.*.posts.create'), {
+    scope: 'app:5,7:section.*.posts.create', key: 'section.*.posts.create', contextAuid: '5,7',
   });
-  for (const scope of ['axus:05:read.posts', 'axus:foo:read.posts', 'axus:5:', 'axus:5:bad..key']) {
+  for (const scope of ['app:05:read.posts', 'app:foo:read.posts', 'app:5:', 'app:5:bad..key', 'axus:5:read.posts']) {
     assert.throws(() => scopes.parsePermissionScope(scope), /permission scope|permission context/);
   }
-  assert.doesNotThrow(() => scopes.validatePermissionScopeCombination(['*', 'axus:4:*'], '4'));
-  assert.throws(() => scopes.validatePermissionScopeCombination(['*', 'axus:5:*'], '4'), /only one context/);
+  assert.doesNotThrow(() => scopes.validatePermissionScopeCombination(['*', 'app:4:*'], '4'));
+  assert.throws(() => scopes.validatePermissionScopeCombination(['*', 'app:5:*'], '4'), /only one context/);
 });
 
 test('mixed-context authorization grants one token with exact permissions in each context', async () => {
@@ -91,7 +91,7 @@ test('mixed-context authorization grants one token with exact permissions in eac
   });
   const bearer = await adapter.issueAuthorizationToken({
     sessionTokenId: 'session', userAuid: '1',
-    permissions: ['read.posts', 'axus:5:write.posts', 'axus:6:read.posts'],
+    permissions: ['read.posts', 'app:5:write.posts', 'app:6:read.posts'],
   });
   assert.equal(bearer, 'token-id.secret');
   assert.deepEqual(calls, [
@@ -118,7 +118,7 @@ test('failed cross-context delegation revokes the incomplete native token', asyn
     '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
   });
   await assert.rejects(adapter.issueAuthorizationToken({
-    sessionTokenId: 'session', userAuid: '1', permissions: ['read.posts', 'axus:5:write.posts'],
+    sessionTokenId: 'session', userAuid: '1', permissions: ['read.posts', 'app:5:write.posts'],
   }), failure);
   assert.deepEqual(calls, ['revoke']);
 });
@@ -135,7 +135,7 @@ test('an app-context wildcard is issued in its own context before concrete grant
     '@/lib/oauth/scopes': scopes,
     '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
   });
-  await adapter.issueAuthorizationToken({ sessionTokenId: 'session', userAuid: '1', permissions: ['read.posts', 'axus:5:*'] });
+  await adapter.issueAuthorizationToken({ sessionTokenId: 'session', userAuid: '1', permissions: ['read.posts', 'app:5:*'] });
   assert.deepEqual(calls[0], ['login', { auid: '1', permissions: ['*'], permissionContext: '5' }]);
   assert.deepEqual(calls[1][1].delegations[0], {
     granterAuid: '1', permissionContext: '4', permission: 'read.posts', granteeTokenId: 'token-id',
@@ -199,3 +199,26 @@ test('OIDC-only consent does not mint a native token', async () => {
   assert.equal(result.tokenId, null);
   assert.deepEqual(result.scopes, ['openid', 'profile']);
 });
+
+test('consent descriptions include declared icons, contextual app info, and context AUID', async () => {
+  const permissionScopes = loadTs('src/lib/oauth/permission-scopes.ts', {
+    'server-only': {}, '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
+    '@/lib/oauth/scopes': scopes,
+    '@/lib/auth-graphql': { getAuthSdk: () => ({ DescribePermission: async (args) => {
+      return { describePermission: { title: `Action in ${args.contextAuid}`, description: 'Description', icon: 'eye' } };
+    } }) },
+  });
+  const result = await permissionScopes.describeConsentPermissions('session-token', ['read.system', 'app:5:read.posts', 'app:6:*']);
+  assert.equal(result[0].icon, 'eye');
+  assert.equal(result[0].contextAuid, null);
+  assert.equal(result[0].app, null);
+
+  assert.equal(result[1].icon, 'eye');
+  assert.equal(result[1].contextAuid, '5');
+  assert.deepEqual(result[1].app, { id: '5', label: 'App 5', username: null, avatarUrl: null });
+
+  assert.equal(result[2].icon, 'key');
+  assert.equal(result[2].contextAuid, '6');
+  assert.deepEqual(result[2].app, { id: '6', label: 'App 6', username: null, avatarUrl: null });
+});
+
