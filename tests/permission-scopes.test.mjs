@@ -77,6 +77,21 @@ test('contextual scope syntax requires a canonical app AUID and valid permission
   assert.throws(() => scopes.validatePermissionScopeCombination(['*', 'app:5:*'], '4'), /only one context/);
 });
 
+test('primary sessions explicitly request received app contexts; OAuth cannot request that option', async () => {
+  let login;
+  const adapter = loadTs('src/lib/oauth/adapter.ts', {
+    '@/lib/auth-graphql': { getAuthSdk: () => ({ LoginWithPassword: async (args) => {
+      login = args; return { loginWithPassword: { id: 'session.secret' } };
+    } }) },
+    '@/lib/native-token-id': {}, '@/lib/oauth/scopes': scopes,
+    '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
+  });
+  assert.deepEqual(adapter.SESSION_PERMISSIONS, ['*', 'app:*:*']);
+  await adapter.loginWithBackend('1', 'password', adapter.SESSION_PERMISSIONS);
+  assert.deepEqual(login.permissions, ['*', 'app:*:*']);
+  assert.throws(() => scopes.parsePermissionScope('app:*:*'), scopes.InvalidPermissionScopeError);
+});
+
 test('mixed-context authorization grants one token with exact permissions in each context', async () => {
   const calls = [];
   const sdk = {

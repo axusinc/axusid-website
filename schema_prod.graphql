@@ -27,6 +27,9 @@ type Query {
     # Identity grants issued by this app; requires identity.<auid>.grants.read. Excludes token and role recipients.
     issuedGrants(auid: ID!): [PermissionGrant!]!
     checkPermission(auid: ID!, permission: String!, permissionContext: ID): PermissionCheck!
+    # Effective permissions of the authenticated bearer, including scopes and delegation.
+    # This query does not require identity grants.read.
+    checkTokenPermission(permission: String!, permissionContext: ID): PermissionCheck!
     permissionDeclarations(contextAuid: ID!): [PermissionDeclaration!]!
     describePermission(contextAuid: ID!, permission: String!): DescribedPermission!
     permissionTree(contextAuid: ID!): [PermissionTreeNode!]!

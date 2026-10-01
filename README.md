@@ -297,6 +297,17 @@ reprovisioning and fresh app authorization as part of the engine rollout. Publis
 permission declaration does not create an initial grant for its owner. The website never
 recreates removed grants automatically.
 
+Deploy the engine support for primary authentication's `app:*:*` option before deploying
+this website's session change. Browser login requests `["*", "app:*:*"]`: system rights
+plus identity-delegated wildcards for received app contexts. Ordinary `*` remains limited
+to one context. OAuth requests reject `app:*:*`, and token-to-token login cannot use it.
+Existing browser sessions need a fresh AXUS ID sign-in after rollout; newly received
+app contexts also need fresh primary authentication. Account and parent-token permissions
+are still evaluated live, so losing an account grant removes access from child tokens.
+Apps should authorize their bearer with `checkTokenPermission(permission, permissionContext)`.
+`checkPermission(auid, ...)` inspects account holdings and requires account grants.read;
+an account-level allow does not establish that an OAuth token has the permission.
+
 Run focused contract and authorization tests with:
 
 ```bash

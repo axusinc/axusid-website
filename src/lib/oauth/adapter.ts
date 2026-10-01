@@ -5,10 +5,11 @@ import { getSystemPermissionContext } from "@/lib/permission-config";
 
 /**
  * What the user's own session token asks for. An empty list would now mean no permissions at
- * all, so the wildcard is requested explicitly: the session acts for the user on their own
- * account, and each app authorization gets its own narrower token instead.
+ * all. The system wildcard carries account-management rights; the primary-authentication
+ * option also includes received app contexts, delegated from the identity and evaluated live.
+ * Each app authorization gets its own narrower child token.
  */
-export const SESSION_PERMISSIONS = ["*"];
+export const SESSION_PERMISSIONS = ["*", "app:*:*"];
 
 /** Signs in with a password and returns the new native token id. */
 export async function loginWithBackend(

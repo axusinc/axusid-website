@@ -687,6 +687,7 @@ export type SchemaQuery = {
   accountTokens: Array<SchemaAccountToken>;
   avatar?: Maybe<SchemaAvatar>;
   checkPermission: SchemaPermissionCheck;
+  checkTokenPermission: SchemaPermissionCheck;
   defaultVariation?: Maybe<SchemaDefaultVariation>;
   delegatedGrants: Array<SchemaPermissionGrant>;
   describePermission: SchemaDescribedPermission;
@@ -726,6 +727,12 @@ export type SchemaQueryAvatarArgs = {
 
 export type SchemaQueryCheckPermissionArgs = {
   auid: Scalars['ID']['input'];
+  permission: Scalars['String']['input'];
+  permissionContext?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type SchemaQueryCheckTokenPermissionArgs = {
   permission: Scalars['String']['input'];
   permissionContext?: InputMaybe<Scalars['ID']['input']>;
 };
