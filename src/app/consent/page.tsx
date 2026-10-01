@@ -7,6 +7,7 @@ import { getAuthSdk, getAuthSdkForSession } from "@/lib/auth-graphql";
 import { formatGraphqlError, isRateLimitError } from "@/lib/graphql-errors";
 import {
   getOAuthClient,
+  validateRedirectUri,
   partitionScopes,
   getConsentPermissions,
 } from "@/lib/oauth/clients";
@@ -17,7 +18,8 @@ import { parsePermissionScope } from "@/lib/oauth/scopes";
 import { permissionErrorMessage } from "@/lib/graphql-errors";
 import { getSamlConfigByAuid } from "@/lib/saml/saml-store";
 import type { PermissionContext } from "@/lib/permission-types";
-import { parseRequestedScopes, type AvailableScope } from "@/lib/oauth/requested-scopes";
+import { MissingRequiredPermissionsError, parseRequestedScopes, type AvailableScope } from "@/lib/oauth/requested-scopes";
+import { authorizeQuerySchema } from "@/lib/oauth/schemas";
 import { resolveScopeAvailability } from "@/lib/oauth/scope-availability";
 import { getSystemPermissionContext } from "@/lib/permission-config";
 
@@ -91,6 +93,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
   let oidcScopes: string[] = [];
   let scopeChoices: AvailableScope[] = [];
   let applicationUser = null;
+  let missingPermissionReturnUri: string | undefined;
 
   const sdk = getAuthSdkForSession(session);
 
@@ -115,13 +118,30 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
       redirect("/");
     }
 
+    const queryParams = Object.fromEntries(url.searchParams);
+    if (!queryParams.client_id && queryParams.auid) queryParams.client_id = queryParams.auid;
+    const parsed = authorizeQuerySchema.safeParse(queryParams);
+    if (url.pathname !== "/authorize" || !parsed.success || !validateRedirectUri(client, parsed.data.redirect_uri)) {
+      redirect("/");
+    }
+    // Silent requests must go through authorization without rendering interactive UI.
+    if (parsed.data.prompt?.trim().split(/\s+/).includes("none")) redirect(redirectUri);
+
     try {
-      const requested = parseRequestedScopes(Object.fromEntries(url.searchParams), getSystemPermissionContext());
+      const requested = parseRequestedScopes(parsed.data, getSystemPermissionContext());
       scopeChoices = await resolveScopeAvailability(session.tokenId, session.auid, requested);
     } catch (error) {
       return <StatusPage tone="error" title="We couldn’t check this access request" description={permissionErrorMessage(error)} actions={<a href={`/consent?redirect_uri=${encodeURIComponent(redirectUri)}`} className={buttonVariants()}>Try again</a>} />;
     }
-    const partitioned = partitionScopes(scopeChoices.map(({ scope }) => scope));
+    const missingScopes = scopeChoices.filter(({ mode, available }) => mode === "required" && !available);
+    if (missingScopes.length) {
+      const response = new URL(parsed.data.redirect_uri);
+      response.searchParams.set("error", "access_denied");
+      response.searchParams.set("error_description", new MissingRequiredPermissionsError(missingScopes.map(({ scope }) => scope)).message);
+      if (parsed.data.state) response.searchParams.set("state", parsed.data.state);
+      missingPermissionReturnUri = response.toString();
+    }
+    const partitioned = partitionScopes((missingScopes.length ? missingScopes : scopeChoices).map(({ scope }) => scope));
     oidcScopes = partitioned.oidcScopes;
     permissions = getConsentPermissions(partitioned.axusPermissions);
 
@@ -215,6 +235,7 @@ export default async function ConsentPage({ searchParams }: ConsentPageProps) {
         return { ...permission, mode: choice?.mode, available: choice?.available };
       })}
       redirectUri={redirectUri}
+      missingPermissionReturnUri={missingPermissionReturnUri}
       accounts={accountInfos}
       currentAuid={session.auid}
     />

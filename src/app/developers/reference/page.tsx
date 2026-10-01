@@ -236,7 +236,10 @@ export default async function ReferencePage() {
         ]} />
         <P>
           Validate state before handling success or errors. Missing mandatory access issues
-          no code or tokens and leaves the AXUS ID session active. Declined optional scopes
+          no code or tokens and leaves the AXUS ID session active. Interactive requests
+          show the missing permissions and let the user switch accounts or return to the
+          app; returning sends the error callback. <M>prompt=none</M> returns the error
+          immediately without UI. Declined optional scopes
           prompt again when requested later. Use <M>prompt=consent</M> to review previously
           approved choices. See the <Link href="/developers/quickstart#permission-modes" className="docs-link">flow walkthrough</Link>.
         </P>

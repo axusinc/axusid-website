@@ -114,7 +114,7 @@ function flowModules({ missing = [], grantScopes = [], checkFailure, currentAuid
   const session = { auid: currentAuid, tokenId: 'session' };
   const mocks = {
     'next/navigation': { redirect }, 'next/link': () => null,
-    '@/lib/oauth/clients': { ...constants, getOAuthClient: async () => ({ auid: '5', redirectUris: [query.redirect_uri] }) },
+    '@/lib/oauth/clients': { ...constants, ...scopes, getOAuthClient: async () => ({ auid: '5', redirectUris: [query.redirect_uri] }) },
     '@/lib/oauth/grants': { findActiveGrant: async () => grantScopes.length ? { scopes: grantScopes } : undefined, grantCoversScopes: (grant, scopes) => scopes.every((s) => grant.scopes.includes(s)) },
     '@/lib/oauth/schemas': schemas, '@/lib/oauth/requested-scopes': requests,
     '@/lib/oauth/scope-availability': { resolveScopeAvailability: async (_token, _auid, scopes) => {
@@ -125,11 +125,20 @@ function flowModules({ missing = [], grantScopes = [], checkFailure, currentAuid
     '@/lib/permission-config': { getSystemPermissionContext: () => '4' },
     '@/lib/session-access': { getValidSession: async () => session, getValidMultiSession: async () => ({ accounts: [session] }) },
     '@/lib/graphql-errors': graphqlErrors, '@/components/ui/button': { buttonVariants: () => '' },
+    '@/lib/auth-graphql': { getAuthSdk: () => ({}), getAuthSdkForSession: () => ({}) },
+    '@/lib/user-profile': {
+      fetchAccountsDisplayInfo: async () => [{ auid: currentAuid, displayName: 'Test User', isActive: true }],
+      resolveUserDisplayInfo: async () => ({ displayName: 'Test App', username: 'test-app' }),
+    },
+    '@/lib/oauth/scopes': scopes,
+    '@/lib/oauth/permission-scopes': { describeConsentPermissions: async (_token, permissions) => permissions.map((key) => ({ key, label: 'Read posts', description: 'Read posts in the app.', contextLabel: '', contextAuid: '5' })) },
+    './consent-form': { ConsentForm: () => null },
   };
   return {
     issued,
     page: loadTs('src/app/authorize/page.tsx', mocks).default,
     action: loadTs('src/app/actions/auth.ts', mocks).consentAction,
+    consentPage: loadTs('src/app/consent/page.tsx', mocks).default,
   };
 }
 async function redirected(promise) {
@@ -152,7 +161,6 @@ test('consent POST completes with optional scopes off and conditional scopes req
 
 test('consent POST rechecks lost permissions and rejects tampered selections without issuance', async () => {
   for (const [settings, selection, expected] of [
-    [{ missing: ['app:5:posts.read'] }, [], 'access_denied'],
     [{}, ['app:6:write'], 'invalid_scope'],
     [{ checkFailure: new Error('offline') }, [], 'server_error'],
   ]) {
@@ -167,6 +175,14 @@ test('consent POST rechecks lost permissions and rejects tampered selections wit
   assert.deepEqual(flow.issued[0].scopes, ['openid', 'app:5:posts.read']);
 });
 
+test('lost mandatory access on submission shows the explanation before returning to the app', async () => {
+  const flow = flowModules({ missing: ['app:5:posts.read'] });
+  const url = await redirected(flow.action(consentData()));
+  assert.equal(url.pathname, '/consent');
+  assert.equal(url.searchParams.get('redirect_uri'), consentData().get('redirect_uri'));
+  assert.equal(flow.issued.length, 0);
+});
+
 test('switching active accounts after rendering consent requires a new review', async () => {
   const flow = flowModules({ currentAuid: '2' });
   assert.equal((await redirected(flow.action(consentData()))).pathname, '/consent');
@@ -177,8 +193,39 @@ test('previous consent never bypasses missing mandatory access, including prompt
   const flow = flowModules({ grantScopes: requested.map(({ scope }) => scope), missing: ['app:5:posts.read'] });
   for (const prompt of ['', 'none']) {
     const url = await redirected(flow.page({ searchParams: Promise.resolve({ ...query, prompt }) }));
-    assert.equal(url.searchParams.get('error'), 'access_denied');
-    assert.equal(url.searchParams.get('state'), 'state');
+    if (prompt === 'none') {
+      assert.equal(url.origin, 'https://client.example');
+      assert.equal(url.searchParams.get('error'), 'access_denied');
+      assert.equal(url.searchParams.get('state'), 'state');
+      assert.equal(url.searchParams.has('code'), false);
+    } else {
+      assert.equal(url.pathname, '/consent');
+      assert.equal(new URL(url.searchParams.get('redirect_uri'), url).searchParams.get('state'), 'state');
+    }
+    assert.equal(flow.issued.length, 0);
+  }
+});
+
+test('missing-access screen offers a validated error callback and describes only missing mandatory scopes', async () => {
+  const flow = flowModules({ missing: ['app:5:posts.read', 'app:5:posts.write'] });
+  const screen = await flow.consentPage({ searchParams: Promise.resolve({ redirect_uri: consentData().get('redirect_uri') }) });
+  const callback = new URL(screen.props.missingPermissionReturnUri);
+  assert.equal(callback.origin, 'https://client.example');
+  assert.equal(callback.searchParams.get('error'), 'access_denied');
+  assert.equal(callback.searchParams.get('state'), 'state');
+  assert.equal(callback.searchParams.has('code'), false);
+  assert.match(callback.searchParams.get('error_description'), /app:5:posts.read/);
+  assert.doesNotMatch(callback.searchParams.get('error_description'), /posts.write/);
+  assert.deepEqual(screen.props.permissions.map(({ key }) => key), ['app:5:posts.read']);
+  assert.equal(flow.issued.length, 0);
+});
+
+test('consent page rejects unregistered callbacks and malformed requests, and never renders silent requests', async () => {
+  for (const changes of [{ redirect_uri: 'https://attacker.example/callback' }, { code_challenge: '' }, { prompt: 'none' }]) {
+    const redirectUri = `/authorize?${new URLSearchParams({ ...query, ...changes })}`;
+    const flow = flowModules({ missing: ['app:5:posts.read'] });
+    const url = await redirected(flow.consentPage({ searchParams: Promise.resolve({ redirect_uri: redirectUri }) }));
+    assert.equal(`${url.pathname}${url.search}`, changes.prompt === 'none' ? redirectUri : '/');
     assert.equal(flow.issued.length, 0);
   }
 });
@@ -229,18 +276,22 @@ test('token responses report full approved scope set on issuance and refresh', a
   assert.equal((await subject.refreshTokenResponse({ client, refreshToken: 'refresh' })).scope, 'openid email');
 });
 
-test('consent UI associates available optional checkboxes with the approval form and locks unavailable access', () => {
+function consentFormModule() {
   const empty = () => null;
-  const { ConsentForm } = loadTs('src/app/consent/consent-form.tsx', {
-    'next/link': empty, '@/app/actions/auth': { consentAction: empty, denyConsentAction: empty },
+  return loadTs('src/app/consent/consent-form.tsx', {
+    'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) }, '@/app/actions/auth': { consentAction: empty, denyConsentAction: empty },
     '@/components/app-request-card': { AppRequestCard: empty },
-    '@/components/auth-shell': { AuthShell: ({ children }) => React.createElement('main', null, children) },
+    '@/components/auth-shell': { AuthShell: ({ children, title, description }) => React.createElement('main', null, React.createElement('h1', null, title), React.createElement('p', null, description), children) },
     '@/components/ui/profile-avatar': { ProfileAvatar: empty }, '@/components/ui/identity-label': { IdentityLabel: empty },
     '@/components/account-avatar': { AccountAvatar: empty }, '@/components/permission-icon': { PermissionIcon: empty },
     '@/components/ui/button': { Button: ({ children, ...props }) => { delete props.loading; delete props.variant; return React.createElement('button', props, children); }, buttonVariants: () => '' },
     '@/lib/design': {}, '@/lib/utils': { cn: (...args) => args.filter(Boolean).join(' ') }, '@/lib/oauth/scopes': scopes,
   });
-  const choices = available(['app:5:posts.read', 'app:5:posts.write']);
+}
+
+test('consent UI associates available optional checkboxes with the approval form and locks unavailable access', () => {
+  const { ConsentForm } = consentFormModule();
+  const choices = available(['app:5:posts.write']);
   const html = renderToStaticMarkup(React.createElement(ConsentForm, {
     applicationUser: null, redirectUri: '/authorize', currentAuid: '1', oidcScopes: ['openid', 'email'], scopeChoices: choices,
     permissions: choices.filter(({ scope }) => scope.startsWith('app:')).map(({ scope, mode, available }) => ({ key: scope, label: scope, description: '', contextLabel: '', mode, available })),
@@ -253,8 +304,35 @@ test('consent UI associates available optional checkboxes with the approval form
   assert.match(checkboxes[1], /disabled=""/);
   assert.doesNotMatch(checkboxes[1], /checked=""/);
   assert.match(html, /Required because you have this permission/);
-  assert.match(html, /<button[^>]+disabled=""[^>]*>Allow/);
+  assert.match(html, /<button[^>]*>Allow/);
   assert.match(html, /name="consent_auid" value="1"/);
   const nativeOnly = renderToStaticMarkup(React.createElement(ConsentForm, { applicationUser: null, redirectUri: '/authorize', scopeChoices: [{ scope: 'app:5:posts.read', mode: 'required', available: true }], permissions: [] }));
   assert.doesNotMatch(nativeOnly, /Your AXUS ID identifier|Your name and username/);
+});
+
+test('missing-access UI shows recovery actions instead of approval and preserves the OAuth transaction on account switching', () => {
+  const { ConsentForm } = consentFormModule();
+  const choices = available(['app:5:posts.read', 'app:5:posts.write']);
+  const returnUri = `${query.redirect_uri}?error=access_denied&state=state`;
+  const html = renderToStaticMarkup(React.createElement(ConsentForm, {
+    applicationUser: { displayName: 'Test App' },
+    redirectUri: `/authorize?${new URLSearchParams({ ...query, account_selected: 'true' })}`,
+    missingPermissionReturnUri: returnUri, oidcScopes: ['openid', 'email'], scopeChoices: choices,
+    permissions: choices.filter(({ scope }) => scope.startsWith('app:')).map(({ scope, mode, available }) => ({ key: scope, label: scope === 'app:5:posts.read' ? 'Read posts' : scope, description: '', contextLabel: '', mode, available })),
+  }));
+  assert.match(html, /This account needs more access/);
+  assert.match(html, /Missing permissions/);
+  assert.match(html, /Read posts/);
+  assert.match(html, /Switch account/);
+  assert.match(html, /Return to Test App/);
+  assert.match(html, /error=access_denied&amp;state=state/);
+  assert.doesNotMatch(html, /<form|type="checkbox"|>Allow|Your AXUS ID identifier/);
+  assert.doesNotMatch(html.replace(/<[^>]*>/g, ''), /posts.write|posts.moderate/);
+  const switchHref = html.match(/<a[^>]+href="([^"]+)"[^>]*>Switch account/)[1].replaceAll('&amp;', '&');
+  const switchUrl = new URL(switchHref, 'https://id.example');
+  assert.equal(switchUrl.pathname, '/login');
+  assert.equal(switchUrl.searchParams.get('select_account'), 'true');
+  const request = new URL(switchUrl.searchParams.get('redirect_uri'), switchUrl);
+  assert.equal(request.searchParams.has('account_selected'), false);
+  for (const [key, value] of Object.entries(query)) assert.equal(request.searchParams.get(key), value);
 });

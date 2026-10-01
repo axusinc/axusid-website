@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId } from "react";
-import { AtSign, IdCard, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
+import { AtSign, CircleAlert, IdCard, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { denyConsentAction, consentAction } from "@/app/actions/auth";
 import { AppRequestCard, type RequestingAppInfo } from "@/components/app-request-card";
@@ -42,6 +42,8 @@ type ConsentFormProps = {
   /** Custom AXUS permissions requested. */
   permissions: ConsentPermission[];
   redirectUri: string;
+  /** Validated callback carrying the missing-permission error, built on the server. */
+  missingPermissionReturnUri?: string;
   accounts?: AccountItemInfo[];
   currentAuid?: string;
 };
@@ -95,6 +97,7 @@ export function ConsentForm({
   scopeChoices = [],
   permissions,
   redirectUri,
+  missingPermissionReturnUri,
   accounts = [],
   currentAuid = "",
 }: ConsentFormProps) {
@@ -108,22 +111,27 @@ export function ConsentForm({
   const appName = applicationUser?.displayName || "This application";
   const hasCustomPermissions = permissions.length > 0;
   const changeAccountHref = buildChangeAccountHref(redirectUri);
+  const visiblePermissions = missingRequired
+    ? permissions.filter(({ mode, available }) => mode === "required" && available === false)
+    : permissions;
 
   const sharedData = (oidcScopes.length > 0 || scopeChoices.length > 0 ? oidcScopes : ["openid", "profile"])
     .map((scope) => ({ scope, ...sharedDataByScope[scope], choice: scopeChoices.find((choice) => choice.scope === scope) }))
-    .filter(({ label }) => Boolean(label));
+    .filter(({ label, choice }) => Boolean(label) && (!missingRequired || (choice?.mode === "required" && !choice.available)));
 
   return (
     <AuthShell
-      step={{ current: 2, total: 2 }}
-      title={hasCustomPermissions ? `${appName} wants access to your account` : `Sign in to ${appName}`}
-      description="Review what will be shared. You can disconnect this app at any time."
+      step={missingRequired ? undefined : { current: 2, total: 2 }}
+      title={missingRequired ? "This account needs more access" : hasCustomPermissions ? `${appName} wants access to your account` : `Sign in to ${appName}`}
+      description={missingRequired
+        ? `${appName} requires permissions this account doesn’t have. Try another account, or return to the app.`
+        : "Review what will be shared. You can disconnect this app at any time."}
       context={<AppRequestCard app={applicationUser} appName={appName} />}
     >
       <div className="space-y-6">
         <section aria-labelledby="consent-account">
           <p id="consent-account" className={cn(eyebrow, "mb-2")}>
-            Signing in as
+            {missingRequired ? "Selected account" : "Signing in as"}
           </p>
           {activeAccount ? (
             <div
@@ -148,16 +156,16 @@ export function ConsentForm({
                 firstName={activeAccount.firstName}
                 lastName={activeAccount.lastName}
               />
-              <Link href={changeAccountHref} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              {!missingRequired ? <Link href={changeAccountHref} className={buttonVariants({ variant: "ghost", size: "sm" })}>
                 Switch
-              </Link>
+              </Link> : null}
             </div>
           ) : null}
         </section>
 
         <section aria-labelledby="consent-shared">
           <p id="consent-shared" className={cn(eyebrow, "mb-2")}>
-            {hasCustomPermissions ? `${appName} will have access to` : `${appName} will be able to see`}
+            {missingRequired ? "Missing permissions" : hasCustomPermissions ? `${appName} will have access to` : `${appName} will be able to see`}
           </p>
           <ul className={cn("divide-y divide-black/[0.05] border border-black/[0.07] bg-white", roundedRect)}>
             {sharedData.map(({ scope, label, Icon, choice }) => (
@@ -171,7 +179,7 @@ export function ConsentForm({
                 </label>
               </li>
             ))}
-            {permissions.map((permission) => {
+            {visiblePermissions.map((permission) => {
               const parsed = parsePermissionScope(permission.key);
               const fallbackKey = parsed.key;
               const hasTitle = Boolean(
@@ -209,11 +217,12 @@ export function ConsentForm({
                   <PermissionIcon
                     name={permission.icon}
                     className={cn(
-                      "h-4 w-4 shrink-0 text-neutral-400",
+                      "h-4 w-4 shrink-0",
+                      missingRequired ? "text-amber-600" : "text-neutral-400",
                       hasDescription && "mt-0.5",
                     )}
                   />
-                  <div className={cn("min-w-0 flex-1", permission.available === false && "opacity-60")}>
+                  <div className={cn("min-w-0 flex-1", permission.available === false && !missingRequired && "opacity-60")}>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       {permission.mode === "optional"
                         ? <label htmlFor={`${consentFormId}-${permission.key}`} className="font-normal text-neutral-800">{title}</label>
@@ -235,7 +244,7 @@ export function ConsentForm({
                       <p className="mt-0.5 text-xs text-neutral-500">{permission.description}</p>
                     ) : null}
                     <p className="mt-1 text-xs text-neutral-500">
-                      {permission.available === false
+                      {missingRequired ? "Required to sign in to this app" : permission.available === false
                         ? permission.mode === "required" ? "Required · You don’t have this permission" : "Unavailable on this account · Won’t be shared"
                         : permission.mode === "optional" ? "Optional · You choose whether to share"
                         : permission.mode === "conditional" ? "Required because you have this permission"
@@ -251,36 +260,57 @@ export function ConsentForm({
           </ul>
         </section>
 
-        {missingRequired ? <p role="alert" className="text-sm text-red-700">This account is missing permissions required by the app. Switch accounts or cancel to return to the app.</p> : null}
+        {missingRequired ? (
+          <div role="status" className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 p-3.5">
+            <CircleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div className="text-sm leading-relaxed">
+              <p className="font-medium text-neutral-900">Sign-in hasn’t completed</p>
+              <p className="mt-0.5 text-xs text-neutral-600">You’re still signed in to AXUS ID. Switching accounts lets you try again.</p>
+            </div>
+          </div>
+        ) : null}
 
-        <div className="flex flex-col-reverse gap-2.5 min-[420px]:flex-row">
-          <form action={denyConsentAction} className="flex-1">
-            <input type="hidden" name="redirect_uri" value={redirectUri} />
-            <SubmitButton variant="secondary" pendingLabel="Cancelling…">
-              Cancel
-            </SubmitButton>
-          </form>
-          <form id={consentFormId} action={consentAction} className="flex-1">
-            <input type="hidden" name="redirect_uri" value={redirectUri} />
-            <input type="hidden" name="consent_auid" value={currentAuid} />
-            <SubmitButton variant="primary" pendingLabel="Continuing…" disabled={missingRequired}>
-              {hasCustomPermissions ? "Allow" : "Continue"}
-            </SubmitButton>
-          </form>
-        </div>
+        {missingRequired ? (
+          <div className="flex flex-col gap-2.5">
+            <Link href={changeAccountHref} className={buttonVariants({ variant: "primary", className: "w-full" })}>
+              Switch account
+            </Link>
+            <a href={missingPermissionReturnUri ?? "/"} className={buttonVariants({ variant: "secondary", className: "h-auto min-h-11 w-full whitespace-normal py-2.5 text-center" })}>
+              {applicationUser?.displayName ? `Return to ${appName}` : "Return to app"}
+            </a>
+          </div>
+        ) : (
+          <div className="flex flex-col-reverse gap-2.5 min-[420px]:flex-row">
+            <form action={denyConsentAction} className="flex-1">
+              <input type="hidden" name="redirect_uri" value={redirectUri} />
+              <SubmitButton variant="secondary" pendingLabel="Cancelling…">
+                Cancel
+              </SubmitButton>
+            </form>
+            <form id={consentFormId} action={consentAction} className="flex-1">
+              <input type="hidden" name="redirect_uri" value={redirectUri} />
+              <input type="hidden" name="consent_auid" value={currentAuid} />
+              <SubmitButton variant="primary" pendingLabel="Continuing…" disabled={missingRequired}>
+                {hasCustomPermissions ? "Allow" : "Continue"}
+              </SubmitButton>
+            </form>
+          </div>
+        )}
 
-        <p className="flex items-start gap-2 text-xs leading-relaxed text-neutral-500">
-          <ShieldCheck aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-neutral-400" />
-          <span>
-            Only continue if you trust {appName}
-            {redirectHost ? (
-              <>
-                {" "}— you’ll be sent to <span className="font-medium text-neutral-700">{redirectHost}</span>
-              </>
-            ) : null}
-            . AXUS ID never shares your password.
-          </span>
-        </p>
+        {!missingRequired ? (
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-neutral-500">
+            <ShieldCheck aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-neutral-400" />
+            <span>
+              Only continue if you trust {appName}
+              {redirectHost ? (
+                <>
+                  {" "}— you’ll be sent to <span className="font-medium text-neutral-700">{redirectHost}</span>
+                </>
+              ) : null}
+              . AXUS ID never shares your password.
+            </span>
+          </p>
+        ) : redirectHost ? <p className="text-center text-xs text-neutral-500">Returning will take you to {redirectHost}.</p> : null}
       </div>
     </AuthShell>
   );

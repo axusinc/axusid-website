@@ -181,7 +181,10 @@ Effective permission checks run after account selection and again on consent sub
 Check failures stop authorization rather than treating access as absent. The engine still
 validates the granted permissions during token issuance. No authorization code or tokens
 are issued when a mandatory permission is missing; the callback receives `access_denied`,
-an explanation, and the original `state`. This does not end the user's session.
+an explanation, and the original `state`. Interactive requests first show the missing
+permissions, with options to switch accounts or return to the app; the error callback
+is sent when the user returns. `prompt=none` returns the error immediately without UI.
+This does not end the user's session.
 
 Authorization codes, access tokens and the token response's `scope` contain only the
 approved scopes, including OIDC scopes. Apps must inspect the returned `scope` before

@@ -212,6 +212,9 @@ export default async function AuthorizePage({ searchParams }: AuthorizePageProps
     const available = await resolveScopeAvailability(session.tokenId, session.auid, requested);
     scopes = selectGrantedScopes(available, available.filter(({ mode }) => mode === "optional").map(({ scope }) => scope));
   } catch (error) {
+    if (error instanceof MissingRequiredPermissionsError && !promptTokens.has("none")) {
+      redirect(`/consent?redirect_uri=${encodeURIComponent(currentUrl)}`);
+    }
     return oauthRedirectError(query.redirect_uri,
       authorizationErrorCode(error),
       query.state, error instanceof MissingRequiredPermissionsError ? error.message : permissionErrorMessage(error));

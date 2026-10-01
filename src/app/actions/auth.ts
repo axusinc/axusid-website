@@ -412,6 +412,9 @@ export async function consentAction(formData: FormData) {
         sessionTokenId: session.tokenId, scopes,
       });
     } catch (error) {
+      if (error instanceof MissingRequiredPermissionsError && !parsed.data.prompt?.trim().split(/\s+/).includes("none")) {
+        redirect(`/consent?redirect_uri=${encodeURIComponent(redirectUri)}`);
+      }
       const response = new URL(parsed.data.redirect_uri);
       response.searchParams.set("error", authorizationErrorCode(error));
       response.searchParams.set("error_description", error instanceof MissingRequiredPermissionsError ? error.message : permissionErrorMessage(error));
