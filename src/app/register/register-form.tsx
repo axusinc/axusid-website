@@ -37,6 +37,7 @@ type RegisterFormProps = {
   isAddAccount?: boolean;
   authError?: string;
   initialUsername?: string;
+  initialAvailability?: UsernameAvailability;
   pendingGoogle?: {
     email?: string;
     name?: string;
@@ -52,7 +53,7 @@ type RegisterFormProps = {
 
 type RegistrationStage = "identity" | "security";
 
-type UsernameAvailability = {
+export type UsernameAvailability = {
   username: string;
   status: "idle" | "checking" | "available" | "taken" | "error";
   message?: string;
@@ -118,16 +119,19 @@ function buildLoginHref({
   redirectUri,
   next,
   addAccount,
+  username,
 }: {
   redirectUri?: string;
   next?: string;
   addAccount?: boolean;
+  username?: string;
 }) {
   const params = new URLSearchParams();
 
   if (redirectUri) params.set("redirect_uri", redirectUri);
   if (next) params.set("next", next);
   if (addAccount) params.set("add_account", "true");
+  if (username) params.set("username", username);
 
   const query = params.toString();
   return query ? `/login?${query}` : "/login";
@@ -228,6 +232,7 @@ export function RegisterForm({
   isAddAccount = false,
   authError,
   initialUsername,
+  initialAvailability,
   pendingGoogle,
   pendingGitHub,
 }: RegisterFormProps) {
@@ -258,9 +263,11 @@ export function RegisterForm({
   const router = useRouter();
   const [usernameAvailability, setUsernameAvailability] =
     useState<UsernameAvailability>(() =>
-      initialUsername
-        ? { username: initialUsername, status: "available" }
-        : { username: "", status: "idle" },
+      initialAvailability ?? (
+        initialUsername && initialUsername.trim().replace(/^@/, "").length >= 4
+          ? { username: initialUsername.trim().replace(/^@/, ""), status: "checking" }
+          : { username: initialUsername ?? "", status: "idle" }
+      ),
     );
   const availabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const availabilityRequestRef = useRef(0);
@@ -281,7 +288,17 @@ export function RegisterForm({
     confirmTouched && confirmPassword && !passwordsMatch
       ? "Passwords don’t match."
       : undefined;
-  const signInHref = buildLoginHref({ redirectUri, next, addAccount: isAddAccount });
+  const identitySignInHref = buildLoginHref({
+    redirectUri,
+    next,
+    addAccount: isAddAccount,
+    username: normalizedUsername || undefined,
+  });
+  const securitySignInHref = buildLoginHref({
+    redirectUri,
+    next,
+    addAccount: isAddAccount,
+  });
   const googleInitHref = buildGoogleInitHref({ redirectUri, next });
   const githubInitHref = buildGitHubInitHref({ redirectUri, next });
 
@@ -360,10 +377,10 @@ export function RegisterForm({
     }, 450);
   };
 
-  const footerContent = (
+  const renderFooter = (href: string) => (
     <p className="mt-8 text-center text-sm text-neutral-500">
       Already have an AXUS ID?{" "}
-      <Link href={signInHref} className={linkClassName}>
+      <Link href={href} className={linkClassName}>
         Sign in
       </Link>
     </p>
@@ -668,7 +685,7 @@ export function RegisterForm({
             </>
           ) : null}
         </form>
-        {footerContent}
+        {renderFooter(identitySignInHref)}
       </AuthShell>
     );
   }
@@ -794,7 +811,7 @@ export function RegisterForm({
           </Button>
         </div>
       </form>
-      {footerContent}
+      {renderFooter(securitySignInHref)}
     </AuthShell>
   );
 }

@@ -22,6 +22,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const flowMeta = await resolveOAuthFlowMetadata(redirectUri);
 
   const registered = typeof params.registered === "string" ? params.registered : undefined;
+  const initialUsername = typeof params.username === "string" ? params.username : undefined;
   const addAccount = params.add_account === "true";
   const authErrorCode = typeof params.auth_error === "string" ? params.auth_error : undefined;
   const githubErrors: Record<string, string> = {
@@ -88,6 +89,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       targetAppName={flowMeta.appName}
       targetAppUser={flowMeta.applicationUser}
       registeredUsername={registered}
+      initialUsername={initialUsername}
       redirectUri={redirectUri}
       next={next}
       existingAccounts={existingAccounts}

@@ -5,7 +5,7 @@ import { resolveAuthenticatedRedirect } from "@/lib/auth-redirect";
 import { getValidSession } from "@/lib/session-access";
 import { getPendingGoogleRegistration } from "@/lib/google-oauth";
 import { getPendingGitHubRegistration } from "@/lib/github-oauth";
-import { RegisterForm } from "./register-form";
+import { RegisterForm, type UsernameAvailability } from "./register-form";
 
 export const metadata: Metadata = { title: "Create account" };
 
@@ -21,6 +21,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
   const contextAuidParam = params.contextAuid ?? params.context;
   const contextAuid = typeof contextAuidParam === "string" ? contextAuidParam : undefined;
   const authError = typeof params.auth_error === "string" ? params.auth_error : undefined;
+  const usernameParam = typeof params.username === "string" ? params.username.trim().replace(/^@/, "") : undefined;
 
   const session = await getValidSession();
   const pendingGoogle = await getPendingGoogleRegistration();
@@ -40,6 +41,36 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
     }
   }
 
+  const initialUsername = usernameParam || suggestedUsername;
+  let initialAvailability: UsernameAvailability | undefined;
+
+  if (usernameParam) {
+    if (usernameParam.length >= 4) {
+      try {
+        const check = await checkUsernameAvailabilityAction(usernameParam);
+        if (check.available) {
+          initialAvailability = { username: usernameParam, status: "available" };
+        } else {
+          initialAvailability = {
+            username: usernameParam,
+            status: check.reason === "taken" ? "taken" : "error",
+            message:
+              check.error ||
+              (check.reason === "taken"
+                ? "That username is taken."
+                : "We couldn’t check that username."),
+          };
+        }
+      } catch {
+        initialAvailability = { username: usernameParam, status: "idle" };
+      }
+    } else {
+      initialAvailability = { username: usernameParam, status: "idle" };
+    }
+  } else if (suggestedUsername) {
+    initialAvailability = { username: suggestedUsername, status: "available" };
+  }
+
   if (session && !addAccount && !pendingGoogle && !pendingGitHub && !contextAuid) {
     redirect(resolveAuthenticatedRedirect({ redirectUri, next }));
   }
@@ -51,7 +82,8 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
       contextAuid={contextAuid}
       isAddAccount={addAccount}
       authError={authError}
-      initialUsername={suggestedUsername}
+      initialUsername={initialUsername}
+      initialAvailability={initialAvailability}
       pendingGoogle={
         pendingGoogle
           ? {

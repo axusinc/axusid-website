@@ -42,6 +42,7 @@ type LoginFormProps = {
   targetAppName?: string | null;
   targetAppUser?: TargetAppUserInfo | null;
   registeredUsername?: string;
+  initialUsername?: string;
   redirectUri?: string;
   next?: string;
   existingAccounts?: AccountItemInfo[];
@@ -55,11 +56,32 @@ const initialState: AuthActionState = {};
 const linkClassName =
   "font-semibold text-neutral-950 underline-offset-4 hover:underline rounded-sm " + focusRing;
 
+function buildCreateAccountHref({
+  redirectUri,
+  next,
+  addAccount,
+  username,
+}: {
+  redirectUri?: string;
+  next?: string;
+  addAccount?: boolean;
+  username?: string;
+}) {
+  const params = new URLSearchParams();
+  if (redirectUri) params.set("redirect_uri", redirectUri);
+  if (next) params.set("next", next);
+  if (addAccount) params.set("add_account", "true");
+  if (username) params.set("username", username);
+  const query = params.toString();
+  return query ? `/register?${query}` : "/register";
+}
+
 export function LoginForm({
   isOAuthFlow,
   targetAppName,
   targetAppUser,
   registeredUsername,
+  initialUsername,
   redirectUri,
   next,
   existingAccounts = [],
@@ -76,12 +98,16 @@ export function LoginForm({
   const [selectedMethod, setSelectedMethod] = useState<LastAuthMethod | null>(null);
   const lastUsed = selectedMethod ?? clientLastUsed ?? lastUsedMethod ?? null;
   const [showCredentialsForm, setShowCredentialsForm] = useState(
-    initialIsAddAccount || existingAccounts.length === 0,
+    initialIsAddAccount ||
+      existingAccounts.length === 0 ||
+      Boolean(initialUsername || registeredUsername),
   );
   const [credentialStep, setCredentialStep] = useState<"identifier" | "password">(
     registeredUsername ? "password" : "identifier",
   );
-  const [username, setUsername] = useState(registeredUsername ?? "");
+  const [username, setUsername] = useState(
+    registeredUsername ?? initialUsername ?? "",
+  );
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [selectedAuid, setSelectedAuid] = useState<string | null>(null);
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -177,14 +203,20 @@ export function LoginForm({
   const hasExistingAccounts = existingAccounts.length > 0;
   const appName = targetAppName || "the application";
 
-  const createAccountParams = new URLSearchParams();
-  if (redirectUri) createAccountParams.set("redirect_uri", redirectUri);
-  if (next) createAccountParams.set("next", next);
-  if (hasExistingAccounts) createAccountParams.set("add_account", "true");
-  const createAccountQuery = createAccountParams.toString();
-  const createAccountHref = createAccountQuery
-    ? `/register?${createAccountQuery}`
-    : "/register";
+  const trimmedUsername = username.trim().replace(/^@/, "");
+
+  const createAccountHref = buildCreateAccountHref({
+    redirectUri,
+    next,
+    addAccount: hasExistingAccounts,
+    username: credentialStep === "identifier" ? trimmedUsername || undefined : undefined,
+  });
+
+  const createAccountHrefWithoutUsername = buildCreateAccountHref({
+    redirectUri,
+    next,
+    addAccount: hasExistingAccounts,
+  });
   const googleParams = new URLSearchParams();
   if (redirectUri) googleParams.set("redirect_uri", redirectUri);
   if (next) googleParams.set("next", next);
@@ -408,7 +440,7 @@ export function LoginForm({
 
         <p className="mt-8 text-center text-sm text-neutral-500">
           Need a new identity?{" "}
-          <Link href={createAccountHref} className={linkClassName}>
+          <Link href={createAccountHrefWithoutUsername} className={linkClassName}>
             Create an AXUS ID
           </Link>
         </p>
@@ -602,6 +634,13 @@ export function LoginForm({
         <Divider label="or" />
         {passkeyButton("Use a passkey instead", pending)}
       </div>
+
+      <p className="mt-8 text-center text-sm text-neutral-500">
+        New to AXUS ID?{" "}
+        <Link href={createAccountHrefWithoutUsername} className={linkClassName}>
+          Create an account
+        </Link>
+      </p>
     </AuthShell>
   );
 }
