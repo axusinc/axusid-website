@@ -308,6 +308,10 @@ Apps should authorize their bearer with `checkTokenPermission(permission, permis
 `checkPermission(auid, ...)` inspects account holdings and requires account grants.read;
 an account-level allow does not establish that an OAuth token has the permission.
 
+See [OAuth permission troubleshooting](docs/oauth-permission-troubleshooting.md)
+for account versus token checks, delegation failures, context selection, refresh,
+deployment order and a safe diagnostic evidence bundle.
+
 Run focused contract and authorization tests with:
 
 ```bash

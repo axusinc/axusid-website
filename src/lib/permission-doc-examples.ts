@@ -2,6 +2,7 @@ export const permissionApiSignatures = `# Queries
 receivedPermissionContexts(auid: ID!): [ID!]!
 searchUsernames(regex: String!, limit: Int = 20): [UsernameMatch!]!
 checkPermission(auid: ID!, permission: String!, permissionContext: ID): PermissionCheck!
+checkTokenPermission(permission: String!, permissionContext: ID): PermissionCheck!
 permissionDeclarations(contextAuid: ID!): [PermissionDeclaration!]!
 describePermission(contextAuid: ID!, permission: String!): DescribedPermission!
 permissionTree(contextAuid: ID!): [PermissionTreeNode!]!
@@ -40,6 +41,12 @@ export const permissionShareExample = `mutation SharePermission($from: ID!, $to:
   delegatePermission(granterAuid: $from, granteeAuid: $to,
     permission: $key, permissionContext: $app) {
     id permission permissionContext granteeAuid activationState
+  }
+}`;
+
+export const permissionTokenCheckExample = `query CheckAppToken($app: ID!, $key: String!) {
+  checkTokenPermission(permission: $key, permissionContext: $app) {
+    allowed reason
   }
 }`;
 export const permissionPublishExample = `mutation PublishPermission($owner: ID!, $declaration: PermissionDeclarationInput!) {

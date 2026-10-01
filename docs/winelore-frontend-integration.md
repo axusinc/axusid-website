@@ -635,3 +635,10 @@ For a quick smoke test without registering a client, use seeded `axusid-dev` if 
 - OIDC scopes (`openid`, `profile`, …) are **not** AXUS declared permissions — they control consent and JWT claims only.
 
 For Winelore-specific permissions, publish declarations under the app owner AUID and request OAuth scopes as `app:<Winelore AUID>:<permission key>`. Pass the same context to checks and delegations. Unprefixed permission scopes use the AXUS ID system context. See `/developers/permissions` and `/developers/become-an-app` for declaration, validator and provisioning requirements.
+
+Protected APIs must require approved consent and a live
+`checkTokenPermission(permission, permissionContext)` using the user's native
+`axus_access_token`. `checkPermission(auid, ...)` inspects an account's holdings
+and requires account `grants.read`; it does not establish the OAuth token's access.
+See [OAuth permission troubleshooting](oauth-permission-troubleshooting.md) for
+the differences, stale browser sessions, refresh behavior and diagnostic evidence.

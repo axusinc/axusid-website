@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CodeBlock } from "@/components/ui/code-block";
 import { getSystemPermissionContext } from "@/lib/permission-config";
-import { permissionApiSignatures, permissionDiscoveryExample, permissionPreviewExample, permissionShareExample, permissionSearchExample } from "@/lib/permission-doc-examples";
+import { permissionApiSignatures, permissionDiscoveryExample, permissionPreviewExample, permissionShareExample, permissionSearchExample, permissionTokenCheckExample } from "@/lib/permission-doc-examples";
 
 export const metadata: Metadata = { title: "Declared permissions", description: "AXUS ID permission contexts, typed declarations, wildcard rules, discovery, previews and delegation." };
 const errors = [
@@ -65,6 +65,14 @@ export default function PermissionsDocsPage() {
       <p>For the example above, a user with read and moderate access can turn write access off and still complete sign-in. The token response includes <code>openid app:5:posts.read app:5:posts.moderate</code>. If moderate access is absent too, the result is <code>openid app:5:posts.read</code>. If read access is absent, the callback receives <code>access_denied</code>, state and an explanation; no code or tokens are issued.</p>
       <p>Keep the approved scope set with your app’s server session when you use it to show features, and read the returned set again after refresh. Your protected APIs must still enforce access on every operation. Follow the <Link href="/developers/quickstart#permission-modes" className="docs-link">OAuth flow walkthrough</Link> for request construction, callback handling and feature checks.</p>
       <p>The website reuses consent when the existing approval covers every currently available requested scope. A token wildcard does not include OIDC scopes. Undeclared keys or invalid bindings produce <code>invalid_scope</code>; validator outages produce <code>server_error</code>. Existing sessions are retained so the person can correct the request.</p>
+    </section>
+    <section id="token-access" className="docs-section">
+      <h2>Check the app token when authorizing an API request.</h2>
+      <p><code>checkPermission(auid, permission, permissionContext)</code> checks the account’s holdings and requires the caller’s system permission <code>identity.&lt;auid&gt;.grants.read</code>. Consent uses that account check. For a protected API, require the approved OAuth scope and call <code>checkTokenPermission(permission, permissionContext)</code> with the app’s native <code>axus_access_token</code>. It evaluates the bearer’s effective access, including its scopes and delegation chain, without requiring account introspection rights.</p>
+      <CodeBlock label="Effective access of the authenticated app token" code={permissionTokenCheckExample} />
+      <p>An account-level allow can coexist with a token-level denial: the token may have narrower scopes or a revoked parent. Declaration descriptions establish which keys exist; publishing a declaration creates no grant. Never substitute an operator token when the user token is absent, and distinguish a denied permission from a failed check while rejecting access in both cases.</p>
+      <p>A browser session must hold the app-context permission before it can delegate it to an OAuth token. AXUS ID primary login requests <code>{'["*", "app:*:*"]'}</code> for the system context and currently received app contexts, with access still bounded by the account’s live grants. The second option is rejected in OAuth requests and token-to-token login. Deploy engine support first, then sign in to AXUS ID again; old browser sessions do not gain new contexts through OAuth refresh.</p>
+      <p>Store replacement scopes after refresh, including empty or OIDC-only sets. Refresh does not approve newly available conditional access; request authorization through consent again. Compare the exact account or token subject, context, key, endpoint, caller credential and timestamp when investigating different verdicts. A generic <code>access_denied</code> can also represent an engine authorization failure during issuance, so it does not by itself prove that an account lacks a grant.</p>
     </section>
     <section id="api" className="docs-section">
       <h2>Permission API signatures.</h2>
