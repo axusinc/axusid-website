@@ -8,10 +8,11 @@ import { SnippetTabs, type Snippet } from "@/components/ui/snippet-tabs";
 import { getAuthSdk } from "@/lib/auth-graphql";
 import { getOAuthClient } from "@/lib/oauth/clients";
 import { getIssuer } from "@/lib/oauth/constants";
+import { getSystemPermissionContext } from "@/lib/permission-config";
 import { getValidMultiSession } from "@/lib/session-access";
 import { fetchAccountsDisplayInfo } from "@/lib/user-profile";
 import { EnvConfig } from "../env-config";
-import { beginExample, exchangeExample, verifyExample } from "./examples";
+import { beginExample, exchangeExample, verifyExample, permissionRequestExample, grantedScopesExample } from "./examples";
 
 export const metadata: Metadata = {
   title: "Add AXUS ID sign-in",
@@ -208,7 +209,7 @@ export default async function QuickstartPage({
             <code>npm run db:seed</code>.
           </p>
           <div className="mt-4">
-            <FlowPlayground issuer={issuer} accounts={accounts} initialClientId={requestedClient} developerClient={developerClient} key={activeAccount?.auid ?? "signed-out"} />
+            <FlowPlayground issuer={issuer} systemContext={getSystemPermissionContext()} accounts={accounts} initialClientId={requestedClient} developerClient={developerClient} key={activeAccount?.auid ?? "signed-out"} />
           </div>
         </div>
         <details className="mt-5 rounded-2xl border border-black/[0.07] bg-white p-4 sm:p-5">
@@ -223,6 +224,47 @@ export default async function QuickstartPage({
             keep all three.
           </p>
         </details>
+      </section>
+
+      <section id="permission-modes" className="docs-section">
+        <p className="docs-eyebrow">02 / Choose the access your app needs</p>
+        <h2>Request required, optional and conditional permissions.</h2>
+        <p>
+          For sign-in alone, call <code>beginSignIn()</code> to request <code>openid profile</code>.
+          For AXUS API access, pass declared permission keys in the three lists below.
+          The helper keeps the identity scopes mandatory and adds your API permissions.
+        </p>
+        <div className="mt-5 overflow-x-auto rounded-xl border border-black/[0.07]">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-neutral-50"><tr><th scope="col" className="p-3">Request parameter</th><th scope="col" className="p-3">Consent and availability</th></tr></thead>
+            <tbody className="divide-y divide-black/[0.05]">
+              <tr><td className="p-3 align-top"><code>scope</code></td><td className="p-3">Mandatory. If the account lacks an AXUS permission, authorization returns <code>access_denied</code> without a code.</td></tr>
+              <tr><td className="p-3 align-top"><code>optional_scope</code></td><td className="p-3">Available scopes start checked and the user can turn them off. Unavailable permissions are disabled and omitted.</td></tr>
+              <tr><td className="p-3 align-top"><code>conditional_scope</code></td><td className="p-3">Required when the account holds the permission; omitted otherwise. The user cannot turn off a held conditional permission.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-5"><CodeBlock label="Request API permissions with the sign-in helper" code={permissionRequestExample} /></div>
+        <p>
+          Each parameter is space-separated. A scope must appear in only one list.
+          Optional scopes can include OIDC scopes such as <code>email</code>;
+          conditional scopes support AXUS permissions only. <code>optional_scope</code> and
+          <code> conditional_scope</code> are AXUS ID extensions. For an OIDC library,
+          pass them as additional authorization parameters.
+        </p>
+        <p>
+          Unprefixed keys use the AXUS ID system context. Use <code>app:&lt;owner AUID&gt;:&lt;permission key&gt;</code>
+          for app permissions; the context identifies the declaration owner, independently
+          of your client ID. See the <Link href="/developers/permissions#oauth" className="docs-link">permission guide</Link>
+          for declarations and wildcard rules.
+        </p>
+        <div className="docs-note">
+          <strong>Consent follows the selected account.</strong> AXUS ID checks effective access
+          after account selection and again when the user submits consent. Check failures stop
+          authorization. Only the approved scopes reach the tokens. Declined optional scopes
+          prompt again if requested later; <code>prompt=none</code> returns <code>consent_required</code>
+          when approval is needed. Use <code>prompt=consent</code> to review existing choices.
+        </div>
       </section>
 
       <section id="callback" className="docs-section">
@@ -246,6 +288,13 @@ export default async function QuickstartPage({
           can consume the code too, so start a new sign-in instead of repeatedly
           submitting the old code. Clear the transaction on cancellation and
           errors as well as success.
+        </p>
+        <p>
+          <code>access_denied</code> can mean the user cancelled or their account is missing
+          mandatory permissions. Validate the returned state before handling that error;
+          do not exchange a code or create a local session. Their AXUS ID session remains
+          active. Offer a fresh sign-in with a suitable account or revise the request when
+          that access is optional for your app.
         </p>
         <div className="docs-note">
           <strong>Browser + backend boundary:</strong> send token and userinfo
@@ -272,8 +321,21 @@ export default async function QuickstartPage({
         </div>
         <p>
           The <code>sub</code> claim is the user’s AUID. Name and username can
-          be absent. The example requests only <code>openid profile</code>; add
-          other scopes only when your app needs them. Unprefixed permission keys use the AXUS ID system context; request another app’s permission as <code>app:&lt;app AUID&gt;:&lt;permission key&gt;</code>. See the <Link href="/developers/permissions#oauth" className="docs-link">permission guide</Link>.
+          be absent. The default example requests <code>openid profile</code>; add
+          API permissions with the helper’s required, optional and conditional lists.
+        </p>
+        <h3 className="mt-6 text-base font-semibold">Enable features from approved scopes.</h3>
+        <p>
+          The token response’s <code>scope</code> contains the full approved OIDC and AXUS
+          scope set. The exchange helper preserves it and checks the mandatory scopes saved
+          with the transaction. After verifying identity, use that approved set to decide
+          which optional or conditional features to show. A requested scope alone is not proof of approval.
+        </p>
+        <div className="mt-5"><CodeBlock label="Use approved scopes after verification" code={grantedScopesExample} /></div>
+        <p>
+          Check the returned scope set again after refresh. Removing a permission through
+          consent replaces a broader native app token; handle subsequent API denials by
+          updating the feature or asking the user to review access.
         </p>
       </section>
 
@@ -337,6 +399,9 @@ export default async function QuickstartPage({
             "A new user can sign in and gets a local session.",
             "A returning user reaches the same local account.",
             "Denied consent offers a safe way to try again.",
+            "Missing mandatory access never creates a local session.",
+            "Declined optional scopes disable only their features.",
+            "Conditional access is required when held and omitted when absent.",
             "Missing or mismatched state never creates a session.",
             "Expired or replayed codes require a fresh sign-in.",
             "Invalid signatures, nonce or subject mismatches fail closed.",

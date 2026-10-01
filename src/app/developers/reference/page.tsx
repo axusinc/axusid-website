@@ -196,7 +196,7 @@ export default async function ReferencePage() {
               "recommended",
               "Echoed into the ID token when openid is granted; verify against the transaction",
             ],
-            ["prompt", "no", "Supports login to force account selection"],
+            ["prompt", "no", "login, select_account, consent, or none; none cannot be combined with other values"],
           ]}
         />
         <P>
@@ -206,6 +206,39 @@ export default async function ReferencePage() {
           requests all permissions the caller holds in one context. Legacy prefix
           wildcards are rejected. The user reviews engine-provided descriptions on
           the consent screen. See <Link href="/developers/permissions#oauth" className="docs-link">permission scopes and contexts</Link>.
+        </P>
+        <P>
+          A scope must appear in only one list. Optional scopes can include OIDC scopes;
+          conditional scopes support AXUS permissions only. If <M>scope</M> is omitted,
+          it defaults to <M>openid</M>. Pass <M>optional_scope</M> and <M>conditional_scope</M>
+          as additional authorization parameters when using an OIDC library.
+        </P>
+        <div className="mt-4">
+          <CodeBlock label="Three permission modes · add to your PKCE authorization request" code={JSON.stringify({
+            scope: "openid profile app:5:posts.read",
+            optional_scope: "app:5:posts.write",
+            conditional_scope: "app:5:posts.moderate",
+          }, null, 2)} />
+        </div>
+        <P>
+          Replace <M>5</M> with the declaration owner’s AUID and use declared keys.
+          Available optional scopes start checked. Conditional permissions are required
+          when held and cannot be toggled off; unavailable optional and conditional
+          permissions are omitted. Availability is checked again at consent submission.
+        </P>
+        <h3 id="authorization-result" className="mt-6 scroll-mt-8 text-base font-semibold">Authorization outcomes</h3>
+        <Table head={["Callback", "When", "App behavior"]} rows={[
+          ["code + state", "Access approved", "Exchange once; check the token response’s scope for the complete approved set."],
+          ["access_denied + state", "User cancels, mandatory access is missing, or the engine denies issuance", "Do not exchange or create a session. Offer a new sign-in with a suitable account."],
+          ["consent_required + state", "prompt=none needs approval", "Start an interactive authorization to review scopes."],
+          ["invalid_scope + state", "Invalid scope syntax, overlapping lists, or invalid permission declarations/bindings", "Correct the requested lists and start a fresh authorization."],
+          ["server_error + state", "Permission checks or token issuance cannot complete", "Treat as failure, not absent conditional access; retry when the service recovers."],
+        ]} />
+        <P>
+          Validate state before handling success or errors. Missing mandatory access issues
+          no code or tokens and leaves the AXUS ID session active. Declined optional scopes
+          prompt again when requested later. Use <M>prompt=consent</M> to review previously
+          approved choices. See the <Link href="/developers/quickstart#permission-modes" className="docs-link">flow walkthrough</Link>.
         </P>
       </section>
 

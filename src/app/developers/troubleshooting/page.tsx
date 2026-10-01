@@ -19,6 +19,21 @@ const issues = [
     link: "/developers/permissions#errors", cta: "Read permission error codes",
   },
   {
+    id: "oauth-permissions",
+    title: "Sign-in is denied or an optional feature is unavailable",
+    symptom: "The callback reports access_denied or consent_required, or a requested scope is missing from the token response.",
+    steps: [
+      "Validate the callback state before handling errors. access_denied can mean cancelled consent, missing mandatory account access, or an engine denial. No code is issued; do not exchange or create a local session. The AXUS ID session remains active.",
+      "Keep permissions your app requires in scope. Put user-controlled features in optional_scope and access required only when held in conditional_scope. Do not repeat a scope across lists; conditional_scope accepts AXUS permissions only.",
+      "Only approved scopes appear in the token response's scope field. Declined optional scopes and unavailable optional or conditional permissions are omitted. Disable those features while allowing the remaining sign-in to finish.",
+      "A held conditional permission cannot be turned off. If that feature should be user-controlled, request it in optional_scope instead. Effective permission checks run again when consent is submitted.",
+      "Requesting a declined optional scope again requires consent. With prompt=none, consent_required means approval is needed; restart interactively. Use prompt=consent to review already approved choices.",
+      "Permission service failures are errors, not evidence that the account lacks a permission. Retry when the service recovers; read approved scopes again after refreshing tokens.",
+    ],
+    link: "/developers/quickstart#permission-modes",
+    cta: "Review the OAuth permission flow",
+  },
+  {
     id: "redirect",
     title: "The redirect URI is rejected",
     symptom:

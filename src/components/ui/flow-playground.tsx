@@ -10,6 +10,7 @@ import { AxusIdButton } from "@/components/ui/axusid-button";
 import { focusRing } from "@/lib/design";
 import { cn, isRedirectError } from "@/lib/utils";
 import type { AccountItemInfo } from "@/lib/user-profile";
+import { parseRequestedScopes, type RequestedScope } from "@/lib/oauth/requested-scopes";
 
 const availableScopes = [
   { id: "openid", label: "Identity", hint: "Required for this sign-in example", Icon: Fingerprint, locked: true },
@@ -96,11 +97,13 @@ function Step({ n, title, children }: { n: string; title: string; children: Reac
 
 export function FlowPlayground({
   issuer,
+  systemContext,
   accounts = [],
   developerClient = null,
   initialClientId = "",
 }: {
   issuer: string;
+  systemContext: string;
   accounts?: AccountItemInfo[];
   developerClient?: { auid: string; redirectUris: string[] } | null;
   initialClientId?: string;
@@ -109,6 +112,9 @@ export function FlowPlayground({
   const [clientId, setClientId] = useState(initialClientId);
   const [redirectUri, setRedirectUri] = useState("http://localhost:3000/callback");
   const [scopes, setScopes] = useState(["openid", "profile"]);
+  const [requiredScopes, setRequiredScopes] = useState("");
+  const [optionalScopes, setOptionalScopes] = useState("");
+  const [conditionalScopes, setConditionalScopes] = useState("");
   const [presetId, setPresetId] = useState(presets[1].id);
   const preset = presets.find((p) => p.id === presetId) ?? presets[1];
   const tone = preset.tone;
@@ -162,9 +168,25 @@ export function FlowPlayground({
       redirectUri === redirectUri.trim();
   } catch {}
   const validClient = /^[a-zA-Z0-9_.:-]+$/.test(clientId);
-  const armed = validUri && validClient && !!values;
+  let scopeError = "";
+  let requested: RequestedScope[] = [];
+  try {
+    requested = parseRequestedScopes({
+      scope: [...scopes, requiredScopes].join(" "),
+      optional_scope: optionalScopes,
+      conditional_scope: conditionalScopes,
+    }, systemContext);
+  } catch (error) {
+    scopeError = error instanceof Error ? error.message : "Check the requested scopes.";
+  }
+  const scopeParams = {
+    scope: requested.filter(({ mode }) => mode === "required").map(({ scope }) => scope).join(" "),
+    ...(optionalScopes.trim() ? { optional_scope: requested.filter(({ mode }) => mode === "optional").map(({ scope }) => scope).join(" ") } : {}),
+    ...(conditionalScopes.trim() ? { conditional_scope: requested.filter(({ mode }) => mode === "conditional").map(({ scope }) => scope).join(" ") } : {}),
+  };
+  const armed = validUri && validClient && !scopeError && !!values;
   const url = armed
-    ? `${issuer}/authorize?${new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: redirectUri, scope: scopes.join(" "), state: values.state, nonce: values.nonce, code_challenge: values.challenge, code_challenge_method: "S256" })}`
+    ? `${issuer}/authorize?${new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: redirectUri, ...scopeParams, state: values.state, nonce: values.nonce, code_challenge: values.challenge, code_challenge_method: "S256" })}`
     : "";
 
   const copy = async (key: string, value: string) => {
@@ -329,6 +351,7 @@ export function FlowPlayground({
           </Step>
 
           <Step n="02" title="Scopes">
+            <p className="mb-3 text-xs leading-relaxed text-neutral-500">Selected identity scopes go in mandatory <code>scope</code>. Use the fields below to choose how API access and optional identity data are requested.</p>
             <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Requested scopes">
               {availableScopes.map(({ id, label, hint, Icon, locked }) => {
                 const on = scopes.includes(id);
@@ -377,6 +400,21 @@ export function FlowPlayground({
                 );
               })}
             </div>
+            <div className="mt-4 space-y-4">
+              {[
+                { id: "required", label: "Required AXUS scopes", value: requiredScopes, setValue: setRequiredScopes, placeholder: "app:5:posts.read", help: "Added to scope. Missing mandatory access stops sign-in with access_denied." },
+                { id: "optional", label: "Optional scopes", value: optionalScopes, setValue: setOptionalScopes, placeholder: "app:5:posts.write", help: "Sent as optional_scope. The user can turn available scopes off; unavailable permissions are omitted." },
+                { id: "conditional", label: "Conditional AXUS scopes", value: conditionalScopes, setValue: setConditionalScopes, placeholder: "app:5:posts.moderate", help: "Sent as conditional_scope. Required when held, omitted otherwise; AXUS permissions only." },
+              ].map(({ id, label, value, setValue, placeholder, help }) => (
+                <label key={id} className="block text-xs font-medium text-neutral-700">
+                  {label}
+                  <input value={value} onChange={(event) => setValue(event.target.value)} placeholder={placeholder} autoCapitalize="none" spellCheck={false} aria-describedby={`pg-${id}-help`} className={inputClass} />
+                  <span id={`pg-${id}-help`} className="mt-1.5 block text-[11px] font-normal leading-5 text-neutral-500">{help}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-neutral-500">Separate scopes with spaces and put each scope in one list only. Replace the example app AUID with the permission’s declaration owner. Availability is checked during authorization.</p>
+            {scopeError ? <p role="alert" className="mt-2 text-xs leading-relaxed text-brand">{scopeError}</p> : null}
           </Step>
 
           <Step n="03" title="Fresh values">
@@ -465,9 +503,9 @@ export function FlowPlayground({
             {url ? (
               <>
                 <div className="flex flex-wrap gap-1.5" aria-live="polite" aria-label="Requested scopes">
-                  {scopes.map((scope) => (
+                  {requested.map(({ scope, mode }) => (
                     <span key={scope} className={cn("rounded-full px-2.5 py-1 font-mono text-[11px]", s.chips)}>
-                      {scope}
+                      {scope} <span className="font-sans opacity-70">· {mode}</span>
                     </span>
                   ))}
                 </div>
@@ -481,7 +519,7 @@ export function FlowPlayground({
                 <p className={cn("mt-3 text-sm", preset.surface === "light" ? "text-neutral-500" : "text-neutral-400")}>
                   {!values
                     ? "Generating fresh values…"
-                    : "Enter your AUID and a valid callback URL to arm the request."}
+                    : scopeError ? "Correct the scope lists to generate the request." : "Enter your AUID and a valid callback URL to arm the request."}
                 </p>
               </div>
             )}

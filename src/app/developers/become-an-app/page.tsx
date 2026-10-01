@@ -64,6 +64,7 @@ export default function BecomeAnAppPage() {
     <section id="next" className="docs-section">
       <h2>Discover, describe and delegate.</h2>
       <p>Use the <Link href="/developers/permissions#picker" className="docs-link">permission picker workflow</Link> and the <Link href="/developers/api" className="docs-link">GraphQL schema explorer</Link> for exact signatures and return types. Your app context must be forwarded with every identity permission check and delegation. OAuth scopes for your app use <code>app:&lt;your AUID&gt;:&lt;permission key&gt;</code>; unprefixed scopes use the AXUS ID system context.</p>
+      <p>Choose permission behavior when starting OAuth authorization: <code>scope</code> for access the app requires, <code>optional_scope</code> for features the user may decline, and <code>conditional_scope</code> for access required only when the account already holds it. Missing mandatory access stops sign-in with <code>access_denied</code>. Enable features from the approved scopes returned by the token endpoint. See the <Link href="/developers/quickstart#permission-modes" className="docs-link">request and consent walkthrough</Link>.</p>
     </section>
   </>;
 }

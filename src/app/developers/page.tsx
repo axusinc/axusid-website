@@ -52,12 +52,12 @@ export default async function DevelopersPage() {
       </div>
       <IntegrationBuilder issuer={issuer} accounts={accounts} />
       <section className="docs-section" aria-labelledby="flow-heading">
-        <h2 id="flow-heading">A familiar sign-in. Four small steps.</h2>
+        <h2 id="flow-heading">Sign-in and consent in five steps.</h2>
         <p>
           Your app hands off authentication to AXUS ID, then creates its own
           session when the user returns.
         </p>
-        <ol className="mt-6 grid gap-5 sm:grid-cols-4">
+        <ol className="mt-6 grid gap-5 sm:grid-cols-5">
           {[
             [
               "Register",
@@ -65,11 +65,15 @@ export default async function DevelopersPage() {
             ],
             [
               "Redirect",
-              "Send the user to AXUS ID with a fresh PKCE challenge.",
+              "Send a fresh PKCE challenge and the required, optional and conditional scopes.",
+            ],
+            [
+              "Review access",
+              "The user reviews access. Missing mandatory permissions stop authorization.",
             ],
             [
               "Verify",
-              "Exchange the returned code and verify the user’s identity.",
+              "Exchange the code, verify identity and inspect the approved scope set.",
             ],
             [
               "Sign in",
@@ -89,8 +93,8 @@ export default async function DevelopersPage() {
       <section className="docs-section" aria-labelledby="two-apis-heading">
         <h2 id="two-apis-heading">Two APIs. Two jobs.</h2>
         <p>
-          Sign-in speaks standard OAuth 2.0 and OpenID Connect — any library
-          works, nothing AXUS-specific to learn. Everything else (users,
+          Sign-in uses OAuth 2.0 and OpenID Connect. AXUS ID extends authorization
+          with optional and conditional permission lists when your app needs API access. Everything else (users,
           usernames, variations, passkeys, permissions, tokens) is GraphQL on
           the engine.
         </p>

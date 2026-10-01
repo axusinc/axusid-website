@@ -20,13 +20,19 @@ export type Transaction = {
   nonce: string;
   verifier: string;
   createdAt: number;
+  requiredScopes: string[];
 };
 
-export function beginSignIn() {
+export function beginSignIn(permissions: {
+  required?: string[];
+  optional?: string[];
+  conditional?: string[];
+} = {}) {
   const random = () => randomBytes(32).toString("base64url");
   const transaction: Transaction = {
     state: random(), nonce: random(), verifier: random(),
     createdAt: Date.now(),
+    requiredScopes: ["openid", "profile", ...(permissions.required ?? [])],
   };
   const challenge = createHash("sha256")
     .update(transaction.verifier).digest("base64url");
@@ -35,7 +41,11 @@ export function beginSignIn() {
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: "openid profile",
+    scope: transaction.requiredScopes.join(" "),
+    ...(permissions.optional?.length
+      ? { optional_scope: permissions.optional.join(" ") } : {}),
+    ...(permissions.conditional?.length
+      ? { conditional_scope: permissions.conditional.join(" ") } : {}),
     state: transaction.state,
     nonce: transaction.nonce,
     code_challenge: challenge,
@@ -45,6 +55,12 @@ export function beginSignIn() {
 }`;
 
 export const exchangeExample = `// Continue in lib/axus-auth.ts
+export type TokenSet = {
+  idToken: string;
+  accessToken: string;
+  scopes: Set<string>;
+};
+
 export async function exchangeCode(
   callback: URL,
   transaction: Transaction | undefined,
@@ -58,6 +74,12 @@ export async function exchangeCode(
   }
   if (callback.searchParams.has("error")) {
     // Don't render raw provider error text or log the callback URL.
+    if (callback.searchParams.get("error") === "access_denied") {
+      throw new Error("Access was declined or this account lacks required permissions.");
+    }
+    if (callback.searchParams.get("error") === "consent_required") {
+      throw new Error("Start an interactive sign-in to review permissions.");
+    }
     throw new Error("Sign-in was not completed. Please try again.");
   }
   const code = callback.searchParams.get("code");
@@ -80,18 +102,24 @@ export async function exchangeCode(
   const tokens = await response.json();
   if (typeof tokens.id_token !== "string" ||
       typeof tokens.access_token !== "string" ||
+      typeof tokens.scope !== "string" ||
       tokens.token_type !== "Bearer") {
     throw new Error("Unexpected token response.");
+  }
+  const scopes = new Set<string>(tokens.scope.split(/\\s+/).filter(Boolean));
+  if (transaction.requiredScopes.some((scope) => !scopes.has(scope))) {
+    throw new Error("A required scope was not granted.");
   }
   return {
     idToken: tokens.id_token as string,
     accessToken: tokens.access_token as string,
+    scopes,
   };
 }`;
 
 export const verifyExample = `// Continue in lib/axus-auth.ts
 export async function verifyIdentity(
-  tokens: { idToken: string; accessToken: string },
+  tokens: TokenSet,
   transaction: Transaction,
 ) {
   const { payload } = await jwtVerify(tokens.idToken, jwks, {
@@ -117,8 +145,29 @@ export async function verifyIdentity(
   return {
     issuer,
     subject: payload.sub,
+    scopes: [...tokens.scopes],
     name: typeof profile.name === "string" ? profile.name : undefined,
     username: typeof profile.preferred_username === "string"
       ? profile.preferred_username : undefined,
   };
 }`;
+
+export const permissionRequestExample = `// Replace 5 with the declaration owner's AUID and use declared keys.
+// Store the returned transaction before redirecting, just as for sign-in alone.
+const { url, transaction } = beginSignIn({
+  required: ["app:5:posts.read"],
+  optional: ["app:5:posts.write"],
+  conditional: ["app:5:posts.moderate"],
+});`;
+
+export const grantedScopesExample = `// In your backend callback, after consuming the transaction:
+const tokens = await exchangeCode(callback, transaction);
+const identity = await verifyIdentity(tokens, transaction);
+const granted = new Set(identity.scopes);
+
+const features = {
+  canWritePosts: granted.has("app:5:posts.write"),
+  canModeratePosts: granted.has("app:5:posts.moderate"),
+};
+// Keep the approved scope set with your server session, if these features need it.
+// Your API must still enforce permissions on every protected operation.`;

@@ -25,6 +25,12 @@ export const docsIndex = [
     description: "Generate verifier, S256 challenge, state and nonce",
   },
   {
+    href: "/developers/quickstart#permission-modes",
+    title: "Choose OAuth permissions",
+    group: "On this page",
+    description: "scope, optional_scope, conditional_scope, consent and missing mandatory access",
+  },
+  {
     href: "/developers/quickstart#callback",
     title: "Handle the callback",
     group: "On this page",
@@ -51,7 +57,7 @@ export const docsIndex = [
     ["declarations", "Templates and bindings", "Typed parameters, constraints and metadata"],
     ["wildcards", "Parameter wildcards", "Allowed wildcards and token scopes"],
     ["picker", "Delegation picker", "Tree, search, describe, check and delegate"],
-    ["oauth", "OAuth permission scopes", "System context, consent and native tokens"],
+    ["oauth", "OAuth permission scopes", "Required, optional and conditional scopes, app contexts and native tokens"],
     ["api", "Permission API", "GraphQL queries and mutations"],
     ["errors", "Permission errors", "Validation failures and app validator unavailability"],
     ["migration", "Permission migration", "Replace free-form grants and deploy the engine"],
@@ -79,6 +85,12 @@ export const docsIndex = [
     title: "Authorization parameters",
     group: "On this page",
     description: "GET /authorize request fields and scopes",
+  },
+  {
+    href: "/developers/reference#authorization-result",
+    title: "Authorization outcomes",
+    group: "On this page",
+    description: "access_denied, consent_required, missing mandatory permissions and approved scopes",
   },
   {
     href: "/developers/reference#token",
@@ -147,6 +159,12 @@ export const docsIndex = [
     group: "Resources",
     description:
       "Redirect mismatch, PKCE failed, missing email, CORS and refresh failures",
+  },
+  {
+    href: "/developers/troubleshooting#oauth-permissions",
+    title: "OAuth permission troubleshooting",
+    group: "On this page",
+    description: "Denied sign-in, unavailable optional features, conditional permissions and repeated consent",
   },
   {
     href: "/brand",
