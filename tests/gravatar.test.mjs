@@ -13,7 +13,12 @@ function loadTs(file, mocks = {}) {
   }).outputText;
   const loaded = { exports: {} };
   new Function("require", "module", "exports", source)(
-    name => Object.hasOwn(mocks, name) ? mocks[name] : require(name), loaded, loaded.exports,
+    name => {
+      if (!Object.hasOwn(mocks, name)) return require(name);
+      const mock = mocks[name];
+      if (mock instanceof Error) throw mock;
+      return mock;
+    }, loaded, loaded.exports,
   );
   return loaded.exports;
 }
@@ -21,11 +26,11 @@ function loadTs(file, mocks = {}) {
 const hash = createHash("md5").update("1,2@amail.com").digest("hex");
 const sha256 = createHash("sha256").update("1,2@amail.com").digest("hex");
 
-function setup({ auid = "1,2", variation = "variation-1", avatar = { objectKey: "key", updatedAt: "v1" }, failure } = {}) {
+function setup({ auid = "1,2", variation = "variation-1", avatar = { objectKey: "key", updatedAt: "v1" }, failure, sharpFailure } = {}) {
   const calls = [];
   const mod = loadTs("src/lib/gravatar.ts", {
     "server-only": {},
-    sharp: { default: sharp },
+    sharp: sharpFailure ?? { default: sharp },
     "@/lib/avatar": { MAX_AVATAR_SIZE_BYTES: 2 * 1024 * 1024 },
     "@/lib/avatar-server": { avatarImageUrl: (id, version) => `https://engine.test/v1/variations/${id}/avatar?v=${version}` },
     "@/lib/gravatar-accounts": { findGravatarAccount: async value => {
@@ -140,6 +145,26 @@ test("forced defaults skip database and backend reads", async () => {
   assert.equal((await h.request("f=y&d=404")).status, 404);
   assert.equal((await h.request("forcedefault=y&default=blank")).status, 302);
   assert.deepEqual(h.calls, []);
+});
+
+test("missing sharp runtime does not prevent validation or fallback responses", async () => {
+  const sharpFailure = new Error("Could not load the sharp native runtime");
+  const h = setup({ sharpFailure });
+  assert.equal((await h.request("", "invalid")).status, 400);
+  assert.equal((await h.request("f=y&d=404")).status, 404);
+  assert.equal((await h.request("f=y&d=retro")).status, 302);
+  assert.deepEqual(h.calls, []);
+  assert.equal((await setup({ auid: null, sharpFailure }).request("d=404")).status, 404);
+});
+
+test("missing sharp runtime returns an uncached 503 for real avatars", async t => {
+  t.mock.method(console, "error", () => {});
+  t.mock.method(globalThis, "fetch", async () => new Response("avatar bytes"));
+  const response = await setup({ sharpFailure: new Error("Missing libvips") }).request("d=404");
+  assert.equal(response.status, 503);
+  assert.equal(await response.text(), "Avatar service unavailable");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("retry-after"), "30");
 });
 
 test("sizes default to 80 and accept the documented limits", async () => {

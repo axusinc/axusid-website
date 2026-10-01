@@ -1,6 +1,5 @@
 import "server-only";
 
-import sharp from "sharp";
 import { getAuthSdk } from "@/lib/auth-graphql";
 import { avatarImageUrl } from "@/lib/avatar-server";
 import { MAX_AVATAR_SIZE_BYTES } from "@/lib/avatar";
@@ -97,6 +96,8 @@ export async function serveGravatar(request: Request, emailHash: string): Promis
     if (response.status === 404) return defaultAvatar(hash, size, query);
     if (!response.ok) throw new Error(`Avatar download failed: ${response.status}`);
 
+    // Native runtime failures must be handled here, not abort route startup.
+    const { default: sharp } = await import("sharp");
     const image = await sharp(await readAvatar(response), { limitInputPixels: 50_000_000 })
       .rotate()
       .resize(size, size, { fit: "cover", position: "center" })

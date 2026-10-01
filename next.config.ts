@@ -17,6 +17,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // sharp is a native module used for server-side avatar imports; keep it external.
   serverExternalPackages: ["sharp"],
+  // sharp 0.35 uses dist/index.*; the tracer's older lib/index.js special case
+  // misses the shared libvips library required by the native addon.
+  outputFileTracingIncludes: {
+    "/gravatar/*": ["./node_modules/@img/sharp-*/**/*"],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
